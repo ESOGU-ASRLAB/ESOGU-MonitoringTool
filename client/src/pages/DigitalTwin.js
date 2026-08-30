@@ -341,7 +341,7 @@ export default function DigitalTwin() {
             gl={{ antialias: true, alpha: false }}
             style={{ background: "#e8e8ed" }}
             dpr={[1, 2]}
-            camera={{ position: [-5, 4.5, 8], fov: 45, near: 0.05, far: 150 }}
+            camera={{ position: [-3, 7.5, -21], fov: 45, near: 0.05, far: 150 }}
           >
             <Suspense fallback={<Loader />}>
               <Scene showGrid={!showFactory} interior={showFactory}>
