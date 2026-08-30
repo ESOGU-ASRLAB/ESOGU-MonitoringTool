@@ -2,6 +2,10 @@
 
 ![App screenshot](app.png)
 
+### v2 — factory-enabled workcell view
+
+![Factory-enabled app screenshot v2](app-v2-factory.png)
+
 A browser-based **3D digital twin** for a two-robot workcell (a Universal Robots **UR10e** and a Kawasaki **RS005L** mounted on an AGV). It renders both robots from their real CAD/URDF mesh geometry, drives them either from **live telemetry stored in MongoDB Atlas** or from **manual on-screen controls**, and reproduces the original Gazebo simulation environment (safety fencing, cabinet, table, conveyor, AGV floor rail) around them.
 
 The project is a small monorepo with two independent Node projects:
@@ -67,6 +71,27 @@ The PlantUML source behind the diagram above is [`docs/sequence-diagram.puml`](d
 ### 3D asset sourcing
 
 The STL meshes under `client/public/meshes/` come directly from the two robots' real ROS description packages (`Universal_Robots_ROS2_Description` for the UR10e, and the project's own `mobile_manipulator_description` for the Kawasaki + AGV + facility). Joint offsets and axes were taken from the packages' `.xacro` files, not eyeballed — see the comments at the top of `UR10eRobot.js` and `KawasakiRobot.js` for the exact joint table. The facility/environment layout in `EnvironmentElements.js` reconstructs the original `ifarlab.sdf` Gazebo world: every static prop's raw STL coordinates already encode its true position in that world's shared frame, and the robots' spawn poses were taken from `whole_ifarlab_gazebo.launch.py`, so the whole scene lines up without hand-placed guesswork. A few small furniture pieces (chassis, table, conveyor) have no matching xacro/launch entry in the source repo, so their placement is a best-effort reading of their own raw coordinates rather than a verified one — see the comments in `EnvironmentElements.js` for exactly which pieces that applies to.
+
+### Licensing for purchased 3D assets (STL / GLB)
+
+This repo includes paid 3D assets purchased from marketplace platforms (for example, Fab). Those files are used under the applicable product license for each purchased model, and the license terms must be checked before redistribution, public hosting, or reuse outside the project scope.
+
+For the purchased models currently used in this project, the relevant license is the product's **Fab Standard License** as published on the marketplace listing and linked in the vendor's terms page: https://www.fab.com/eula
+
+Notes:
+
+- `*.stl`, `*.glb`, `*.gltf`, and similar mesh files are not automatically covered by an open-source license unless the source marketplace explicitly says so.
+- Commercial use, redistribution, and publication must remain consistent with the specific asset license attached to the purchased listing.
+- If a model is used in a public demo, client delivery, or publication, keep the original purchase record and the listing URL in the project documentation.
+- This repo does not redistribute the raw purchased asset pack as a separate public download unless the marketplace license explicitly allows it.
+- This is a project-level compliance note and not legal advice; for final legal clearance, confirm the exact license terms for each asset in the store listing and purchase receipt.
+
+Recommended practice for this project:
+
+- keep a record of each marketplace listing URL and purchase receipt;
+- store asset provenance in the same folder or documentation as the model files;
+- do not re-upload vendor meshes to a public file-sharing site unless the license explicitly permits it;
+- ensure any customer-facing deployment uses only the set of assets covered by the purchased license.
 
 ## Project structure
 
