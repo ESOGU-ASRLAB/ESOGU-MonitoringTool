@@ -117,6 +117,7 @@ export default function DigitalTwin() {
   const [liveStatus, setLiveStatus] = useState("connecting"); // 'connecting' | 'live' | 'offline'
 
   const lastTelemetryTsRef = useRef(null);
+  const lastSuccessfulEventRef = useRef(0);
   const ur10eGroupRef = useRef(null);
   const agvGroupRef = useRef(null);
   const controlsRef = useRef(null);
@@ -168,11 +169,17 @@ export default function DigitalTwin() {
     const url = `${API_BASE}/telemetry/joint-states/stream?interval=250`;
     const es = new EventSource(url);
 
+    const markRecentActivity = () => {
+      lastSuccessfulEventRef.current = Date.now();
+      setLiveStatus((prev) => (prev === "offline" ? "connecting" : prev));
+    };
+
     es.addEventListener("open", () => {
       setLiveStatus((prev) => (prev === "live" ? prev : "connecting"));
     });
 
     es.addEventListener("hello", () => {
+      markRecentActivity();
       setLiveStatus((prev) => (prev === "live" ? prev : "connecting"));
     });
 
@@ -191,6 +198,7 @@ export default function DigitalTwin() {
           return;
         lastTelemetryTsRef.current = payload.timestamp || null;
 
+        lastSuccessfulEventRef.current = Date.now();
         setLiveStatus("live");
 
         // If user enabled demo animation, don't override angles.
@@ -207,8 +215,12 @@ export default function DigitalTwin() {
     });
 
     es.addEventListener("error", () => {
-      // Browser will auto-retry; keep UI usable offline.
-      setLiveStatus("offline");
+      const noRecentData = Date.now() - lastSuccessfulEventRef.current > 10000;
+      if (noRecentData) {
+        setLiveStatus("offline");
+      } else {
+        setLiveStatus((prev) => (prev === "live" ? prev : "connecting"));
+      }
     });
 
     return () => {
