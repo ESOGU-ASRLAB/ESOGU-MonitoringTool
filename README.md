@@ -4,7 +4,7 @@
 
 ### v2 — factory-enabled workcell view
 
-![Factory-enabled app screenshot v2](app-v2-factory.png)
+![Factory-enabled app screenshot v2](factory-v2.png)
 
 A browser-based **3D digital twin** for a two-robot workcell (a Universal Robots **UR10e** and a Kawasaki **RS005L** mounted on an AGV). It renders both robots from their real CAD/URDF mesh geometry, drives them either from **live telemetry stored in MongoDB Atlas** or from **manual on-screen controls**, and reproduces the original Gazebo simulation environment (safety fencing, cabinet, table, conveyor, AGV floor rail) around them.
 
