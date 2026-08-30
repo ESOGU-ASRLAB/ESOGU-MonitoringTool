@@ -17,12 +17,37 @@ import * as THREE from "three";
 const MM_TO_M = [0.001, 0.001, 0.001];
 const FURNITURE_BASE = process.env.PUBLIC_URL + "/meshes/ur10e";
 const FACILITY_BASE = process.env.PUBLIC_URL + "/meshes/environment";
+// PBR standartlarına göre revize edilmiş fiziksel materyal değerleri
 
-const ALUMINUM = { color: "#c7c9cf", metalness: 0.6, roughness: 0.4 };
-const DARK_AGV = { color: "#b3bdd9", metalness: 0.4, roughness: 0.6 };
-const CONVEYOR = { color: "#6b6f7a", metalness: 0.2, roughness: 0.8 };
-const FACILITY_GRAY = { color: "#000000", metalness: 0.05, roughness: 0.85 };
-const RAIL = { color: "#4a4a50", metalness: 0.5, roughness: 0.5 };
+const ALUMINUM = { 
+  color: "#101937", // Alüminyum daha açık bir gri/beyaz tona sahiptir
+  metalness: 1.0,   // Saf metal olduğu için 1.0
+  roughness: 0.35   // Fırçalanmış/endüstriyel alüminyum için hafif matlık
+};
+
+const DARK_AGV = { 
+  color: "#101937", 
+  metalness: 0.15,  // AGV'ler genellikle boyalı sac veya plastiktir (dielektrik). Boya efekti için düşük metaliklik.
+  roughness: 0.4    // Yarı parlak endüstriyel boya görünümü
+};
+
+const CONVEYOR = { 
+  color: "#353b4e", 
+  metalness: 0.6,   // Tozlu, kullanılmış veya galvanizli mat metal iskelet
+  roughness: 0.65   // Işığı fazla yansıtmayan endüstriyel yüzey
+};
+
+const FACILITY_GRAY = { 
+  color: "#101937", // Orijinal koddaki #ff9100 (turuncu) "Gray" ismine uygun olarak beton grisine çekildi
+  metalness: 1.0,   // Beton, epoksi veya duvar boyası metalik değildir
+  roughness: 1.8    // Mat zemin/duvar yansıması
+};
+
+const RAIL = { 
+  color: "#101937", // Aşınmış çelik rengi
+  metalness: 0.9,   // Üst yüzeyi aşınmış ve parlamış çelik ray
+  roughness: 0.45   // Sürtünmeden dolayı kısmi parlaklık
+};
 
 function EnvMesh({
   url,
@@ -109,20 +134,27 @@ function Furniture() {
  * spread (like ifarlab_ray below) and instead only nudged back in close to
  * line up with Kabinet's own (spread) position, closing the gap the general
  * spread had opened up there.
+ * KAW_WALL_OFFSET's X also has to clear the Kawasaki's own reach, not just
+ * look right at rest: sweeping joint1/2/3 through their full range against
+ * the real base.stl/wall geometry (Three.js world-space bounding boxes, not
+ * eyeballing) showed the arm can swing to X=-3.119 at a fully plausible pose
+ * (base rotated 180 deg, shoulder raised 90 deg) -- with only -0.05 there the
+ * wall's near face sat at X=-2.884, so the arm punched ~24cm into it. -0.35
+ * keeps the wall's near face at X=-3.184, ~6.5cm clear of that worst case.
  * ifarlab_ray is excluded from the spread entirely: it's the AGV's own floor
  * guide rail, and its raw X (-2.298) already lines up almost exactly with
  * the AGV/Kawasaki spawn X (-2.301949) with the AGV's position falling
  * inside the rail's length -- spreading it breaks that real alignment. */
 const SPREAD = 0.2;
 const spreadOffset = (rawX, rawY) => [rawX * SPREAD, rawY * SPREAD, 0];
-const KAW_WALL_OFFSET = [-0.15, 0, 0];
+const KAW_WALL_OFFSET = [-0.35, 0, 0];
 
 /* barrier.stl reused as generic 1.25m fence segments to close the perimeter.
  * Its own raw center is (0.216, -1.005); BARRIER_AT(x, y) returns the
  * position offset that puts a fresh copy's center at (x, y) in the same raw
  * frame everything else here uses, optionally rotated 90 deg (about the
  * Z-up vertical axis) to run the segment along Y instead of X. */
-const BARRIER_RAW_CENTER = [0.216, -1.005];
+const BARRIER_RAW_CENTER = [0.316, -1.005];
 const BARRIER_AT = (x, y, rotated = false) => {
   const [rawX, rawY] = rotated
     ? [-BARRIER_RAW_CENTER[1], BARRIER_RAW_CENTER[0]]
@@ -181,13 +213,13 @@ function Facility() {
       <EnvMesh
         url={`${FACILITY_BASE}/barrier.stl`}
         material={FACILITY_GRAY}
-        position={BARRIER_AT(-0.591, 3.194)}
+        position={BARRIER_AT(-0.591, 3.594)}
         receiveShadow
       />
       <EnvMesh
         url={`${FACILITY_BASE}/barrier.stl`}
         material={FACILITY_GRAY}
-        position={BARRIER_AT(-2.241, 3.194)}
+        position={BARRIER_AT(-2.241, 3.594)}
         receiveShadow
       />
 
@@ -197,7 +229,7 @@ function Facility() {
       <EnvMesh
         url={`${FACILITY_BASE}/barrier.stl`}
         material={FACILITY_GRAY}
-        position={BARRIER_AT(1.117, 3.194)}
+        position={BARRIER_AT(1.117, 3.594)}
         receiveShadow
       />
       <EnvMesh

@@ -14,8 +14,30 @@ import * as THREE from 'three';
 
 const MESH_SCALE = [0.001, 0.001, 0.001];
 const MESH_URL = process.env.PUBLIC_URL + '/meshes/ur10e/linear_axis_moving_link.stl';
-const RECENTER_OFFSET = [0.105561, -0.1918, -0.6445];
-const CARRIAGE_MATERIAL = { color: '#000072', metalness: 0.4, roughness: 0.6 };
+const RECENTER_OFFSET = [0.105561, -0.1260, -0.6445];
+const CARRIAGE_MATERIAL = { color: '#c7c9cf', metalness: 0.4, roughness: 0.6 };
+
+// Neither the carriage nor the arm's own base.stl come with a mounting-plate
+// mesh in the source package, and there's a real (small, ~2.5cm) gap between
+// the carriage's own top and base.stl's own bottom once both are placed at
+// their real raw-coordinate heights. This box just fills that measured gap
+// so the arm doesn't sit with visible daylight under it -- there's no vendored
+// xacro for this specific mount (unlike the AGV's manipulator_base_link), so
+// the footprint is an estimate sized to base.stl's own cross-section, not a
+// sourced dimension.
+//
+// Its X/Y must NOT reuse RECENTER_OFFSET's X/Y (0.105561, -0.1918) -- that's
+// the carriage mesh's own recentering offset, not base.stl's. base.stl lives
+// one extra parent group deeper in UR10eRobot.js (position [0.052439, 0.0768,
+// ...]), and once that's folded in, base.stl's own raw footprint turns out to
+// be centered almost exactly on that parent offset itself (0.052439, 0.0768)
+// -- confirmed by placing both meshes' real STL geometry in a Three.js scene
+// graph and reading off their world-space bounding boxes, rather than by eye.
+// Using the carriage's own X/Y here (as the first version of this fix did)
+// put the plate ~9-12cm off to the side of the base, not underneath it.
+const PLATE_POSITION = [0.052439, 0.0768, 0.045575];
+const PLATE_SIZE = [0.19, 0.19, 0.05];
+const PLATE_MATERIAL = { color: '#4a4a50', metalness: 0.5, roughness: 0.5 };
 
 export default function UR10eMount() {
   const geometry = useLoader(STLLoader, MESH_URL);
@@ -36,6 +58,14 @@ export default function UR10eMount() {
             metalness={CARRIAGE_MATERIAL.metalness}
             roughness={CARRIAGE_MATERIAL.roughness}
             side={THREE.DoubleSide}
+          />
+        </mesh>
+        <mesh position={PLATE_POSITION} castShadow receiveShadow>
+          <boxGeometry args={PLATE_SIZE} />
+          <meshStandardMaterial
+            color={PLATE_MATERIAL.color}
+            metalness={PLATE_MATERIAL.metalness}
+            roughness={PLATE_MATERIAL.roughness}
           />
         </mesh>
       </Suspense>

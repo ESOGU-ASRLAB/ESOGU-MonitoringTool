@@ -64,6 +64,26 @@
   color: rgba(29, 29, 31, 0.5);
 }
 
+.live-clock {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-left: 10px;
+  margin-left: 4px;
+  border-left: 1px solid rgba(29, 29, 31, 0.12);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums; /* keeps the ticking seconds from reflowing neighbors */
+}
+
+.live-clock-date {
+  color: rgba(29, 29, 31, 0.5);
+}
+
+.live-clock-time {
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
 @keyframes live-blink {
   0%, 100% {
     opacity: 1;
@@ -75,6 +95,10 @@
 
 @media (max-width: 700px) {
   .live-caption {
+    display: none;
+  }
+
+  .live-clock-date {
     display: none;
   }
 }
@@ -124,6 +148,86 @@
 
 .drawer-overlay {
   display: none;
+}
+
+/* Groups the panel toggle and sound toggle at the viewport's top-left,
+   hidden below 900px (mobile uses .panel-toggle for the drawer instead --
+   see the mobile media query below, which now hides this whole group). */
+.viewport-top-left {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Desktop collapse handle. Styled to match .view-btn on the opposite corner. */
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid #000000;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  color: #000000;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.sidebar-toggle:hover {
+  background: #000000;
+  color: #ffffff;
+}
+
+.sidebar-toggle-arrow {
+  font-size: 16px;
+}
+
+/* Same box as .sidebar-toggle (border/background/shadow/hover-invert),
+   just icon-only width instead of icon+label. */
+.sound-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #000000;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.sound-toggle:hover {
+  background: #000000;
+}
+
+/* The collapse is desktop-only: below 900px .twin-sidebar is a fixed-position
+   drawer driven by transform, and a width override here would fight it. */
+@media (min-width: 901px) {
+  .twin-sidebar {
+    transition: flex-basis 0.25s ease, width 0.25s ease;
+  }
+
+  .twin-sidebar.collapsed {
+    flex-basis: 0;
+    width: 0;
+    /* width alone still leaves the 1px right border occupying the row */
+    border-right-width: 0;
+  }
 }
 
 /* Manual rotate/zoom controls, mirroring the mouse gestures */
@@ -212,6 +316,10 @@
 
   .panel-toggle {
     display: block;
+  }
+
+  .viewport-top-left {
+    display: none;
   }
 
   .drawer-overlay {

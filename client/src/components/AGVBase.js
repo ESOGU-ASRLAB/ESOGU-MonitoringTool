@@ -13,10 +13,15 @@ import * as THREE from 'three';
 
 const MM_TO_M = [0.001, 0.001, 0.001];
 const BASE = process.env.PUBLIC_URL + '/meshes/ota';
+// Gövde: Endüstriyel toz boyalı metal (Daha canlı renk, dengeli yansıma)
+const BODY = { color: '#b55400', metalness: 0.7, roughness: 0.7 }; 
+// Not: meshPhysicalMaterial kullanıyorsanız "clearcoat: 0.3" eklenebilir.
 
-const BODY = { color: '#d97a1f', metalness: 0.3, roughness: 0.55 };
-const WHEEL = { color: '#1a1a1a', metalness: 0.1, roughness: 0.7 };
-const CASTER = { color: '#3a3a3a', metalness: 0.4, roughness: 0.5 };
+// Ana Tekerlek: Endüstriyel kauçuk (Metalik değildir, ışığı yutar)
+const WHEEL = { color: '#121212', metalness: 0.0, roughness: 0.85 };
+
+// Sarhoş Tekerlek (Caster) Donanımı: Galvanizli/Döküm çelik
+const CASTER = { color: '#55595c', metalness: 0.85, roughness: 0.35 };
 
 function StlMesh({ url, position, rotation, material, castShadow = true, receiveShadow = true }) {
   const geometry = useLoader(STLLoader, url);

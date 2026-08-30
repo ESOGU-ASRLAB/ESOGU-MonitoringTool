@@ -19,11 +19,17 @@ import * as THREE from 'three';
 
 const MESH_SCALE = [1, 1, 1];
 const MESH_BASE = process.env.PUBLIC_URL + '/meshes/rs005l';
+// Gövde: Yarı mat boyalı metal veya sert plastik
+const WHITE_BODY = { color: '#e0e0e0', metalness: 0.15, roughness: 0.65 };
 
-const WHITE_BODY = { color: '#e8e8e8', metalness: 0.3, roughness: 0.5 };
-const RED_ACCENT = { color: '#ffffff', metalness: 0.4, roughness: 0.4 };
-const DARK_JOINT = { color: '#ffffff', metalness: 0.6, roughness: 0.3 };
-const GRIPPER_MAT = { color: '#ffffff', metalness: 0.5, roughness: 0.4 };
+// Vurgu: Parlak, belirgin kırmızı
+const RED_ACCENT = { color: '#e0e0e0', metalness: 0.4, roughness: 0.25 };
+
+// Eklemler: Koyu renkli, yansıtıcı anotlanmış metal
+const DARK_JOINT = { color: '#e0e0e0', metalness: 0.8, roughness: 0.35 };
+
+// Tutucu uç: Fırçalanmış çelik/alüminyum
+const GRIPPER_MAT = { color: '#e0e0e0', metalness: 0.85, roughness: 0.4 };
 
 function STLMesh({ url, position = [0, 0, 0], rotation = [0, 0, 0], scale = MESH_SCALE, material = WHITE_BODY }) {
   const geometry = useLoader(STLLoader, url);

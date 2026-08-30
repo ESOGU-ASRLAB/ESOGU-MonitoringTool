@@ -22,6 +22,8 @@ export default function ControlPanel({
   setGripperOpen,
   showEnvironment,
   setShowEnvironment,
+  showFactory,
+  setShowFactory,
 }) {
   const isUR10e = selectedRobot === 'ur10e';
   const angles = isUR10e ? jointAngles : kawasakiAngles;
@@ -141,6 +143,14 @@ export default function ControlPanel({
             onChange={(e) => setShowEnvironment(e.target.checked)}
           />
           Show environment
+        </label>
+        <label className="control-toggle">
+          <input
+            type="checkbox"
+            checked={showFactory}
+            onChange={(e) => setShowFactory(e.target.checked)}
+          />
+          Show factory building
         </label>
       </section>
     </div>
