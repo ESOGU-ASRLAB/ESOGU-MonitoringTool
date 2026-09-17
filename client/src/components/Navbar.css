@@ -4,30 +4,155 @@
   padding: 0 20px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 20px;
   background: #ffffff;
   border-bottom: 1px solid #e5e5e5;
 }
 
-.navbar-logo img {
+.navbar-logos {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 0 0 auto;
+}
+
+.navbar-logo {
   display: block;
   height: 26px;
   width: auto;
 }
 
+.navbar-monitoring {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.navbar-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.navbar-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+  color: #1d1d1f;
+}
+
+.navbar-version {
+  padding-left: 12px;
+  border-left: 1px solid #c7ced7;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #536275;
+}
+
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9a9a9a;
+  flex: none;
+}
+
+.live-badge[data-status='live'] .live-dot {
+  background: #22c55e;
+  animation: live-blink 1.4s ease-in-out infinite;
+}
+
+.live-badge[data-status='offline'] .live-dot {
+  background: #d0342c;
+}
+
+.live-label {
+  font-weight: 600;
+}
+
+.live-caption,
+.live-clock-date {
+  color: rgba(29, 29, 31, 0.5);
+}
+
+.live-clock {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(29, 29, 31, 0.12);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.live-clock-time {
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
 .navbar-home {
+  flex: 0 0 auto;
   color: #000000;
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
 }
 
+@keyframes live-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+@media (max-width: 1200px) {
+  .live-caption {
+    display: none;
+  }
+}
+
+@media (max-width: 1050px) {
+  .live-clock-date {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .navbar-heading,
+  .live-label,
+  .live-caption,
+  .live-clock {
+    display: none;
+  }
+}
+
 @media (max-width: 480px) {
   .navbar {
     padding: 0 14px;
+    gap: 10px;
   }
 
-  .navbar-logo img {
-    height: 22px;
+  .navbar-logos {
+    gap: 10px;
+  }
+
+  .navbar-logo {
+    height: 20px;
   }
 }
