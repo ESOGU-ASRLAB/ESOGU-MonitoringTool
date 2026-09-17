@@ -98,15 +98,27 @@ function InteriorEnvironment({ intensity = 1 }) {
  * separate drei <Grid> plane) so there's only one surface at ground level --
  * two coincident planes there caused constant z-fighting flicker.
  */
-export default function Scene({ children, showGrid = true, interior = false }) {
+export default function Scene({
+  children,
+  showGrid = true,
+  interior = false,
+  // The Otokar cell is viewed from ~30 m back, where both of the fog ranges
+  // tuned for the IFARLAB cell would haze the machine out. Defaults are null
+  // so that page's look is untouched.
+  fogNear = null,
+  fogFar = null,
+  floorSize: floorSizeProp = null,
+}) {
   const gridTexture = useGridTexture();
-  const floorSize = 80;
+  const floorSize = floorSizeProp || 80;
   gridTexture.repeat.set(floorSize / TILE_METERS, floorSize / TILE_METERS);
 
   return (
     <>
       <color attach="background" args={['#e8e8ed']} />
-      {interior ? (
+      {fogNear !== null && fogFar !== null ? (
+        <fog attach="fog" args={['#e8e8ed', fogNear, fogFar]} />
+      ) : interior ? (
         <fog attach="fog" args={['#e8e8ed', 42, 85]} />
       ) : (
         <fog attach="fog" args={['#e8e8ed', 18, 40]} />

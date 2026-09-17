@@ -4,105 +4,6 @@
   height: 100%;
 }
 
-/* Secondary header inside the page (below the main Navbar) */
-.ndoc-header {
-  flex: 0 0 auto;
-  background: #fff;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-.ndoc-header-inner {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 10px 20px;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.ndoc-header-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1d1d1f;
-}
-
-.ndoc-header-version {
-  font-size: 12px;
-  color: rgba(29, 29, 31, 0.5);
-}
-
-.live-badge {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-}
-
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #9a9a9a;
-  flex: none;
-}
-
-.live-badge[data-status='live'] .live-dot {
-  background: #22c55e;
-  animation: live-blink 1.4s ease-in-out infinite;
-}
-
-.live-badge[data-status='offline'] .live-dot {
-  background: #d0342c;
-}
-
-.live-label {
-  font-weight: 600;
-}
-
-.live-caption {
-  color: rgba(29, 29, 31, 0.5);
-}
-
-.live-clock {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding-left: 10px;
-  margin-left: 4px;
-  border-left: 1px solid rgba(29, 29, 31, 0.12);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums; /* keeps the ticking seconds from reflowing neighbors */
-}
-
-.live-clock-date {
-  color: rgba(29, 29, 31, 0.5);
-}
-
-.live-clock-time {
-  font-weight: 600;
-  color: #1d1d1f;
-}
-
-@keyframes live-blink {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.25;
-  }
-}
-
-@media (max-width: 700px) {
-  .live-caption {
-    display: none;
-  }
-
-  .live-clock-date {
-    display: none;
-  }
-}
-
 .twin-layout {
   flex: 1 1 auto;
   min-height: 0;
@@ -170,9 +71,9 @@
   gap: 6px;
   height: 32px;
   padding: 0 12px;
-  border: 1px solid #000000;
+  border: 1px solid #0e0d0d;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.85);
+  background: #ffffff;
   backdrop-filter: blur(10px);
   color: #000000;
   font-size: 13px;
@@ -201,9 +102,9 @@
   width: 32px;
   height: 32px;
   padding: 0;
-  border: 1px solid #000000;
+  border: 1px solid #0e0d0d;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.85);
+  background: #ffffff;
   backdrop-filter: blur(10px);
   font-size: 15px;
   line-height: 1;
@@ -212,7 +113,7 @@
 }
 
 .sound-toggle:hover {
-  background: #000000;
+  background: #1155ff;
 }
 
 /* The collapse is desktop-only: below 900px .twin-sidebar is a fixed-position
@@ -328,19 +229,5 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.4);
     z-index: 20;
-  }
-}
-
-@media (max-width: 480px) {
-  .ndoc-header-inner {
-    padding: 8px 14px;
-  }
-
-  .ndoc-header-title {
-    font-size: 14px;
-  }
-
-  .ndoc-header-version {
-    display: none;
   }
 }
