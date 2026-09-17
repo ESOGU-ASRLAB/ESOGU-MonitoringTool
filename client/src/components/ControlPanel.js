@@ -1,7 +1,14 @@
 import React from 'react';
 import './ControlPanel.css';
+import { OTOKAR_AXES, formatAxis } from './otokarAxes';
 
 const JOINT_LABELS = ['Base (J1)', 'Shoulder (J2)', 'Elbow (J3)', 'Wrist 1 (J4)', 'Wrist 2 (J5)', 'Wrist 3 (J6)'];
+
+// The Otokar gantries don't fit the six-revolute-joints-plus-rail shape the
+// two IFARLAB arms share: three of their five axes are linear and measured in
+// millimetres of travel. They get their own slider block rather than being
+// forced through JOINT_LABELS.
+const OTOKAR_ROBOTS = { otokar1: 'robot1', otokar2: 'robot2' };
 
 export default function ControlPanel({
   selectedRobot,
@@ -24,7 +31,18 @@ export default function ControlPanel({
   setShowEnvironment,
   showFactory,
   setShowFactory,
+  showOtokar,
+  setShowOtokar,
+  otokarAxes,
+  setOtokarAxes,
+  otokarLod,
+  setOtokarLod,
+  showOtokarBus,
+  setShowOtokarBus,
+  showOtherFactoryProps,
+  setShowOtherFactoryProps,
 }) {
+  const otokarKey = OTOKAR_ROBOTS[selectedRobot];
   const isUR10e = selectedRobot === 'ur10e';
   const angles = isUR10e ? jointAngles : kawasakiAngles;
   const setAngles = isUR10e ? setJointAngles : setKawasakiAngles;
@@ -32,6 +50,21 @@ export default function ControlPanel({
   const setRailValue = isUR10e ? setRailPosition : setAgvRailPosition;
   const railLabel = isUR10e ? 'Rail (7th axis)' : 'AGV rail (7th axis)';
   const railRange = isUR10e ? { min: 0, max: 2.4 } : { min: -0.45, max: 3 };
+
+  const handleOtokarChange = (index, value) => {
+    setOtokarAxes((prev) => {
+      const next = [...prev[otokarKey]];
+      next[index] = Number(value);
+      return { ...prev, [otokarKey]: next };
+    });
+  };
+
+  const resetOtokarHome = () => {
+    setOtokarAxes((prev) => ({
+      ...prev,
+      [otokarKey]: OTOKAR_AXES.map((a) => a.home),
+    }));
+  };
 
   const handleJointChange = (index, value) => {
     setAngles((prev) => {
@@ -51,13 +84,75 @@ export default function ControlPanel({
           UR10e
         </button>
         <button
-          className={!isUR10e ? 'active' : ''}
+          className={selectedRobot === 'kawasaki' ? 'active' : ''}
           onClick={() => setSelectedRobot('kawasaki')}
         >
           Kawasaki
         </button>
       </div>
+      <div className="robot-tabs">
+        <button
+          className={selectedRobot === 'otokar1' ? 'active' : ''}
+          onClick={() => setSelectedRobot('otokar1')}
+        >
+          Otokar R1
+        </button>
+        <button
+          className={selectedRobot === 'otokar2' ? 'active' : ''}
+          onClick={() => setSelectedRobot('otokar2')}
+        >
+          Otokar R2
+        </button>
+      </div>
 
+      {otokarKey ? (
+        <section className="control-section">
+          <h3>Gantry axes</h3>
+          {OTOKAR_AXES.map((axis, index) => (
+            <label className="joint-slider" key={axis.id}>
+              <span className="joint-slider-label">
+                <span>
+                  {axis.label}
+                  {!axis.confirmed && (
+                    <abbr
+                      className="axis-inferred"
+                      title="Mapping inferred from presentation slide order, not confirmed against the CAD. See docs/otokar-cad-notes.md."
+                    >
+                      ?
+                    </abbr>
+                  )}
+                </span>
+                <span className="joint-slider-value">
+                  {formatAxis(index, otokarAxes[otokarKey][index])}
+                </span>
+              </span>
+              <input
+                type="range"
+                min={axis.min}
+                max={axis.max}
+                step={axis.step}
+                value={otokarAxes[otokarKey][index]}
+                disabled={animate}
+                onChange={(e) => handleOtokarChange(index, e.target.value)}
+              />
+              <span className="axis-range">
+                {axis.kind === 'linear'
+                  ? `0 – ${(axis.max / 1000).toFixed(2)} m`
+                  : `${axis.min}° – ${axis.max}°`}
+                {` · ${axis.speed} ${axis.motionUnit} (max ${axis.maxSpeed})`}
+              </span>
+            </label>
+          ))}
+          <button
+            type="button"
+            className="panel-button"
+            onClick={resetOtokarHome}
+            disabled={animate}
+          >
+            Reset to home pose
+          </button>
+        </section>
+      ) : (
       <section className="control-section">
         <h3>Joints</h3>
         {angles.map((angle, index) => (
@@ -94,6 +189,7 @@ export default function ControlPanel({
           />
         </label>
       </section>
+      )}
 
       <section className="control-section">
         <h3>Animation</h3>
@@ -152,7 +248,53 @@ export default function ControlPanel({
           />
           Show factory building
         </label>
+        <label className="control-toggle">
+          <input
+            type="checkbox"
+            checked={showOtokar}
+            onChange={(e) => setShowOtokar(e.target.checked)}
+          />
+          Show Otokar MATISSE cell
+        </label>
+        {showOtokar && (
+          <label className="control-toggle">
+            <input
+              type="checkbox"
+              checked={showOtokarBus}
+              onChange={(e) => setShowOtokarBus(e.target.checked)}
+            />
+            Show Otokar bus body
+          </label>
+        )}
+        <label className="control-toggle">
+          <input
+            type="checkbox"
+            checked={showOtherFactoryProps}
+            onChange={(e) => setShowOtherFactoryProps(e.target.checked)}
+          />
+          Show other buses and lifts
+        </label>
       </section>
+
+      {showOtokar && (
+        <section className="control-section">
+          <h3>Otokar mesh detail</h3>
+          {/* Two mesh tiers are generated from the STEP source; "auto" drops to
+              the light one once the camera is past the whole-cell distance,
+              where a rail carriage is a handful of pixels anyway. */}
+          <div className="robot-tabs">
+            {['auto', 'hi', 'lo'].map((mode) => (
+              <button
+                key={mode}
+                className={otokarLod === mode ? 'active' : ''}
+                onClick={() => setOtokarLod(mode)}
+              >
+                {mode === 'auto' ? 'Auto' : mode === 'hi' ? 'High' : 'Low'}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

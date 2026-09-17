@@ -17,6 +17,8 @@ import Lift from "../components/Lift";
 import AmbientSound from "../components/AmbientSound";
 import ControlPanel from "../components/ControlPanel";
 import Scene from "../components/Scene";
+import OtokarCell from "../components/OtokarCell";
+import { OTOKAR_ROBOT_HOME } from "../components/otokarAxes";
 import { Ramp } from "../components/Bus";
 
 const API_BASE = process.env.REACT_APP_API_URL
@@ -46,36 +48,6 @@ function Loader() {
   );
 }
 
-// Ticks once a second off a plain setInterval rather than requestAnimationFrame
-// -- this is header chrome, not part of the R3F render loop, so there's no
-// reason to redraw it more often than the seconds digit actually changes.
-function LiveClock() {
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const date = now.toLocaleDateString(undefined, {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-  const time = now.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-
-  return (
-    <div className="live-clock">
-      <span className="live-clock-date">{date}</span>
-      <span className="live-clock-time">{time}</span>
-    </div>
-  );
-}
-
 function AnimatedLift({ show, position, rotation, speed = 1, range = 2 }) {
   const groupRef = useRef();
   const baseY = position[1]; // Başlangıç Y pozisyonu
@@ -98,7 +70,7 @@ function AnimatedLift({ show, position, rotation, speed = 1, range = 2 }) {
   );
 }
 
-export default function DigitalTwin() {
+export default function DigitalTwin({ setLiveStatus }) {
   const [selectedRobot, setSelectedRobot] = useState("ur10e");
   const [jointAngles, setJointAngles] = useState([0, -90, 0, -90, 0, 0]);
   const [animate, setAnimate] = useState(false);
@@ -114,7 +86,16 @@ export default function DigitalTwin() {
   // full row. Separate from panelOpen, which drives the mobile slide-in drawer.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [soundOn, setSoundOn] = useState(true);
-  const [liveStatus, setLiveStatus] = useState("connecting"); // 'connecting' | 'live' | 'offline'
+  // Otokar MATISSE cell -- manual/demo only, no live telemetry yet. Axes are
+  // millimetres of travel for 1-3 and degrees for 4-5; see otokarAxes.js.
+  const [showOtokar, setShowOtokar] = useState(true);
+  // Both portals share one runway, so they start at different stations along
+  // it -- see OTOKAR_ROBOT_HOME.
+  const [otokarAxes, setOtokarAxes] = useState(OTOKAR_ROBOT_HOME);
+  const [otokarLod, setOtokarLod] = useState("auto");
+  const [showOtokarBus, setShowOtokarBus] = useState(true);
+  // Large decorative buses, ramps and lifts can be restored as one group.
+  const [showOtherFactoryProps, setShowOtherFactoryProps] = useState(false);
 
   const lastTelemetryTsRef = useRef(null);
   const lastSuccessfulEventRef = useRef(0);
@@ -226,35 +207,11 @@ export default function DigitalTwin() {
     return () => {
       es.close();
     };
-  }, [animate]);
+  }, [animate, setLiveStatus]);
 
   return (
     <div className="dt-wrapper">
       <AmbientSound play={showFactory && soundOn} />
-
-      {/* Header bar */}
-      <header className="ndoc-header">
-        <div className="ndoc-header-inner">
-          <span className="ndoc-header-title">Monitoring Tool</span>
-          <span className="ndoc-header-version">3D Workcell Visualizer</span>
-          <div className="live-badge" data-status={liveStatus}>
-            <span className="live-dot" />
-            <span className="live-label">
-              {liveStatus === "live"
-                ? "Live"
-                : liveStatus === "offline"
-                  ? "Offline"
-                  : "Connecting"}
-            </span>
-            <span className="live-caption">
-              {liveStatus === "live"
-                ? "Streaming real robot data from the backend"
-                : "Backend not sending robot data"}
-            </span>
-          </div>
-          <LiveClock />
-        </div>
-      </header>
 
       {/* Split layout: sidebar + 3D viewport */}
       <div className="twin-layout">
@@ -286,6 +243,16 @@ export default function DigitalTwin() {
             setShowEnvironment={setShowEnvironment}
             showFactory={showFactory}
             setShowFactory={setShowFactory}
+            showOtokar={showOtokar}
+            setShowOtokar={setShowOtokar}
+            otokarAxes={otokarAxes}
+            setOtokarAxes={setOtokarAxes}
+            otokarLod={otokarLod}
+            setOtokarLod={setOtokarLod}
+            showOtokarBus={showOtokarBus}
+            setShowOtokarBus={setShowOtokarBus}
+            showOtherFactoryProps={showOtherFactoryProps}
+            setShowOtherFactoryProps={setShowOtherFactoryProps}
           />
         </div>
 
@@ -353,10 +320,27 @@ export default function DigitalTwin() {
             gl={{ antialias: true, alpha: false }}
             style={{ background: "#e8e8ed" }}
             dpr={[1, 2]}
-            camera={{ position: [-3, 7.5, -21], fov: 45, near: 0.05, far: 150 }}
+            /* Framed to take in both cells now that they sit side by side:
+               IFARLAB around the origin (x -3.3..1.8, z -3.6..1.1) and Otokar
+               just west of it (x -14.1..-5.8, z -9.4..6.8), 2.5 m apart. The
+               camera pulls back along +x/+y/+z so both read in one shot, with
+               the target between the two rather than on either one. far is
+               out to 220 because the warehouse's own far corner is well past
+               the camera from here. Position has to stay INSIDE the shell --
+               x within +/-16.39, z within +/-24.73, y below the ~10 m roof --
+               or the view ends up looking down at the outside of the roof. */
+            camera={{ position: [11, 8, 16], fov: 45, near: 0.05, far: 220 }}
           >
             <Suspense fallback={<Loader />}>
-              <Scene showGrid={!showFactory} interior={showFactory}>
+              {/* The Otokar cell sits ~26 m out from the IFARLAB workcell, and
+                  the bare-grid fog range (18-40 m) would haze it away; push fog
+                  out while it is on. */}
+              <Scene
+                showGrid={!showFactory}
+                interior={showFactory}
+                fogNear={showOtokar ? 42 : null}
+                fogFar={showOtokar ? 95 : null}
+              >
                 {/* UR10e sits on its own 7th-axis carriage (UR10eMount), which
                     rides the fixed rail rendered in EnvironmentElements
                     (base_link.stl). railPosition is that 7th axis --
@@ -395,51 +379,61 @@ export default function DigitalTwin() {
                     />
                   </group>
                 </group>
+                <OtokarCell
+                  show={showOtokar}
+                  robotAxes={otokarAxes}
+                  showBus={showOtokarBus}
+                  showRails
+                  lodMode={otokarLod}
+                  animate={animate}
+                  animationSpeed={animationSpeed}
+                />
                 <EnvironmentElements showEnvironment={showEnvironment} />
                 <Factory show={showFactory} />
                 <Bus
-                  show={showFactory}
+                  show={showFactory && showOtherFactoryProps}
                   position={[7, 0.3, -2]}
                   rotation={[0.1, Math.PI / 2, 0]}
                 />
                 <Bus
-                  show={showFactory}
+                  show={showFactory && showOtherFactoryProps}
                   position={[7, 0, 12]}
                   rotation={[0, Math.PI / 2, 0]}
                 />
 
                 <Ramp
-                  show={showFactory}
+                  show={showFactory && showOtherFactoryProps}
                   position={[7, 0, -2]}
                   rotation={[0, Math.PI / 1, 0]}
                 />
                 <Drones show={showFactory} />
                 <Workers show={showFactory} />
-                <Lift show={showFactory} position={[7, 5, 7]} />
+                <Lift show={showFactory && showOtherFactoryProps} position={[7, 5, 7]} />
                 <Lift
-                  show={showFactory}
+                  show={showFactory && showOtherFactoryProps}
                   position={[7, 5, 20]}
                   rotation={[0, Math.PI / 2, 0]}
                 />
                 <AnimatedLift
-                  show={showFactory}
+                  show={showFactory && showOtherFactoryProps}
                   position={[7, 9, -1]}
                   rotation={[0, Math.PI / 1, 0]}
                   speed={0.4} // Hareket hızı
                   range={1.7} // Aşağı/yukarı hareket mesafesi
                 />
                 <Lift
-                  show={showFactory}
+                  show={showFactory && showOtherFactoryProps}
                   position={[-9.4, 3.7, 11]}
                   rotation={[0, Math.PI / 2, 0]}
                 />
+                {/* Original aisle prop, restored with the other large props. */}
                 <Bus
-                  show={showFactory}
+                  show={showFactory && showOtherFactoryProps}
                   position={[-9, 0, -10]}
                   rotation={[0, Math.PI / 1, 0]}
                 />
                 <Bus
-                  show={showFactory}
+                  show={showFactory && showOtherFactoryProps}
                   position={[-10.2, 2.9, 11]}
                   rotation={[0, Math.PI / 1, 0]}
                 />
@@ -456,9 +450,9 @@ export default function DigitalTwin() {
               enableDamping
               dampingFactor={0.05}
               minDistance={0.5}
-              maxDistance={45}
+              maxDistance={70}
               maxPolarAngle={Math.PI / 2 + 0.1}
-              target={[-1.1, 0.6, -0.7]}
+              target={[-5.5, 1.5, -1.2]}
             />
           </Canvas>
 
