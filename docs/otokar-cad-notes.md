@@ -29,10 +29,23 @@ for a `scale={0.001}` prop of the kind the STL components elsewhere in this
 project carry.
 
 **b) Each file contains the assembly twice.** Alongside the machine as
-installed there is a mirrored copy (the `_SYM`-suffixed instances) laid out
-along the *other* horizontal axis. Loading a file at identity therefore renders
-an L-shaped ghost: two perpendicular 16 m runs where the real cell has one.
+installed there is a second copy of the same geometry laid out along the
+*other* horizontal axis. Loading a file at identity therefore renders an
+L-shaped ghost: two perpendicular 16 m runs where the real cell has one.
 `convert.py`'s `CROP` filter keeps the installed copy by part centroid:
+
+> **Correction (2026-09-23).** An earlier version of this note called the
+> duplicate "the `_SYM`-suffixed instances". That is wrong twice over, and it
+> cost real time downstream. `_SYM` is not a marker for the duplicate — it is
+> ubiquitous in these exports and appears on installed parts
+> (`1_Eksen_Hareketli_SYM` is the real carriage). And the duplicate is not a
+> separate modelled copy at all: it is the **master/placed split** that
+> FreeCAD's STEP import produces. A subassembly's own `Shape` has its assembly
+> placement baked in, while its child `Part::Feature` objects keep the
+> unplaced master coordinates. So the same part is reachable at two different
+> locations — placed and unplaced — and only the placed one is real. See
+> section 2.7 for how that split turned out to BE the missing "cross-file
+> correction".
 
 - Robot 1's machine runs along CAD **X**, its rail sitting at Y ≈ +3160 mm → crop `|Y| < 6 m`
 - Robot 2's machine runs along CAD **Y**, its rail sitting at X ≈ +135 mm → crop `|X| < 6 m`
@@ -88,28 +101,54 @@ it deliberately does not use the letters.
 and 3 (axes 4 and 5 are confirmed by part name). The travels in the table are
 applied on that assumption and marked as such in `OtokarGantryRobot.js`.
 
-### The cell is two portals on one runway
+### RETRACTED: "the cell is two portals on one runway"
 
-Reading `EKSEN1`'s structural members part by part settles the cell layout,
-which bounding boxes alone had made ambiguous:
+**This section previously claimed each robot is a two-legged portal straddling
+the body, with both robots riding one shared runway. That is wrong, and the
+scene is still built on it. Confirmed against Otokar's own slides
+(2026-09-23): the cell is TWO INDEPENDENT PARALLEL RAILS, one per robot. Each
+robot is a SINGLE-COLUMN gantry on its own rail. The two robots are mirror
+images with their arms pointing INWARD, and the bus sits between the rails.**
 
-| Part | CAD Y | What it is |
+The retracted claim rested on this table, and specifically on reading
+`2_Konstruksiyon_SYM` as a second, far-side leg:
+
+| Part | CAD Y | What it was read as |
 |---|---|---|
 | `Konstruksiyon_modul` 1–4 | 2757.4 … 3563.9 | Floor rail, four 4 m modules tiling X −12 636 … +3 383 |
 | `2_Eksen_Sabit_SYM` | 2817.5 … 3530.6 | Column, Z −839 … +3 588 |
-| `2_Konstruksiyon_SYM` | −3305.8 … −2855.8 | Column, Z −812 … +3 368 |
+| `2_Konstruksiyon_SYM` | −3305.8 … −2855.8 | "second column", Z −812 … +3 368 |
 
-Columns on **both** sides of the opening: each robot is a complete portal, not
-a single-sided rail. The body passes through it, so the measured 1 643.6612 mm
-side clearance is applied **once**, inward from the rail face, putting the body
-centreline at CAD Y ≈ −137 mm and leaving 1 467 mm to the far column.
+`2_Konstruksiyon_SYM` is **not a second leg. It is not a structure at all.** It
+is the unplaced master copy of `2_Eksen_Sabit_SYM`'s own column — the
+master/placed split described in section 1(b). The evidence, from
+`scripts/otokar/extract_part.py`:
 
-That also explains the deck's note that "Robot 2's X values are defined
-relative to Robot 1's zero": the two portals share one runway and one
-reference, and differ only in where they sit along it. An earlier version of
-this scene instead put the two robots 11.3 m apart on opposite sides of the
-body, which counted the same clearance twice, made the cell 18.4 m wide
-instead of 7.5 m, and left both arms facing away from the body.
+- it is listed as a *child of* `2_Eksen_Sabit_SYM`;
+- its seven children (`Profil_150x150x4150`, `2_Eksen_Taban_Plaka_SYM`,
+  `2_Eksen_Kremayer_Baglanti_Plakasi_SYM`, the caps and gussets) are at
+  **coordinates identical to** `2_Eksen_Sabit_SYM`'s own children, to the
+  0.1 mm;
+- rendered alone it is one 150 × 150 mm mast, 4150 mm tall, on a 450 × 450 mm
+  base plate, with a bottom gusset and a full-height rack strip — i.e. exactly
+  the same column, not a different one.
+
+Two columns were never there. One column, one rail, one robot.
+
+**Dependent values that are still built on the retracted reading and are
+therefore still wrong** (each to be corrected in its own change):
+
+- `BODY_CENTRELINE_IN_ROBOT_MM` in `otokarCellGeometry.js` / `OtokarBusBody.js`
+  applies the 1 643.6612 mm side clearance **once, inward**, on the reasoning
+  that the body passes *through* a portal. With two parallel rails the
+  clearance is measured from each rail to the body beside it, and the body
+  belongs between them.
+- `OTOKAR_ROBOT_HOME` in `otokarAxes.js` and the two sibling
+  `OtokarGantryRobot` instances in `OtokarCell.js` place both robots on one
+  runway at different a1 stations, with `showRails={false}` on robot 2. Robot 2
+  needs its own rail and its own `Robot2_*.stp` conversion.
+- The deck's "Robot 2's X values are defined relative to Robot 1's zero" means
+  the two robots share **one world datum**, not one rail.
 
 ### Placing the cell in the facility
 
