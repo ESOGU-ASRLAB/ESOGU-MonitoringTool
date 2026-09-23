@@ -47,7 +47,15 @@ export const OTOKAR_AXES = [
     // CAD +X for robot1. Robots are normalised into a shared frame by
     // OtokarGantryRobot, so this is the canonical direction, not per-robot.
     cadAxis: 'x',
-    min: 0, max: 16000, home: 8000, step: 10, unit: 'mm',
+    // CLAMPED TO WHAT THE RAIL PHYSICALLY OFFERS, not to the declared travel.
+    // The rail spans 16 207 mm and the carriage is 960 mm wide, so end stop to
+    // end stop there is 15 247 mm of usable travel; the exported (zero) pose
+    // already sits 180.3 mm in from the cable-loop end, leaving 15 067 mm
+    // ahead of it. The deck's declared 16 000 mm does not fit either figure --
+    // 753 mm more than the rail allows end to end. OPEN QUESTION FOR OTOKAR:
+    // either the rail is longer than this export, or the 16 000 mm is nominal.
+    // Do not "fix" this by stretching the rail to match.
+    min: 0, max: 15067, home: 0, step: 10, unit: 'mm',
     accel: 275, speed: 500, decel: 275, maxSpeed: 690, motionUnit: 'mm/s',
     confirmed: true,
   },
@@ -89,25 +97,14 @@ export const OTOKAR_AXES = [
 export const OTOKAR_HOME = OTOKAR_AXES.map((a) => a.home);
 
 /*
- * Per-robot home pose.
- *
- * KNOWN WRONG -- RETRACTED REASONING, VALUES NOT YET CORRECTED.
- *
- * These two stations (7 m apart along one track) came from reading the cell as
- * two portals sharing a runway. It is two independent parallel rails, one per
- * robot; "Robot 2's X values are defined relative to Robot 1's zero" means a
- * shared world datum, not a shared rail. Both robots sit at the SAME end of
- * their own rails -- the end with the U-shaped cable loop -- so they do not
- * need different a1 values to avoid each other.
- *
- * The a1 numbers are wrong for a second, independent reason: CAD_POSE.a1 in
- * OtokarGantryRobot.js is an unverified "centred travel" figure, and against
- * it both stations below put the carriage off the end of the rail. See
- * docs/otokar-cad-notes.md.
+ * Per-robot home pose: both robots parked at their own rail's cable-loop end,
+ * which is where Otokar's overview slide shows them and, as of the corrected
+ * datum, where a1 = 0 puts them. They no longer need to be spaced apart along
+ * a shared track, because they do not share a track.
  */
 export const OTOKAR_ROBOT_HOME = {
-  robot1: OTOKAR_AXES.map((a, i) => (i === 0 ? 4500 : a.home)),
-  robot2: OTOKAR_AXES.map((a, i) => (i === 0 ? 11500 : a.home)),
+  robot1: OTOKAR_AXES.map((a) => a.home),
+  robot2: OTOKAR_AXES.map((a) => a.home),
 };
 
 export const clampAxis = (index, value) => {

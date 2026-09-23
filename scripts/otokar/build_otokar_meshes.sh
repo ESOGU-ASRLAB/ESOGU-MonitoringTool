@@ -5,7 +5,7 @@
 # "lo" for the 16 m wide overview, where a rail carriage is a few pixels tall.
 #
 # Usage: build_otokar_meshes.sh [name ...]   (default: all robot parts)
-set -u
+set -euo pipefail
 
 SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$SCRIPTS/../.." && pwd)"
@@ -81,25 +81,49 @@ CROP_R1="-99000,99000,-6000,6000,-99000,99000"
 # share the origin-centred one and get mounted by transform instead.
 CROP_CAM="-1000,1000,-1000,1000,-1000,1000"
 
+# The per-axis exports do not share an origin. placements.json holds the
+# native->installed matrix for each source file, with its provenance, and
+# convert.py bakes it into the vertices so every GLB ships in one frame.
+PLACEMENTS="$SCRIPTS/placements.json"
+
+placement_field() {
+  node -e '
+    const fs = require("fs"), path = require("path");
+    const all = JSON.parse(fs.readFileSync(path.resolve(process.argv[1]), "utf8"));
+    const m = all.sources[process.argv[2]];
+    if (!m) process.exit(0);
+    const field = process.argv[3];
+    if (field === "matrix") { if (m.matrix) console.log(m.matrix.join(",")); }
+    else if (m[field]) console.log(String(m[field]).replace(/\s+/g, " "));
+  ' "$PLACEMENTS" "$1" "$2"
+}
+
 convert_one() {
   local stem="$1" group="$2" out="$3" tier="$4" crop="$5"
+  local role=""
+  if [ "$out" = "axis1" ]; then role="runway"; fi
+  if [ "$out" = "axis1_carriage" ]; then role="carriage"; fi
   read -r defl minp ratio err <<<"$(tier_cfg "$tier" "$group")"
-  local raw="$TMP/${stem}.${tier}.raw.glb"
+  local raw="$TMP/${stem}.${tier}.${out}.raw.glb"
   local dir="$DEST/$group/$tier"
+  local placement placement_src
+  placement="$(placement_field "$stem" matrix)"
+  placement_src="$(placement_field "$stem" provenance)"
   mkdir -p "$dir"
 
   STP_IN="$SRC/${stem}.stp" GLB_OUT="$raw" DEFLECTION="$defl" MIN_PART_MM="$minp" \
-    CROP="$crop" REPORT_JSON="$TMP/${stem}.${tier}.${group}.json" \
+    CROP="$crop" AXIS1_ROLE="$role" REPORT_JSON="$TMP/${stem}.${tier}.${out}.json" \
+    PLACEMENT="$placement" PLACEMENT_SRC="$placement_src" \
     "$FC" "$SCRIPTS/convert.py" 2>&1 | grep "^STATS:"
 
   if [ ! -s "$raw" ]; then echo "FAIL tessellate: $stem $tier"; return 1; fi
 
-  $GT weld     "$raw"              "$TMP/${stem}.${tier}.w.glb" >/dev/null 2>&1 || return 1
-  $GT simplify "$TMP/${stem}.${tier}.w.glb" "$TMP/${stem}.${tier}.s.glb" \
+  $GT weld     "$raw"              "$TMP/${stem}.${tier}.${out}.w.glb" >/dev/null 2>&1 || return 1
+  $GT simplify "$TMP/${stem}.${tier}.${out}.w.glb" "$TMP/${stem}.${tier}.${out}.s.glb" \
                --ratio "$ratio" --error "$err"  >/dev/null 2>&1 || return 1
-  $GT draco    "$TMP/${stem}.${tier}.s.glb" "$dir/${out}.glb" >/dev/null 2>&1 || return 1
+  $GT draco    "$TMP/${stem}.${tier}.${out}.s.glb" "$dir/${out}.glb" >/dev/null 2>&1 || return 1
 
-  rm -f "$raw" "$TMP/${stem}.${tier}.w.glb" "$TMP/${stem}.${tier}.s.glb"
+  rm -f "$raw" "$TMP/${stem}.${tier}.${out}.w.glb" "$TMP/${stem}.${tier}.${out}.s.glb"
   echo "OK  $group/$tier/${out}.glb  $(stat -c %s "$dir/${out}.glb") bytes"
 }
 
@@ -118,6 +142,7 @@ convert_one() {
 # local frame.
 JOBS="
 Robot1_EKSEN1:robot1:axis1:$CROP_R1
+Robot1_EKSEN1:robot1:axis1_carriage:$CROP_R1
 Robot1_EKSEN2:robot1:axis2:$CROP_R1
 Robot1_EKSEN3:robot1:axis3:$CROP_R1
 Robot1_EKSEN4:robot1:axis4:$CROP_R1
@@ -138,4 +163,8 @@ for job in $JOBS; do
     convert_one "$stem" "$group" "$out" "$tier" "$crop"
   done
 done
+
+# Ship the placement provenance beside the meshes: a baked frame is invisible
+# in the GLB itself, so the record of what was baked and why travels with it.
+node "$SCRIPTS/write_placements.mjs"
 echo "=== BUILD DONE ==="
