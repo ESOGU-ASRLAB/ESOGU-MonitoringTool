@@ -56,13 +56,21 @@ export const BODY_HALF_WIDTH_MM = 1251.0;
 /*
  * Where the body's centreline sits in a robot's own CAD frame.
  *
- * Each robot is a complete PORTAL, not a single-sided rail: EKSEN1 carries the
- * floor rail at Y 2757.4 .. 3563.9 and columns at BOTH Y ~ +3170
- * (`2_Eksen_Sabit_SYM`) and Y ~ -3080 (`2_Konstruksiyon_SYM`). The body passes
- * through that opening, so the measured 1643.6612 mm clearance is applied once,
- * inward from the rail's face -- which lands the centreline near Y = -137 mm,
- * i.e. under the portal. Applying it outward on both sides instead would count
- * the same gap twice and put the robots' arms facing away from the body.
+ * KNOWN WRONG -- RETRACTED REASONING, VALUE NOT YET CORRECTED.
+ *
+ * This applies the 1643.6612 mm clearance ONCE, inward from the rail face,
+ * landing the centreline near Y = -137 mm. The justification was that each
+ * robot is a complete PORTAL with columns at BOTH Y ~ +3170
+ * (`2_Eksen_Sabit_SYM`) and Y ~ -3080 (`2_Konstruksiyon_SYM`), so the body
+ * passes through the opening.
+ *
+ * There is no second column. `2_Konstruksiyon_SYM` is an unplaced master copy
+ * of the same one, and the cell is two independent parallel rails with the
+ * body BETWEEN them -- so the clearance is measured from each rail to the body
+ * beside it, and this single-sided formula does not express that. Left as-is
+ * deliberately until the two-rail layout lands, so the change is one thing at
+ * a time. See docs/otokar-cad-notes.md, "RETRACTED: the cell is two portals on
+ * one runway".
  */
 export const BODY_CENTRELINE_IN_ROBOT_MM =
   RAIL_INNER_FACE_MM - SIDE_CLEARANCE_MM - BODY_HALF_WIDTH_MM;

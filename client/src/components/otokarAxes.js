@@ -91,13 +91,19 @@ export const OTOKAR_HOME = OTOKAR_AXES.map((a) => a.home);
 /*
  * Per-robot home pose.
  *
- * The two portals share one runway and straddle the same body at different
- * stations along it -- which is what the deck means by "Robot 2's X values are
- * defined relative to Robot 1's zero". So they differ only in axis 1; every
- * other axis starts at the common home. The two stations below are spaced
- * 7 m apart over the 11.86 m body, which keeps each portal over roughly half
- * of it and keeps them from overlapping. The spacing is OURS, not Otokar's:
- * the deck gives no station separation.
+ * KNOWN WRONG -- RETRACTED REASONING, VALUES NOT YET CORRECTED.
+ *
+ * These two stations (7 m apart along one track) came from reading the cell as
+ * two portals sharing a runway. It is two independent parallel rails, one per
+ * robot; "Robot 2's X values are defined relative to Robot 1's zero" means a
+ * shared world datum, not a shared rail. Both robots sit at the SAME end of
+ * their own rails -- the end with the U-shaped cable loop -- so they do not
+ * need different a1 values to avoid each other.
+ *
+ * The a1 numbers are wrong for a second, independent reason: CAD_POSE.a1 in
+ * OtokarGantryRobot.js is an unverified "centred travel" figure, and against
+ * it both stations below put the carriage off the end of the rail. See
+ * docs/otokar-cad-notes.md.
  */
 export const OTOKAR_ROBOT_HOME = {
   robot1: OTOKAR_AXES.map((a, i) => (i === 0 ? 4500 : a.home)),

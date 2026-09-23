@@ -10,13 +10,25 @@ import { FLOOR_Z_MM } from './otokarCellGeometry';
  * Otokar MATISSE body-control cell, placed inside the facility shell alongside
  * the IFARLAB workcell.
  *
- * TWO PORTALS ON ONE RUNWAY. Each robot is a complete portal -- EKSEN1 carries
- * the floor rail plus columns on BOTH sides of the opening -- and both straddle
- * the same bus body at different stations along the 16 m runway. That is what
- * the trajectory deck means by "Robot 2's X values are defined relative to
- * Robot 1's zero": they share one track and one reference. So the two robots
- * sit at the same lateral position and differ only in their axis-1 value, and
- * the runway itself is rendered once (from robot 1) rather than twice.
+ * RETRACTED LAYOUT -- THIS COMPONENT IS STILL BUILT ON IT.
+ *
+ * What this file currently does: treats the cell as TWO PORTALS ON ONE RUNWAY,
+ * both robots straddling the bus at different stations along a single 16 m
+ * track, robot 2 drawn with showRails={false} because it was assumed to ride
+ * robot 1's rail.
+ *
+ * What the CAD and Otokar's slides actually show: TWO INDEPENDENT PARALLEL
+ * RAILS, one per robot, each a SINGLE-COLUMN gantry, the two robots mirror
+ * images with their arms pointing inward and the bus between the rails. The
+ * "both sides" reading came from `2_Konstruksiyon_SYM`, which turned out to be
+ * an unplaced master copy of the one column, not a second leg. "Robot 2's X
+ * values are relative to Robot 1's zero" means a shared world datum, not a
+ * shared rail.
+ *
+ * Robot 2 therefore still needs its own rail and its own Robot2_*.stp
+ * conversion; it must not keep borrowing robot 1's meshes at a different a1.
+ * See docs/otokar-cad-notes.md, "RETRACTED: the cell is two portals on one
+ * runway".
  *
  * Everything is one <group>, so the cell moves by changing CELL_ORIGIN alone,
  * and the whole subtree unmounts when the "Show Otokar cell" toggle is off --
