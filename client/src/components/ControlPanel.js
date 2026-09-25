@@ -1,6 +1,6 @@
 import React from 'react';
 import './ControlPanel.css';
-import { OTOKAR_AXES, formatAxis } from './otokarAxes';
+import { OTOKAR_AXES, OTOKAR_ROBOT_HOME, formatAxis } from './otokarAxes';
 
 const JOINT_LABELS = ['Base (J1)', 'Shoulder (J2)', 'Elbow (J3)', 'Wrist 1 (J4)', 'Wrist 2 (J5)', 'Wrist 3 (J6)'];
 
@@ -23,24 +23,12 @@ export default function ControlPanel({
   setAgvRailPosition,
   animate,
   setAnimate,
-  animationSpeed,
-  setAnimationSpeed,
   gripperOpen,
   setGripperOpen,
-  showEnvironment,
-  setShowEnvironment,
   showFactory,
   setShowFactory,
-  showOtokar,
-  setShowOtokar,
   otokarAxes,
   setOtokarAxes,
-  otokarLod,
-  setOtokarLod,
-  showOtokarBus,
-  setShowOtokarBus,
-  showOtherFactoryProps,
-  setShowOtherFactoryProps,
 }) {
   const otokarKey = OTOKAR_ROBOTS[selectedRobot];
   const isUR10e = selectedRobot === 'ur10e';
@@ -62,7 +50,7 @@ export default function ControlPanel({
   const resetOtokarHome = () => {
     setOtokarAxes((prev) => ({
       ...prev,
-      [otokarKey]: OTOKAR_AXES.map((a) => a.home),
+      [otokarKey]: OTOKAR_ROBOT_HOME[otokarKey],
     }));
   };
 
@@ -112,7 +100,7 @@ export default function ControlPanel({
             <label className="joint-slider" key={axis.id}>
               <span className="joint-slider-label">
                 <span>
-                  {axis.label}
+                  {axis.deckName} · {axis.label}
                   {!axis.confirmed && (
                     <abbr
                       className="axis-inferred"
@@ -192,28 +180,14 @@ export default function ControlPanel({
       )}
 
       <section className="control-section">
-        <h3>Animation</h3>
+        <h3>Engine</h3>
         <label className="control-toggle">
           <input type="checkbox" checked={animate} onChange={(e) => setAnimate(e.target.checked)} />
-          Play demo animation
-        </label>
-        <label className="joint-slider">
-          <span className="joint-slider-label">
-            Speed
-            <span className="joint-slider-value">{animationSpeed.toFixed(1)}x</span>
-          </span>
-          <input
-            type="range"
-            min={0.1}
-            max={3}
-            step={0.1}
-            value={animationSpeed}
-            onChange={(e) => setAnimationSpeed(Number(e.target.value))}
-          />
+          Start engine
         </label>
       </section>
 
-      <section className="control-section">
+      {!otokarKey && <section className="control-section">
         <h3>Gripper</h3>
         <label className="joint-slider">
           <span className="joint-slider-label">
@@ -229,17 +203,9 @@ export default function ControlPanel({
             onChange={(e) => setGripperOpen(Number(e.target.value))}
           />
         </label>
-      </section>
+      </section>}
 
       <section className="control-section">
-        <label className="control-toggle">
-          <input
-            type="checkbox"
-            checked={showEnvironment}
-            onChange={(e) => setShowEnvironment(e.target.checked)}
-          />
-          Show environment
-        </label>
         <label className="control-toggle">
           <input
             type="checkbox"
@@ -248,53 +214,8 @@ export default function ControlPanel({
           />
           Show factory building
         </label>
-        <label className="control-toggle">
-          <input
-            type="checkbox"
-            checked={showOtokar}
-            onChange={(e) => setShowOtokar(e.target.checked)}
-          />
-          Show Otokar MATISSE cell
-        </label>
-        {showOtokar && (
-          <label className="control-toggle">
-            <input
-              type="checkbox"
-              checked={showOtokarBus}
-              onChange={(e) => setShowOtokarBus(e.target.checked)}
-            />
-            Show Otokar bus body
-          </label>
-        )}
-        <label className="control-toggle">
-          <input
-            type="checkbox"
-            checked={showOtherFactoryProps}
-            onChange={(e) => setShowOtherFactoryProps(e.target.checked)}
-          />
-          Show other buses and lifts
-        </label>
       </section>
 
-      {showOtokar && (
-        <section className="control-section">
-          <h3>Otokar mesh detail</h3>
-          {/* Two mesh tiers are generated from the STEP source; "auto" drops to
-              the light one once the camera is past the whole-cell distance,
-              where a rail carriage is a handful of pixels anyway. */}
-          <div className="robot-tabs">
-            {['auto', 'hi', 'lo'].map((mode) => (
-              <button
-                key={mode}
-                className={otokarLod === mode ? 'active' : ''}
-                onClick={() => setOtokarLod(mode)}
-              >
-                {mode === 'auto' ? 'Auto' : mode === 'hi' ? 'High' : 'Low'}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

@@ -50,17 +50,16 @@ L-shaped ghost: two perpendicular 16 m runs where the real cell has one.
 - Robot 1's machine runs along CAD **X**, its rail sitting at Y ≈ +3160 mm → crop `|Y| < 6 m`
 - Robot 2's machine runs along CAD **Y**, its rail sitting at X ≈ +135 mm → crop `|X| < 6 m`
 
-**c) Only Robot 1's files are used.** Each robot's five axis files agree with
-each other, but Robot 1's and Robot 2's frames differ by a mirror, and the
-duplicate-crop in (b) does not resolve for Robot 2: its EKSEN2 still converts
-to 0.82 x 15.76 x 6.51 m against Robot 1's 2.41 x 3.66 x 2.05 m for the same
-part, because for Robot 2 the surviving duplicate lies along the very axis its
-real machine runs on. Converted anyway, it lands 9.7 m outside the building.
+**c) Robot 2 is a mirrored, independently converted machine.** Robot 1's and
+Robot 2's exports use different native orientations and roots. Robot2_EKSEN1
+is converted with its native-Y rail rotated into the shared installed frame.
 
-Since the two are the same machine -- `Robot1_EKSEN5.stp` and
-`Robot2_EKSEN5.stp` have identical face counts (20 173) and the rest match to
-within a per-cent -- the scene draws both robots from the Robot 1 mesh set and
-varies only their axis-1 value. `Robot2_EKSEN1..5` are not converted at all.
+Robot2_EKSEN1 is converted with its native-Y rail rotated into the shared
+installed frame. Robot2_EKSEN2..5 use explicit matrices in
+`scripts/otokar/placements.json`, derived from matching Robot1 envelopes and
+the customer end-view mirror plane. All Robot2 outputs now ship through the
+same STEP → GLB pipeline; the runtime renders Robot2's own rail and complete
+chain rather than reusing Robot1 geometry or hiding a sibling rail.
 
 **d) The bus export carries jig geometry.** Its raw bounding box is 4.82 m
 across and 4.50 m tall, against a real body of 2.50 m by 2.71 m: the extremes
@@ -135,18 +134,13 @@ master/placed split described in section 1(b). The evidence, from
 
 Two columns were never there. One column, one rail, one robot.
 
-**Dependent values that are still built on the retracted reading and are
-therefore still wrong** (each to be corrected in its own change):
+**Dependent values corrected after the retraction:**
 
-- `BODY_CENTRELINE_IN_ROBOT_MM` in `otokarCellGeometry.js` / `OtokarBusBody.js`
-  applies the 1 643.6612 mm side clearance **once, inward**, on the reasoning
-  that the body passes *through* a portal. With two parallel rails the
-  clearance is measured from each rail to the body beside it, and the body
-  belongs between them.
-- `OTOKAR_ROBOT_HOME` in `otokarAxes.js` and the two sibling
-  `OtokarGantryRobot` instances in `OtokarCell.js` place both robots on one
-  runway at different a1 stations, with `showRails={false}` on robot 2. Robot 2
-  needs its own rail and its own `Robot2_*.stp` conversion.
+- `BODY_CENTRELINE_IN_ROBOT_MM` places the bus between the two rail reference
+  faces; `clearance_table.mjs` measures all three deck clearances at 0.00 mm
+  delta on both sides.
+- `OTOKAR_ROBOT_HOME` and `OtokarCell.js` now park both independent carriages at
+  a1 = 0 and render both rails plus each robot's complete converted chain.
 - The deck's "Robot 2's X values are defined relative to Robot 1's zero" means
   the two robots share **one world datum**, not one rail.
 
@@ -168,8 +162,9 @@ node scripts/otokar/verify_cell_fit.mjs
 ```
 
 It is what caught Robot 2's meshes landing outside the shell — a screenshot
-did not show it. Current margins: 4.88 m to the west wall, 2.15 m to the near
-end wall, 0.44 m under the roof beams. Geometry below y = 0 is expected: the
+did not show it. The current full hi-res union has 7.80 m to the west wall and
+13.29 m to the near end wall, with 0.44 m under the conservative roof beam
+limit. Geometry below y = 0 is expected: the
 rail's Fischer M16x380 anchor studs sit in the slab and the axis-2 energy
 chain runs in a floor trench.
 
@@ -227,6 +222,155 @@ the rail module's own Z-envelope (Z -1052..-947mm, inside the rail's
 outside it reads as part of the rail's bulk rather than as its own
 recognisable feature. If it needs to read as a cable carrier rather than just
 being present, that's a material/highlight-colour change, not a geometry one.
+
+## 2.6 Runtime frame audit and the detached-part fix
+
+**Correction to this section's earlier claim.** An earlier pass here reported
+this as fixed and verified -- it was not. That version treated the "0.000m"
+result from `audit_runtime_adjacency.mjs` as proof of correct adjacency, and
+it is not: the check is a closest-SURFACE-point distance, which one extreme
+corner of two mostly-unrelated masses can satisfy while the masses themselves
+sit metres apart. A screenshot taken after that "fix" showed the exact same
+floating blue/black parts as before, and the discrepancy between "numeric test
+says fine, screenshot says broken" was the actual signal, not something to
+explain away. Root-caused and fixed below; screenshots and the corrected
+numbers are what back this entry now, not the adjacency check alone.
+
+**Root cause.** `Robot1_EKSEN1.stp` and `Robot1_EKSEN2.stp` (and, by
+extension, every EKSEN*.stp pair) are independent STEP exports that do **not**
+share a common origin. `OtokarGantryRobot.js`'s transform chain only ever
+applied the live SLIDER offset between axes -- for axis 1 -> axis 2, an
+X-only translation -- on the assumption that the two files' frames already
+agreed on every other axis. They do not: axis 2's own mounting plate
+(`2_Eksen_Robot_Plakasi_SYM`, CAD centre ~(1495, -2982, -362)mm) and the
+carriage on axis 1's rail that it actually bolts onto
+(`_1_Eksen_Hareketli_SYM`, CAD centre ~(-12065, 3160, -720)mm) are ~4.9m apart
+in Y before any correction. The two meshes still touched at one far corner
+(hence the misleading "0.000m" reading), while the bulk of each sat metres
+from the other -- confirmed by measuring both reference parts directly in the
+STEP data, and cross-checked against the live-rendered scene's actual runtime
+world positions in a browser (`document.body`-appended debug log reading
+`object.getWorldPosition()`/parent chain, not console capture -- Playwright's
+console listener silently missed messages logged this early in page load in
+this environment, which cost real time before switching to the DOM).
+
+**Fix.** `AXIS2_FRAME_CORRECTION_MM` in `OtokarGantryRobot.js` adds a constant
+Y/Z offset to the `axis-1-carriage` group, on top of (not replacing) the
+existing X/slider calibration:
+
+- **Y** (6142mm): centroid-to-centroid. Y is the mounting plate's short axis,
+  not a stacking direction, so matching the two parts' centres is correct
+  here.
+- **Z** (267mm): face-to-face, not centroid-to-centroid. Axis 2 stands ON TOP
+  of the carriage, so its base plate's bottom face (Z ~ -712mm) has to land on
+  the carriage's top face (Z ~ -445mm). The first attempt at this fix used
+  centroid-matching for Z too (giving -358mm) and it visibly did not close the
+  gap -- centroid-matching a stacked joint offsets the parts by roughly half
+  of each one's own height, which is exactly the wrong operation for a
+  "stands on top of" relationship. `scripts/otokar/find_mount_face.py` is the
+  tool that found the actual bottom/top faces to fix this: it lists a STEP
+  file's lowest-Z named solids (crop-filtered to the installed copy, fasteners
+  dropped by size) instead of using the whole assembly's bbox centre, which
+  mixes the bottom mounting plate with wherever the top of the column reaches.
+
+**Result, measured (not eyeballed):** the X gap between axis 1 and axis 2's
+world bboxes went from 4.86m to 1.28m; after the Z fix, axis 2's mounting
+face and the carriage's top face land at the identical world Y (0.923m,
+computed from each side independently). A before/after screenshot at a fixed
+camera angle shows the column now standing recognisably out of the rail
+carriage instead of floating free of it.
+
+**Follow-up verification completed:**
+- `chain_frame_check.py` now reports 0.000 mm at axis2→axis3 and the corrected
+  axis3→axis4 interface; axis4→axis5 is the measured 8.515 mm flange clearance.
+  The installed zero-pose audit reports 0.0 mm bbox gap for every structural
+  link pair; the 110–115 mm camera separation remains the declared
+  `CAMERA_MOUNT` assumption.
+- Robot2's own chain is included in the same audit and mirrors Robot1 across
+  the bus plane. `verify_cell_fit.mjs` reports both rails inside the shell with
+  0.44 m roof clearance and no IFARLAB overlap.
+- A **thin dotted-line artifact** is still visible near some parts in
+  screenshots taken after this fix, consistent with the `DIMENSION` records
+  noted below -- worth re-checking whether the solids-only filter is missing
+  a case, though it is now a minor cosmetic issue rather than the dominant
+  symptom.
+
+`node scripts/otokar/inspect_meshes.mjs` loads every installed GLB by itself
+and prints its hi/lo local bbox centres, then its world bbox and parent chain
+for both portals -- useful for confirming axis 1 through camera all exist
+under `Z -> Y -> X -> AX -> AZ -> camera`, but it does not catch the
+cross-file frame issue above (it doesn't have a second file's reference point
+to compare against). `audit_runtime_adjacency.mjs`'s closest-surface-distance
+check has the same limitation described above -- treat "0.000m" there as "at
+least one point touches", not "these are correctly mounted".
+
+The STEP text contains a small number of `DIMENSION` records but no
+`ANNOTATION`, `SKETCH`, `CONSTRUCTION` or `GEOMETRIC_CURVE_SET` entities. The
+converter now additionally requires an imported object to contain at least one
+solid before tessellating it, so PMI/construction geometry cannot regress into
+visible GLB props -- though see the dotted-line note above; this may not be
+fully closed.
+
+Both `hi` and `lo` GLB tiers use the same corrected runtime frame chain. Their
+URLs carry a revision query (`v=2026-09-23-framefix-3` as of the X fix in
+section 2.7), which invalidates both the browser cache and GLTFLoader's
+URL-keyed cache after a mesh/frame update; the static file contents remain
+identical between requests.
+
+## 2.7 The ~1.3m residual X gap, root-caused
+
+Section 2.6 left the X gap between axis 1 and axis 2 unexplained: the Y/Z fix
+there closed the vertical and lateral misalignment but a ~1.3m gap remained
+in X, and `CAD_POSE.a1 = 13474` (chosen only to centre the 16m slider travel
+on the rail's own 16.207m span) had never actually been checked against where
+the carriage sits in EKSEN1's own frame.
+
+**Root cause: the same bug as Y/Z, just in the axis nobody had audited.**
+`OtokarGantryRobot.js` moved axis 2 in X *only* via the live a1 slider term
+(`(a1 - CAD_POSE.a1) * MM`), which encodes the carriage's *travel* along the
+rail, not the fixed offset between EKSEN1's and EKSEN2's unrelated file
+origins -- exactly the gap Y and Z already needed a constant correction for.
+There was no equivalent constant for X; `AXIS2_FRAME_CORRECTION_MM` only had
+`y`/`z` keys, and the code assumed X needed none.
+
+**Also found while checking this: the carriage was never rendered.**
+`OtokarGantryRobot.js` only ever draws two things from axis 1's file: the
+static `axis1` rail (`showRails`) and, moving with the a1 slider, the `axis2`
+mesh (the vertical column, from `Robot1_EKSEN2.stp`). The physical carriage
+block that actually rides the rail and carries the column --
+`_1_Eksen_Hareketli_SYM`, inside `Robot1_EKSEN1.stp` -- had no mesh of its own
+in the scene at all, so there was nothing to visually anchor axis 2 to as it
+moved. `convert.py`'s `AXIS1_ROLE=carriage` mode (see section 3) already
+exists to export exactly this branch on its own; `axis1_carriage.glb` (hi and
+lo) is now built and rendered as the direct child of the `axis-1-carriage`
+group, ahead of the axis-2 correction below, so it takes only the a1 slider
+term and no cross-file correction (it's already in EKSEN1's frame).
+
+**Fix.** `AXIS2_FRAME_CORRECTION_MM` gained an `x` key (-13559mm), matched by
+the same method already used for Y (see section 2.6): centroid-to-centroid
+between `2_Eksen_Robot_Plakasi_SYM` (axis 2's own base plate, CAD centre
+X = 1494.5mm) and `_1_Eksen_Hareketli_SYM` (the carriage, CAD centre
+X = -12064.7mm). X is a horizontal, non-stacking axis for this joint just
+like Y, so centroid-matching is the right operation, not face-matching.
+Re-deriving Y from these same two parts with FreeCAD gives 6142.4mm against
+the existing 6142mm constant -- the method reproduces the already-verified
+value almost exactly, which is the cross-check that it's the right method for
+X too.
+
+The correction is now applied on a dedicated static group (`axis-2-frame`)
+nested inside the a1-driven slider group, rather than being written onto the
+slider group itself every frame -- the slider group's only job is the a1
+term, in EKSEN1's frame, since it now also carries the carriage mesh
+directly.
+
+**Result, measured with `audit_runtime_adjacency.mjs`:** at the exported CAD
+pose (a1 = 13474mm) the axis1_carriage/axis2 boundary reports a 0.000m
+bbox gap and a 0.000m triangle gap, for both robots and both LOD tiers --
+the same exact-touch precision the Y/Z fix already achieved, now covering X
+too. (The script's own pose-sweep table, and the `axis1`/`axis1_carriage` gap
+it also now reports, move with a1 as expected -- that pair opens up away from
+the exported pose because the carriage is riding along a 16m rail, which is
+correct behaviour, not a new defect.)
 
 ## 3. Conversion pipeline
 

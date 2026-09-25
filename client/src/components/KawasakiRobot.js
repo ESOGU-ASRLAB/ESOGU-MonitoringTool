@@ -20,16 +20,16 @@ import * as THREE from 'three';
 const MESH_SCALE = [1, 1, 1];
 const MESH_BASE = process.env.PUBLIC_URL + '/meshes/rs005l';
 // Gövde: Yarı mat boyalı metal veya sert plastik
-const WHITE_BODY = { color: '#e0e0e0', metalness: 0.15, roughness: 0.65 };
+const WHITE_BODY = { color: '#b9c0c1', metalness: 0.72, roughness: 0.42 };
 
 // Vurgu: Parlak, belirgin kırmızı
-const RED_ACCENT = { color: '#e0e0e0', metalness: 0.4, roughness: 0.25 };
+const BLUE_ACCENT = { color: '#4f86a8', metalness: 0.56, roughness: 0.34 };
 
 // Eklemler: Koyu renkli, yansıtıcı anotlanmış metal
-const DARK_JOINT = { color: '#e0e0e0', metalness: 0.8, roughness: 0.35 };
+const DARK_JOINT = { color: '#303638', metalness: 0.8, roughness: 0.36 };
 
 // Tutucu uç: Fırçalanmış çelik/alüminyum
-const GRIPPER_MAT = { color: '#e0e0e0', metalness: 0.85, roughness: 0.4 };
+const GRIPPER_MAT = { color: '#9ca6a7', metalness: 0.82, roughness: 0.38 };
 
 function STLMesh({ url, position = [0, 0, 0], rotation = [0, 0, 0], scale = MESH_SCALE, material = WHITE_BODY }) {
   const geometry = useLoader(STLLoader, url);
@@ -109,7 +109,7 @@ export default function KawasakiRobot({
           {/* JOINT 1: xyz(0, 0, 0.295) axis(0,0,-1) */}
           <group position={[0, 0, 0.295]}>
             <group ref={(el) => (jointRefs.current[0] = el)}>
-              <STLMesh url={`${MESH_BASE}/RS005L_J1.STL`} material={RED_ACCENT} />
+              <STLMesh url={`${MESH_BASE}/RS005L_J1.STL`} material={BLUE_ACCENT} />
 
               {/* JOINT 2: xyz(0, 0.105, 0) rpy(0, -π/2, 0) axis(0,0,1) */}
               <group position={[0, 0.105, 0]} rotation={[0, -Math.PI / 2, 0]}>
@@ -119,7 +119,7 @@ export default function KawasakiRobot({
                   {/* JOINT 3: xyz(0.380, 0, 0) axis(0,0,-1) */}
                   <group position={[0.380, 0, 0]}>
                     <group ref={(el) => (jointRefs.current[2] = el)}>
-                      <STLMesh url={`${MESH_BASE}/RS005L_J3.STL`} material={RED_ACCENT} />
+                      <STLMesh url={`${MESH_BASE}/RS005L_J3.STL`} material={BLUE_ACCENT} />
 
                       {/* JOINT 4: xyz(0.15, -0.08, 0) rpy(0, π/2, 0) axis(0,0,1) */}
                       <group position={[0.15, -0.08, 0]} rotation={[0, Math.PI / 2, 0]}>
@@ -170,4 +170,3 @@ export default function KawasakiRobot({
     </group>
   );
 }
-

@@ -1,5 +1,6 @@
 import React, { Suspense } from 'react';
 import OtokarMesh from './OtokarMesh';
+import { OTOKAR_BODY_MATERIAL } from './otokarCadPalette';
 import { RAIL_INNER_FACE_MM, RAIL_REAR_X_MM, RAIL_FOOT_TOP_MM } from './otokarCellGeometry';
 
 /*
@@ -48,8 +49,8 @@ export const GROUND_HEIGHT_MM = 1646.2384;
  * otherwise: that -X is the body's REAR (it is the end the rail overhangs),
  * and that the body's centreline belongs midway between the two rails.
  */
-const BODY_REAR_X_MM = -9556.0;
-const BODY_UNDERSIDE_Z_MM = 172.0;
+export const BODY_REAR_X_MM = -9556.0;
+export const BODY_UNDERSIDE_Z_MM = 172.0;
 const BODY_CENTRELINE_Y_MM = 0.0;
 export const BODY_HALF_WIDTH_MM = 1251.0;
 
@@ -85,7 +86,17 @@ export const BUS_OFFSET_MM = [
   RAIL_FOOT_TOP_MM + GROUND_HEIGHT_MM - BODY_UNDERSIDE_Z_MM,
 ];
 
-const BUS_MATERIAL = { color: '#c9ced4', metalness: 0.5, roughness: 0.55 };
+/*
+ * Body metal, not a drawing.
+ *
+ * The per-surface colours come from OtokarMesh's cadColors path, which tones
+ * the structure by height and run direction; this only sets the FINISH the
+ * whole shell shares. The body used to render as coloured edges over hidden
+ * surfaces, so it read as a blueprint floating in the cell. These figures are
+ * bare steel at the inspection station -- part-way metallic, fairly matte --
+ * rather than a finished topcoat, which this shell does not have yet.
+ */
+const BUS_MATERIAL = OTOKAR_BODY_MATERIAL;
 
 /*
  * A missing body mesh must not take the cell down with it. The 118 MB source
@@ -124,8 +135,16 @@ export default function OtokarBusBody({ show = true, lod = 'hi' }) {
       <Suspense fallback={null}>
         {/* Same CAD Z-up -> three Y-up conversion the robots apply. */}
         <group rotation={[-Math.PI / 2, 0, 0]}>
+          {/* BUS_OFFSET_MM stays in the CAD-local basis; the parent root's
+              -90° X rotation performs the single frame conversion. */}
           <group position={BUS_OFFSET_MM.map((v) => v * MM)}>
-            <OtokarMesh group="bus" part="body" lod={lod} material={BUS_MATERIAL} />
+            <OtokarMesh
+              group="bus"
+              part="body"
+              lod={lod}
+              material={BUS_MATERIAL}
+              cadColors
+            />
           </group>
         </group>
       </Suspense>

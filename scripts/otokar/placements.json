@@ -27,6 +27,31 @@
       "provenance": "Same matrix: EKSEN5 shares the master frame.",
       "evidence": "BRep surface distance between 4_Eksen_Reduktor_Baglanti_Braketi_SYM and 5_Eksen_Reduktor_Baglanti_Braketi_SYM is 8.515 mm in native coordinates, at identical Y -- a physical flange clearance, not a frame offset."
     },
+    "Robot2_EKSEN1": {
+      "matrix": [0, -1, 0, 3376.008, 1, 0, 0, -3570.168, 0, 0, 1, -1252.86, 0, 0, 0, 1],
+      "provenance": "Rz(+90 deg) plus t=(3376.008, -3570.168, -1252.860), placing Robot 2's rail as the MIRROR of Robot 1's about the bus's vertical longitudinal centre plane at cell Y = -137.2612 mm (Otokar's end-view slide: two parallel rails, bus centred, arms inward).",
+      "evidence": "Anchored on the carriage, which is provably the same hardware in both exports: Robot 1's 1_Eksen_Hareketli_SYM is 750.5 mm wide across the rail, Robot 2's 1_eksen_hareketli is 750.4 mm. Robot 2's rail runs along its native Y, so Rz(+90) turns it onto the cell X the bus runs along; native +Y (the carriage's home end) maps to cell -X, putting both carriages at the same cable-loop end. INDEPENDENT CHECK: the Z term was fixed by the carriage alone and lands Robot 2's carriage centre at cell Z -720.96 against Robot 1's -720.96, a 0.1 mm agreement that was not fitted."
+    },
+    "Robot2_EKSEN2": {
+      "matrix": [0, -1, 0, -10927.184, 1, 0, 0, -3490.214, 0, 0, 1, -4319.5, 0, 0, 0, 1],
+      "provenance": "Derived from the Robot2_EKSEN2 base-plate counterpart and the mirrored Robot1 installed frame.",
+      "evidence": "Robot2 2_Eksen_Robot_Plakasi is 470 x 25 x 700 mm at native (-1..469, 1293.2..1318.2, 3607.5..4307.5); Robot1's counterpart is 25 x 470 x 700 mm. The exact rigid mirror maps it to Robot1's installed axis-2 column across the bus centre plane, with the 450 x 450 base on the Robot2 carriage."
+    },
+    "Robot2_EKSEN3": {
+      "matrix": [1, 0, 0, -50, 0, -1, 0, -300, 0, 0, 1, -3410, 0, 0, 0, 1],
+      "provenance": "Derived by mirroring the Robot2 EKSEN3 root onto Robot1's installed EKSEN3 envelope.",
+      "evidence": "The native root is the same 508 x 1629 x 1046 mm telescopic assembly as Robot1, with native Y reversed. Translation puts its installed bbox at Robot1's X/Z and the mirrored inward-facing Y side."
+    },
+    "Robot2_EKSEN4": {
+      "matrix": [0, -1, 0, -11096, -1, 0, 0, 262.2, 0, 0, 1, -4319.5, 0, 0, 0, 1],
+      "provenance": "Derived by matching the Robot2 reducer root dimensions to Robot1's installed EKSEN4 frame and mirroring across the bus centre plane.",
+      "evidence": "The native 228 x 276 x 309 mm root maps to the 276 x 228 x 309 mm installed Robot1 reducer envelope; the resulting wrist is on the Robot2 inner side."
+    },
+    "Robot2_EKSEN5": {
+      "matrix": [0, -1, 0, -11096.2, -1, 0, 0, 239.8, 0, 0, 1, -4319.5, 0, 0, 0, 1],
+      "provenance": "Derived by matching the Robot2 axis-5 reducer root to Robot1's installed EKSEN5 frame and mirroring across the bus centre plane.",
+      "evidence": "The native reducer envelope maps to the Robot1 axis-5 envelope with its camera flange on the bus-facing side; the residual 8.515 mm flange clearance is retained rather than fitted away."
+    },
     "Robot2_Kamera": {
       "matrix": null,
       "provenance": "NOT DERIVABLE FROM THE EXPORTS -- DECLARED ASSUMPTION.",

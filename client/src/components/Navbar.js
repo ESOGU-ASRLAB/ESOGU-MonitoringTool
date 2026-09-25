@@ -53,7 +53,6 @@ export default function Navbar({ liveStatus }) {
       </a>
       <div className="navbar-heading">
         <span className="navbar-title">Monitoring Tool</span>
-        <span className="navbar-version">3D Workcell Visualizer</span>
       </div>
       <div className="navbar-monitoring">
         <div className="live-badge" data-status={liveStatus} role="status" aria-label={`${statusLabel}: ${statusCaption}`}>

@@ -61,7 +61,21 @@ const CONVERTED_SCALE = 1 / 2.02157;
 
 // metallicFactor per material in the original export, in mat0..mat3 order
 // (floor, wall, beams, details). Only the beams were ever metal.
-const ORIGINAL_METALNESS = [0.1, 0, 2, 1];
+const ORIGINAL_METALNESS = [0.12, 0.04, 0.55, 0.18];
+
+/*
+ * Surface finish, which the converter dropped along with everything else: the
+ * roughness maps are still inside the file but no material references them, so
+ * every surface came through at the default 1.0 -- uniformly, perfectly matte.
+ * That is why the shell read as flat no matter how it was lit: a sealed floor
+ * and a steel truss do not scatter light the same way, and with one value for
+ * both, nothing in the building had a highlight to place it by.
+ *
+ * These are ordinary values for what each surface is, not measurements: sealed
+ * concrete is matte but not perfectly so, coated panels a little less, and
+ * painted steel less again.
+ */
+const MATERIAL_ROUGHNESS = [0.86, 0.78, 0.52, 0.6];
 
 // The converter dropped this map; it is extracted back out of the first export
 // (identical UV layout, so it lines up on the new geometry) and re-attached.
@@ -126,8 +140,31 @@ function WarehouseModel() {
       const slot = CONVERTED_MATERIAL_NAMES.indexOf(mat.name);
       if (slot === -1) continue;
 
-      mat.color.setRGB(1, 1, 1); // drop the debug tint
+      /*
+       * Base colours, replacing the four debug tints the converter wrote in.
+       *
+       * The floor comes down from #a8a8a8 and picks up a cool cast. It is the
+       * largest surface in the shot and it was reading almost as bright as the
+       * walls, which left the cell's dark machines sitting on a pale field with
+       * nothing to ground them; sealed concrete is also a cool grey rather than
+       * the neutral one it had. (The comment beside it used to say "blue epoxy
+       * floor" while the value was flat neutral -- the comment was describing
+       * an intention nobody had carried out.)
+       *
+       * Walls and beams were #f6f5f0 and #f4eeea, near-identical and both
+       * nearly white, so the whole distinction between a clad panel and the
+       * steel holding it up rested on the texture. The beams now sit a step
+       * darker and cooler, which is also what they are.
+       */
+      const authoredColor = [
+        '#9aa1a6', // sealed concrete floor, cool and a shade darker than before
+        '#e9eae7', // coated wall panels
+        '#c9ced2', // structural steel, cooler and darker than the panels
+        '#ffffff', // lamps and small details
+      ][slot];
+      mat.color.set(authoredColor || '#ffffff');
       mat.metalness = ORIGINAL_METALNESS[slot];
+      mat.roughness = MATERIAL_ROUGHNESS[slot];
 
       if (slot === DETAILS_MATERIAL_INDEX) {
         mat.emissive.setRGB(1, 1, 1);

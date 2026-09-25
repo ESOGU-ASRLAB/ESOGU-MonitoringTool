@@ -1,0 +1,38 @@
+{
+  "src": "Robot1_EKSEN1.stp",
+  "dst": "Robot1_EKSEN1.hi.axis1_carriage.raw.glb",
+  "deflection_mm": 6.0,
+  "min_part_mm": 25.0,
+  "parts_kept": 1,
+  "parts_dropped_small": 280,
+  "parts_dropped_named": 1165,
+  "parts_dropped_crop": 111,
+  "crop": [
+    -99000.0,
+    99000.0,
+    -6000.0,
+    6000.0,
+    -99000.0,
+    99000.0
+  ],
+  "datums_skipped": 0,
+  "non_solids_skipped": 1467,
+  "descendants_skipped": 829,
+  "parts_dropped_role": 62,
+  "axis1_role": "carriage",
+  "vertices": 316615,
+  "triangles": 636580,
+  "glb_bytes": 11439036,
+  "read_sec": 23.6,
+  "tessellate_sec": 2.1,
+  "bbox_min_mm": [
+    -12544.692,
+    2785.44,
+    -996.439
+  ],
+  "bbox_max_mm": [
+    -11585.692,
+    3535.852,
+    -449.399
+  ]
+}

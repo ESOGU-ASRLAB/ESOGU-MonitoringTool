@@ -22,6 +22,11 @@ const OUTPUTS = {
   Robot1_EKSEN3: ['robot1/{tier}/axis3'],
   Robot1_EKSEN4: ['robot1/{tier}/axis4'],
   Robot1_EKSEN5: ['robot1/{tier}/axis5'],
+  Robot2_EKSEN1: ['robot2/{tier}/axis1', 'robot2/{tier}/axis1_carriage'],
+  Robot2_EKSEN2: ['robot2/{tier}/axis2'],
+  Robot2_EKSEN3: ['robot2/{tier}/axis3'],
+  Robot2_EKSEN4: ['robot2/{tier}/axis4'],
+  Robot2_EKSEN5: ['robot2/{tier}/axis5'],
   Robot2_Kamera: ['shared/{tier}/camera'],
 };
 

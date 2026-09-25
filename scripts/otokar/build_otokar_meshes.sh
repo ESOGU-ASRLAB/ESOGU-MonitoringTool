@@ -44,6 +44,39 @@ fi
 # docs/otokar-cad-notes.md.
 export DROP_NAME_RE='civata|somun|saplama|pim_|_pim|imbus|alyan|rondela|washer|screw|bolt|feder|dowel'
 
+# The axis-2 cable chain. EKSEN2's ROOT is what gets written, so its children
+# are skipped by the descendant guard and the root's Shape carries their
+# geometry anyway -- a name drop cannot reach it. EXCLUDE_RE subtracts the
+# solids instead (see convert.py).
+#
+# It is removed rather than repositioned because its exported pose is not a pose
+# the machine has. The chain is drawn hanging straight down from the axis-2
+# slide to cell Z -1866: that is 498 mm BELOW the factory floor at -1368, and
+# 1154 mm below the slide it hangs from. The slide itself is only 700 mm tall
+# (2_Eksen_Robot_Plakasi, Z -712..-12) -- everything under it is unfolded chain.
+# Left in, it drags the column through the floor rail at every column height
+# below 1200 mm, which is every height the underbody pass uses.
+#
+# Drawing it properly means folding it, and the CAD does not say how. The
+# AXIS-1 chain is kept while this one is not, because that one lies in its tray
+# in a pose the machine really does assume.
+#
+# The M5 sets go with it. They are the chain's own fixings -- its bracket bolts
+# and the nuts and screws running its length -- and they are SIBLINGS of the
+# chain under EKSEN2's root rather than children of it, so the name above does
+# not reach them. They are identifiable as the chain's by sharing its Y band
+# (-3519..-3151 against the chain's -3496..-3136), and they are what was left
+# still reaching the floor at Z -1368 after the first pass: with the chain gone
+# but its bolts still in, the column kept its 0 mm contact with the rail at a
+# column height of 400 mm.
+#
+# There is NO static column structure inside EKSEN2 to separate out. Once the
+# chain and its fixings are gone the lowest part left is
+# 2_Eksen_Robot_Plakasi at Z -712, which is the moving slide; the column mast
+# itself lives in EKSEN1's carriage as 2_Eksen_Sabit. So axis 2 needs no
+# runway/carriage-style role split, unlike axis 1.
+export EXCLUDE_RE='2_Eksen_Kablo_Traktoru|M5x40_Havsa_Basli|M5x20_Havsa_Basli|M5_Somun'
+
 mkdir -p "$TMP" "$DEST"
 
 # tier: deflection  min_part_mm  simplify_ratio  simplify_error
@@ -79,6 +112,13 @@ CROP_R1="-99000,99000,-6000,6000,-99000,99000"
 # in Robot2_Kamera.stp. Robot1_Kamera.stp holds the same hardware but placed
 # 3.9 m off in X with no relation to its own axis-5 flange, so both robots
 # share the origin-centred one and get mounted by transform instead.
+CROP_R2="-6000,6000,-99000,99000,-99000,99000"
+# Robot2_EKSEN3's placed root is already at the carriage's native X station
+# (~-12.4 m); including only |X|<6 m would discard that root and retain its
+# unplaced children as detached fragments. The root is the only top-level
+# solid, so this axis uses the full finite band and lets the descendant guard
+# discard the master children.
+CROP_R2_E3="-99000,99000,-99000,99000,-99000,99000"
 CROP_CAM="-1000,1000,-1000,1000,-1000,1000"
 
 # The per-axis exports do not share an origin. placements.json holds the
@@ -103,6 +143,12 @@ convert_one() {
   local role=""
   if [ "$out" = "axis1" ]; then role="runway"; fi
   if [ "$out" = "axis1_carriage" ]; then role="carriage"; fi
+  if [ "$out" = "axis1_chain" ]; then role="chain"; fi
+  if [ "$out" = "axis1_fixtures" ]; then role="fixtures"; fi
+  # The axis-2 chain is lifted out of EKSEN2 by NAME rather than by role: that
+  # file's root is what gets written, so a role test never reaches its children.
+  local exclude="$EXCLUDE_RE" include_only=""
+  if [ "$out" = "axis2_chain" ]; then exclude=""; include_only='2_Eksen_Kablo_Traktoru'; fi
   read -r defl minp ratio err <<<"$(tier_cfg "$tier" "$group")"
   local raw="$TMP/${stem}.${tier}.${out}.raw.glb"
   local dir="$DEST/$group/$tier"
@@ -112,9 +158,17 @@ convert_one() {
   mkdir -p "$dir"
 
   STP_IN="$SRC/${stem}.stp" GLB_OUT="$raw" DEFLECTION="$defl" MIN_PART_MM="$minp" \
-    CROP="$crop" AXIS1_ROLE="$role" REPORT_JSON="$TMP/${stem}.${tier}.${out}.json" \
+    CROP="$crop" AXIS1_ROLE="$role" EXCLUDE_RE="$exclude" INCLUDE_ONLY_RE="$include_only" \
+    REPORT_JSON="$TMP/${stem}.${tier}.${out}.json" \
     PLACEMENT="$placement" PLACEMENT_SRC="$placement_src" \
-    "$FC" "$SCRIPTS/convert.py" 2>&1 | grep "^STATS:"
+    "$FC" "$SCRIPTS/convert.py" 2>&1 | tee "$TMP/${stem}.${tier}.${out}.log" | grep "^STATS:" || {
+    # Without the `|| ...` this pipeline's empty grep would trip `pipefail` and
+    # kill the whole build mid-run, with no FAIL line and no further jobs -- the
+    # failure that actually happened would never be printed. Show it instead.
+    echo "FAIL convert: $stem $tier $out"
+    tail -5 "$TMP/${stem}.${tier}.${out}.log" >&2
+    return 1
+  }
 
   if [ ! -s "$raw" ]; then echo "FAIL tessellate: $stem $tier"; return 1; fi
 
@@ -129,24 +183,33 @@ convert_one() {
 
 # stem : group : output name : crop
 #
-# Robot2_EKSEN1..5 are deliberately absent. The two robots are the same machine
-# (identical face counts) and physically two carriages on one runway, so the
-# scene draws both from the robot1 set and varies only their axis-1 value.
+# Robot 2 is its OWN machine on its OWN rail, mirrored across the bus, so it is
+# built from Robot2_*.stp rather than by re-posing robot 1's meshes.
 #
-# Robot 2's exports are also the ones the mirrored-duplicate crop cannot
-# resolve: its EKSEN2 still comes out 0.82 x 15.76 x 6.51 m against Robot 1's
-# 2.41 x 3.66 x 2.05 m for the same part, because for Robot 2 the duplicate
-# lies along the same axis its real machine runs on. Converting them would ship
-# ~6 MB of geometry that lands outside the building. Only Robot2_Kamera is
-# used, and only because it is the one file with the camera head in a usable
-# local frame.
+# Robot2_EKSEN2..5 have identity roots rather than a placed instance inside
+# EKSEN1. Their matrices are therefore recorded explicitly in placements.json,
+# derived from corresponding Robot1 envelopes and the end-view requirement that
+# Robot2 is a mirror across the bus centre plane. They are baked here just like
+# Robot1's chain; no runtime sibling/zero-offset workaround is allowed.
 JOBS="
 Robot1_EKSEN1:robot1:axis1:$CROP_R1
 Robot1_EKSEN1:robot1:axis1_carriage:$CROP_R1
+Robot1_EKSEN1:robot1:axis1_chain:$CROP_R1
+Robot1_EKSEN1:robot1:axis1_fixtures:$CROP_R1
 Robot1_EKSEN2:robot1:axis2:$CROP_R1
+Robot1_EKSEN2:robot1:axis2_chain:$CROP_R1
 Robot1_EKSEN3:robot1:axis3:$CROP_R1
 Robot1_EKSEN4:robot1:axis4:$CROP_R1
 Robot1_EKSEN5:robot1:axis5:$CROP_R1
+Robot2_EKSEN1:robot2:axis1:$CROP_R2
+Robot2_EKSEN1:robot2:axis1_carriage:$CROP_R2
+Robot2_EKSEN1:robot2:axis1_chain:$CROP_R2
+Robot2_EKSEN1:robot2:axis1_fixtures:$CROP_R2
+Robot2_EKSEN2:robot2:axis2:$CROP_R2
+Robot2_EKSEN2:robot2:axis2_chain:$CROP_R2
+Robot2_EKSEN3:robot2:axis3:$CROP_R2_E3
+Robot2_EKSEN4:robot2:axis4:$CROP_R2
+Robot2_EKSEN5:robot2:axis5:$CROP_R2
 Robot2_Kamera:shared:camera:$CROP_CAM
 16N37D-1__01092026:bus:body:
 "
