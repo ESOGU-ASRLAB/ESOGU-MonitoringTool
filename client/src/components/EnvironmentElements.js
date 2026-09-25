@@ -49,6 +49,14 @@ const RAIL = {
   roughness: 0.45   // Sürtünmeden dolayı kısmi parlaklık
 };
 
+// Keep the existing material names/shape, but use physically plausible
+// industrial tones instead of the nearly-black debug palette.
+Object.assign(ALUMINUM, { color: "#c6ccd0", metalness: 0.72, roughness: 0.38 });
+Object.assign(DARK_AGV, { color: "#6b7684", metalness: 0.22, roughness: 0.42 });
+Object.assign(CONVEYOR, { color: "#3f4852", metalness: 0.58, roughness: 0.56 });
+Object.assign(FACILITY_GRAY, { color: "#1a1506", metalness: 0.12, roughness: 0.52 });
+Object.assign(RAIL, { color: "#303941", metalness: 0.8, roughness: 0.4 });
+
 function EnvMesh({
   url,
   material,

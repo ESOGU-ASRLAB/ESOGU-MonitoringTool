@@ -49,6 +49,7 @@ export function createInspector(overrides = {}) {
   const modules = new Map();
   const geometries = new Map();
   const React = {
+    Component: class {},
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
     Suspense: ({ children }) => children,
     useMemo: (fn) => fn(),

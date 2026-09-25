@@ -49,13 +49,12 @@ export const OTOKAR_AXES = [
     cadAxis: 'x',
     // CLAMPED TO WHAT THE RAIL PHYSICALLY OFFERS, not to the declared travel.
     // The rail spans 16 207 mm and the carriage is 960 mm wide, so end stop to
-    // end stop there is 15 247 mm of usable travel; the exported (zero) pose
-    // already sits 180.3 mm in from the cable-loop end, leaving 15 067 mm
-    // ahead of it. The deck's declared 16 000 mm does not fit either figure --
-    // 753 mm more than the rail allows end to end. OPEN QUESTION FOR OTOKAR:
+    // end stop there is 15 247 mm of usable travel. The deck's declared
+    // 16 000 mm exceeds that physical span by 753 mm. OPEN QUESTION FOR
+    // OTOKAR:
     // either the rail is longer than this export, or the 16 000 mm is nominal.
     // Do not "fix" this by stretching the rail to match.
-    min: 0, max: 15067, home: 0, step: 10, unit: 'mm',
+    min: 0, max: 15247, home: 0, step: 10, unit: 'mm',
     accel: 275, speed: 500, decel: 275, maxSpeed: 690, motionUnit: 'mm/s',
     confirmed: true,
   },
@@ -97,14 +96,14 @@ export const OTOKAR_AXES = [
 export const OTOKAR_HOME = OTOKAR_AXES.map((a) => a.home);
 
 /*
- * Per-robot home pose: both robots parked at their own rail's cable-loop end,
- * which is where Otokar's overview slide shows them and, as of the corrected
- * datum, where a1 = 0 puts them. They no longer need to be spaced apart along
- * a shared track, because they do not share a track.
+ * Per-robot reference pose from Otokar's end-view: both carriages are at the
+ * cable-loop end (a1 = 0), Robot 1 reaches the lower/underbody zone and Robot
+ * 2 reaches the upper/roof zone. Both Axis 3 arms are extended inward so the
+ * inspection heads can enter the bus envelope.
  */
 export const OTOKAR_ROBOT_HOME = {
-  robot1: OTOKAR_AXES.map((a) => a.home),
-  robot2: OTOKAR_AXES.map((a) => a.home),
+  robot1: [0, 600, 1800, 0, 0],
+  robot2: [0, 3350, 1800, 0, 0],
 };
 
 export const clampAxis = (index, value) => {

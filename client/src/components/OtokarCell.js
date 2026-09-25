@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import OtokarGantryRobot from './OtokarGantryRobot';
 import OtokarBusBody from './OtokarBusBody';
+import OtokarBusSlings from './OtokarBusSlings';
 import { OTOKAR_ROBOT_HOME } from './otokarAxes';
 import { FLOOR_Z_MM } from './otokarCellGeometry';
 
@@ -10,14 +11,7 @@ import { FLOOR_Z_MM } from './otokarCellGeometry';
  * Otokar MATISSE body-control cell, placed inside the facility shell alongside
  * the IFARLAB workcell.
  *
- * RETRACTED LAYOUT -- THIS COMPONENT IS STILL BUILT ON IT.
- *
- * What this file currently does: treats the cell as TWO PORTALS ON ONE RUNWAY,
- * both robots straddling the bus at different stations along a single 16 m
- * track, robot 2 drawn with showRails={false} because it was assumed to ride
- * robot 1's rail.
- *
- * What the CAD and Otokar's slides actually show: TWO INDEPENDENT PARALLEL
+ * The CAD and Otokar's slides show TWO INDEPENDENT PARALLEL
  * RAILS, one per robot, each a SINGLE-COLUMN gantry, the two robots mirror
  * images with their arms pointing inward and the bus between the rails. The
  * "both sides" reading came from `2_Konstruksiyon_SYM`, which turned out to be
@@ -25,10 +19,8 @@ import { FLOOR_Z_MM } from './otokarCellGeometry';
  * values are relative to Robot 1's zero" means a shared world datum, not a
  * shared rail.
  *
- * Robot 2 therefore still needs its own rail and its own Robot2_*.stp
- * conversion; it must not keep borrowing robot 1's meshes at a different a1.
- * See docs/otokar-cad-notes.md, "RETRACTED: the cell is two portals on one
- * runway".
+ * Robot 2 uses its own converted Robot2_*.stp mesh set and its own rail. The
+ * two machines share a world datum but never a runway.
  *
  * Everything is one <group>, so the cell moves by changing CELL_ORIGIN alone,
  * and the whole subtree unmounts when the "Show Otokar cell" toggle is off --
@@ -51,20 +43,33 @@ import { FLOOR_Z_MM } from './otokarCellGeometry';
  *   Building shell                     x [-16.39,16.39]  z [-24.73,24.73]
  *
  * The cell's own footprint, once CELL_ROTATION_Y turns the runway onto the
- * building's long axis, is 7.54 m across (x) by 16.21 m along (z). These
- * origin values land it at x -14.11 .. -5.78, z -9.36 .. 6.84:
- *   - a 2.5 m aisle to the IFARLAB fence's west face (x = -3.28)
- *   - 2.28 m clear of the west wall
+ * building's long axis, is 7.54 m across (x) by 16.21 m along (z). Relative
+ * to IFARLAB this lands it at:
+ *   - a 2.5 m aisle to the IFARLAB fence's west face
  *   - z-centred on the IFARLAB cell, so its whole depth sits inside this
  *     cell's z-span and both read together from one camera angle
+ *
+ * Both cells were then shifted together by the same +6.18 m in x (see
+ * IFARLAB_SHIFT_X in DigitalTwin.js, which wraps IFARLAB the same way) so the
+ * combined pair sits centred on the building's own x=0 instead of hugging the
+ * west wall with the whole east side of the room sitting empty. That rigid
+ * shift is baked into CELL_ORIGIN's x below rather than applied as a second
+ * wrapping group here, so this component's own placement math (the aisle,
+ * the z-centring) stays relative to IFARLAB's un-shifted coordinates above --
+ * only the final x differs by that +6.18 m.
+ *
+ * With the corrected CAD->Three axis mapping and the bus body's converted
+ * offset, the complete hi-res union lands at x -8.59 .. -0.39,
+ * z -11.44 .. 6.84: 7.80 m clear of the west wall and 3.28 m from the
+ * measured IFARLAB workcell's nearest x face.
  *
  * (The cell's own full footprint -- bus body included -- runs about 0.8 m
  * further +x than its rail structure alone, which is what the 2.5 m aisle is
  * measured against here; sizing this by the rail's bbox alone undershot the
  * gap on the first pass. verify_cell_fit.mjs checks the real thing.)
  *
- * One cosmetic loose end: Workers.js's second patrol route runs along
- * x = -10, z 2..-6, straight through this aisle. Left alone -- Workers/Drones
+ * The former worker patrol used to run along x = -10, z 2..-6, straight
+ * through this aisle. The patrol is no longer part of the scene.
  * are explicitly out of scope for this pass (see DigitalTwin.js) -- so a
  * background figure occasionally paces through the gantry's footprint.
  *
@@ -77,7 +82,7 @@ import { FLOOR_Z_MM } from './otokarCellGeometry';
  * 2.53 m of actual clearance -- 5.31 m is a safe floor from elsewhere in the
  * building, not this site's true ceiling.
  */
-const CELL_ORIGIN = [-10.1, -FLOOR_Z_MM * 0.001, -5.88];
+const CELL_ORIGIN = [-3.92, -FLOOR_Z_MM * 0.001, -5.88];
 const CELL_ROTATION_Y = Math.PI / 2; // runway from local +x onto the building's z
 
 /*
@@ -123,28 +128,36 @@ export default function OtokarCell({
         setActiveLod={setActiveLod}
       />
       <Suspense fallback={null}>
-        {/* Robot 1 carries the shared runway; robot 2 rides the same one, so it
-            is drawn without rails rather than stacking a second copy of the
-            structure on the first. */}
+        {/* Two independent parallel rails, one per robot, mirrored about the
+            body's longitudinal centre plane. Both meshes are pre-placed in the
+            shared cell frame, so neither instance takes a position here. */}
         <OtokarGantryRobot
           robotId="robot1"
+          meshGroup="robot1"
           axes={axes.robot1}
           lod={lod}
           showRails={showRails}
           animate={animate}
           animationSpeed={animationSpeed}
         />
+        {/* Robot 2 owns the second rail and the complete mirrored EKSEN1-5
+            chain. Its assets are baked into the same installed cell frame. */}
         <OtokarGantryRobot
           robotId="robot2"
+          meshGroup="robot2"
           axes={axes.robot2}
           lod={lod}
-          showRails={false}
+          showRails={showRails}
           animate={animate}
           animationSpeed={animationSpeed}
           phase={3.1}
         />
 
         <OtokarBusBody show={showBus} lod={lod} />
+        {/* The vehicle has no modelled support -- see OtokarBusSlings for what
+            was searched for and not found. These hang it from the roof so it
+            does not read as levitating. */}
+        <OtokarBusSlings show={showBus} />
       </Suspense>
     </group>
   );

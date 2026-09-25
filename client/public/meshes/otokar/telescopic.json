@@ -1,0 +1,172 @@
+{
+  "middleTravelRatio": 0.5,
+  "status": "Ratio assumed; named stages and mount faces from STEP",
+  "busCentrelineYmm": -137.26119999999992,
+  "robot2FileToFile": {
+    "yReflected": true,
+    "translationMm": [
+      -14121.0000491354,
+      -26.3410611486604,
+      3410.000000000106
+    ],
+    "datumStage": "axis3_fixed"
+  },
+  "stages": [
+    {
+      "robot": "robot1",
+      "part": "axis3_fixed",
+      "source": "Robot1_EKSEN3.stp",
+      "label": "Ic_Konstruksiyon_SYM_rev2",
+      "matrix": [
+        -1.0,
+        0.0,
+        0.0,
+        -10738.384,
+        0.0,
+        -1.0,
+        0.0,
+        -0.108,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "solids": 141,
+      "provenance": "Robot1_EKSEN3 placement from placements.json (EKSEN2/EKSEN3 share a master frame)."
+    },
+    {
+      "robot": "robot1",
+      "part": "axis3_middle",
+      "source": "Robot1_EKSEN3.stp",
+      "label": "Orta_Konstruksiyon_SYM_rev2",
+      "matrix": [
+        -1.0,
+        0.0,
+        0.0,
+        -10738.384,
+        0.0,
+        -1.0,
+        0.0,
+        -0.108,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "solids": 335,
+      "provenance": "Robot1_EKSEN3 placement from placements.json (EKSEN2/EKSEN3 share a master frame)."
+    },
+    {
+      "robot": "robot1",
+      "part": "axis3_outer",
+      "source": "Robot1_EKSEN3.stp",
+      "label": "Dis_Konstruksiyon_SYM_rev2",
+      "matrix": [
+        -1.0,
+        0.0,
+        0.0,
+        -10738.384,
+        0.0,
+        -1.0,
+        0.0,
+        -0.108,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "solids": 140,
+      "provenance": "Robot1_EKSEN3 placement from placements.json (EKSEN2/EKSEN3 share a master frame)."
+    },
+    {
+      "robot": "robot2",
+      "part": "axis3_fixed",
+      "source": "Robot2_EKSEN3.stp",
+      "label": "Ic_Konstruksiyon_rev2",
+      "matrix": [
+        -1.0,
+        0.0,
+        0.0,
+        -24859.3840491354,
+        0.0,
+        -1.0,
+        0.0,
+        -300.75546114866023,
+        0.0,
+        0.0,
+        1.0,
+        -3410.000000000106,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "solids": 141,
+      "provenance": "DERIVED, not read from placements.json: robot 1's placement, reflected about the bus centre plane at cell Y = -137.2612 mm, composed with the inverse of the measured file-to-file transform (y2 = -y1 + -26.3411, x2 = x1 + -14121.0000, z2 = z1 + 3410.0000, read off the fixed stage). Robot2_EKSEN3's own matrix leaves X un-flipped, which turns the arm end-for-end instead of mirroring it and opens 126 mm at the column and 87 mm at the wrist."
+    },
+    {
+      "robot": "robot2",
+      "part": "axis3_middle",
+      "source": "Robot2_EKSEN3.stp",
+      "label": "Orta_Konstruksiyon_rev2",
+      "matrix": [
+        -1.0,
+        0.0,
+        0.0,
+        -24859.3840491354,
+        0.0,
+        -1.0,
+        0.0,
+        -300.75546114866023,
+        0.0,
+        0.0,
+        1.0,
+        -3410.000000000106,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "solids": 337,
+      "provenance": "DERIVED, not read from placements.json: robot 1's placement, reflected about the bus centre plane at cell Y = -137.2612 mm, composed with the inverse of the measured file-to-file transform (y2 = -y1 + -26.3411, x2 = x1 + -14121.0000, z2 = z1 + 3410.0000, read off the fixed stage). Robot2_EKSEN3's own matrix leaves X un-flipped, which turns the arm end-for-end instead of mirroring it and opens 126 mm at the column and 87 mm at the wrist."
+    },
+    {
+      "robot": "robot2",
+      "part": "axis3_outer",
+      "source": "Robot2_EKSEN3.stp",
+      "label": "Dis_Konstruksiyon_rev2",
+      "matrix": [
+        -1.0,
+        0.0,
+        0.0,
+        -24859.3840491354,
+        0.0,
+        -1.0,
+        0.0,
+        -300.75546114866023,
+        0.0,
+        0.0,
+        1.0,
+        -3410.000000000106,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "solids": 139,
+      "provenance": "DERIVED, not read from placements.json: robot 1's placement, reflected about the bus centre plane at cell Y = -137.2612 mm, composed with the inverse of the measured file-to-file transform (y2 = -y1 + -26.3411, x2 = x1 + -14121.0000, z2 = z1 + 3410.0000, read off the fixed stage). Robot2_EKSEN3's own matrix leaves X un-flipped, which turns the arm end-for-end instead of mirroring it and opens 126 mm at the column and 87 mm at the wrist."
+    }
+  ]
+}

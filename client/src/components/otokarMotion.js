@@ -170,26 +170,158 @@ export function createCoordinatedMove(from, to, specs) {
 }
 
 /*
- * Demo inspection sequence: front wall -> rear wall -> underbody -> roof, the
- * order Otokar's own deck lists for the regions this cell scans.
+ * THE INSPECTION PROGRAM, AND THE ONE RULE THAT MAKES IT SAFE.
  *
- * These axis targets are a REPRESENTATIVE sweep, not an inverse-kinematics
- * solution:
- *   - axis 1 (rail) "near front"/"near rear" come from lining the carriage's
- *     own embedded CAD position up against the bus's measured rear anchor
- *     (see OtokarBusBody.js) -- good to within roughly a metre, not exact.
- *   - axis 2 (column height) picks round fractions of its 0-3350mm travel
- *     for wall / underbody / roof height, not a measured wall/roof height.
- *   - axis 4/5 (the camera's tilt/pan) are hand-picked per leg so the head
- *     visibly turns toward each region instead of holding one fixed pose --
- *     not a lookAt solve, since the camera mesh's own local forward axis was
- *     never characterised against the STEP data (docs/otokar-cad-notes.md).
+ * Each robot works one region: robot 1 the UNDERBODY, robot 2 the ROOF. They
+ * are on opposite rails facing each other, so splitting the vehicle this way is
+ * what the cell is built to do, and it keeps the two heads in different halves
+ * of the body, which is why they can run at once.
  *
- * Axis order matches OTOKAR_AXES: [axis1_mm, axis2_mm, axis3_mm, axis4_deg, axis5_deg].
+ * BOTH OF THEM GO IN, AND WHERE EACH ONE ENTERS IS A MEASURED RESULT.
+ *
+ * Robot 1 goes under the sill. Robot 2 goes in through the WINDOW BAND and
+ * looks up at the roof from inside the cabin. Neither of those is a choice of
+ * style; they are the two heights at which the arm fits, and the sweep that
+ * found them is scripts/otokar/bus_entry_windows.mjs with the clearance metric
+ * in bus_clearance.mjs.
+ *
+ * At full 1 800 mm reach, by column height:
+ *
+ *   a2=400   head under the floor pan      326-490 mm   <- the underbody pass
+ *   a2=1400  head at the waist rail          0-28 mm
+ *   a2=1800  head above the waist            4-387 mm   (blocked mid-vehicle)
+ *   a2=2200  head at the glazing             4-456 mm   (blocked mid-vehicle)
+ *   a2=2600  head in the window band       176-296 mm   <- the roof pass
+ *   a2=3000  head at the cant rail            0-17 mm
+ *
+ * THE ROOF CANNOT BE REACHED FROM ROOF HEIGHT. At a2=3000 and above, the head
+ * meets the cant rail -- a member that runs the whole length of the vehicle --
+ * and stops 20 mm past the body's side plane with 95 mm to spare. There is no
+ * station where that is not true, and the clearance barely varies along the
+ * bus (675, 680, 680, 676, 685, 686, 677 mm at a 400 mm reach), which is what
+ * a continuous longitudinal member looks like as opposed to a row of pillars.
+ *
+ * An earlier version of this file read a row of "openings between pillars" at
+ * roof height and concluded the opposite. Those openings were not real: the
+ * clearance metric then sampled eight bounding-box corners per part, and eight
+ * points are enough to miss a rail. See bus_clearance.mjs.
+ *
+ * So robot 2 climbs to the window band instead, reaches its full stroke -- 820
+ * mm past the body's side plane, properly inside the cabin -- and tilts its
+ * head up at the roof from there.
+ *
+ * WHY THE ROOF PASS SKIPS THE REAR-MOST STATION. At a1=1500 the head is at
+ * cell X -11129 and the body's rear wall is at -11564, so the head is reaching
+ * into a closed end: clearance drops to 115 mm against 217 mm or better
+ * everywhere else. The rear wall is inspected from outside, by the underbody
+ * robot's own rear station.
+ *
+ * THE RULE: THE RAIL NEVER MOVES WHILE THE HEAD IS IN THE VEHICLE.
+ *
+ * Axis 1 runs the length of the bus. Axis 3 reaches sideways into it. Move both
+ * at once and the head sweeps a diagonal through the pillars -- which is
+ * exactly what the previous four-waypoint demo did, because it drove straight
+ * from one region's pose to the next and let every axis interpolate together.
+ *
+ * So a station is not one waypoint, it is three legs, and the structure itself
+ * enforces the rule rather than a comment asking for it:
+ *
+ *   TRAVEL   axis 3 held at 0 at BOTH ends, so it stays 0 for the whole leg
+ *            (a zero-distance trapezoid never leaves its start), while axis 1
+ *            carries the carriage to the station and axes 2/4/5 pre-aim.
+ *   ENTER    axis 1 held, axis 3 alone reaches in to `depth`. Then hold, which
+ *            is the actual inspection: a camera needs dwell time on the target,
+ *            and a demo that never pauses reads as a machine flailing.
+ *   EXIT     axis 1 held, axis 3 alone withdraws to 0.
+ *
+ * Because TRAVEL is the only leg that moves axis 1 and it runs entirely at
+ * axis 3 = 0, the head is outside the body's side plane for every millimetre of
+ * rail motion. scripts/otokar/verify_inspection_program.mjs asserts this
+ * against the real mounted hierarchy rather than trusting the description.
+ *
+ * WHERE THE NUMBERS COME FROM
+ *
+ * `stations`, `columnHeight` and `depth` are NOT evenly spaced or rounded to
+ * taste. They are measured by scripts/otokar/bus_entry_windows.mjs, which
+ * sweeps the swept corridor of the head against the body's two million
+ * vertices and reports the clearance each combination leaves. The body is a
+ * body-in-white -- open sides, pillars and roof bows -- so a station chosen by
+ * eye drives the head through a pillar.
+ *
+ * `tilt` (axis 4) and `roll` (axis 5) still aim the head by hand: the camera
+ * mesh's own forward axis was never characterised against the STEP data, so
+ * these turn the head convincingly toward the region without claiming to be a
+ * lookAt solve. See docs/otokar-cad-notes.md.
  */
-export const OTOKAR_DEMO_WAYPOINTS = [
-  { name: 'front wall', axes: [13000, 1400, 1400, 20, -70] },
-  { name: 'rear wall', axes: [1500, 1400, 1400, -20, 70] },
-  { name: 'underbody', axes: [7000, 250, 1700, 90, 0] },
-  { name: 'roof', axes: [9000, 3100, 600, -90, 0] },
-];
+export const OTOKAR_INSPECTION_PROGRAMS = {
+  robot1: {
+    zone: 'underbody',
+    // Low enough that the outer telescope stage's top edge sits at cell
+    // Z = -28 mm, a quarter metre below the body's underside, so the whole arm
+    // passes under the sill rather than just the camera.
+    columnHeight: 400,
+    // Full axis-3 stroke. The head ends up under the floor pan, inside the
+    // body's plan footprint -- this is the robot that goes into the vehicle.
+    depth: 1800,
+    // Camera turned up at the underfloor structure.
+    tilt: 90,
+    roll: 0,
+    dwell: 1.8,
+    // Spread across the body's length. Head X is -12653 + a1, and the body runs
+    // from cell X -11564 to 290, so these five land inside the vehicle.
+    stations: [1500, 4500, 7500, 10000, 12500],
+  },
+  robot2: {
+    zone: 'roof',
+    // The window band: head at cell Z 1649..1769, between the waist rail and
+    // the cant rail. The one height at which the arm reaches its full stroke.
+    columnHeight: 2600,
+    // The whole stroke. The head ends up 820 mm past the body's side plane --
+    // inside the cabin, not at its edge.
+    depth: 1800,
+    // Head turned up at the roof from inside. +60 deg measured best: it leaves
+    // 217 mm at the tightest station against 207 mm at +45 and 63 mm at +75.
+    tilt: 60,
+    roll: 0,
+    dwell: 1.8,
+    // The rear-most station is left out on purpose -- see the note above.
+    stations: [2750, 4500, 7625, 9125, 11875],
+  },
+};
+
+/*
+ * Expand a program into the leg list the runner consumes.
+ *
+ * `hold` is seconds to stand still once the leg's move has finished, and it is
+ * a property of the LEG rather than a separate waypoint so a dwell can never
+ * become a zero-length move -- those have zero duration, and a runner that
+ * advances on elapsed >= duration would spin through them without rendering,
+ * or stall on them forever.
+ */
+export function buildInspectionSequence(program) {
+  const { columnHeight, depth, tilt, roll, dwell, stations } = program;
+  const parked = (a1) => [a1, columnHeight, 0, tilt, roll];
+  const legs = [];
+  for (const station of stations) {
+    legs.push({ name: `travel to ${station} mm`, axes: parked(station), hold: 0 });
+    legs.push({
+      name: `${program.zone} scan at ${station} mm`,
+      axes: [station, columnHeight, depth, tilt, roll],
+      hold: dwell,
+    });
+    legs.push({ name: `withdraw at ${station} mm`, axes: parked(station), hold: 0 });
+  }
+  return legs;
+}
+
+/*
+ * The runner's view of a program: legs plus the axis 3 value that counts as
+ * "clear of the vehicle". Exported so the verification script checks the same
+ * object the component runs, not a copy of it.
+ */
+export const OTOKAR_INSPECTION_SEQUENCES = Object.fromEntries(
+  Object.entries(OTOKAR_INSPECTION_PROGRAMS).map(([id, program]) => [
+    id,
+    buildInspectionSequence(program),
+  ]),
+);
