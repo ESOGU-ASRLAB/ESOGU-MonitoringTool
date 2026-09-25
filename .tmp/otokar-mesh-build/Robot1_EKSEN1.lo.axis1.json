@@ -1,0 +1,38 @@
+{
+  "src": "Robot1_EKSEN1.stp",
+  "dst": "Robot1_EKSEN1.lo.axis1.raw.glb",
+  "deflection_mm": 20.0,
+  "min_part_mm": 80.0,
+  "parts_kept": 34,
+  "parts_dropped_small": 1746,
+  "parts_dropped_named": 88,
+  "parts_dropped_crop": 111,
+  "crop": [
+    -99000.0,
+    99000.0,
+    -6000.0,
+    6000.0,
+    -99000.0,
+    99000.0
+  ],
+  "datums_skipped": 0,
+  "non_solids_skipped": 1467,
+  "descendants_skipped": 468,
+  "parts_dropped_role": 1,
+  "axis1_role": "runway",
+  "vertices": 720397,
+  "triangles": 1503363,
+  "glb_bytes": 26685812,
+  "read_sec": 22.7,
+  "tessellate_sec": 3.8,
+  "bbox_min_mm": [
+    -12724.986,
+    2760.658,
+    -1500.839
+  ],
+  "bbox_max_mm": [
+    3481.602,
+    3560.633,
+    3498.154
+  ]
+}

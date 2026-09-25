@@ -15,16 +15,16 @@ const MESH_SCALE = [0.001, 0.001, 0.001];
 const MESH_BASE = process.env.PUBLIC_URL + '/meshes/ur10e';
 
 // Material presets// Ana gövde: Fırçalanmış alüminyum/gümüş (Saf beyaz yerine açık gri)
-const SILVER = { color: '#a0a4a8', metalness: 0.9, roughness: 0.4 };
+const SILVER = { color: '#e4e3d8', metalness: 0.42, roughness: 0.48 };
 
 // Eklemler/Motorlar: Koyu renkli döküm metal
-const DARK_METAL = { color: '#2c2d30', metalness: 0.85, roughness: 0.35 };
+const DARK_METAL = { color: '#35393b', metalness: 0.72, roughness: 0.4 };
 
 // Vurgu kapakları: Anotlanmış mavi alüminyum veya sert plastik
-const BLUE_ACCENT = { color: '#137cbd', metalness: 0.6, roughness: 0.3 };
+const BLUE_ACCENT = { color: '#4778a8', metalness: 0.56, roughness: 0.4 };
 
 // Tutucu uç: İşlenmiş karbon çeliği veya mat koyu metal
-const GRIPPER_MAT = { color: '#595d63', metalness: 0.8, roughness: 0.45 };
+const GRIPPER_MAT = { color: '#454b4d', metalness: 0.78, roughness: 0.42 };
 
 // gripper_body_1/lower_1/upper_1.stl share the same raw coordinate frame as
 // the rest of the arm's collision meshes (their raw centers sit right past
@@ -303,4 +303,3 @@ export default function UR10eRobot({
     </group>
   );
 }
-

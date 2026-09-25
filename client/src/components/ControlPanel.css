@@ -78,3 +78,46 @@
   gap: 4px;
   cursor: pointer;
 }
+
+/* --- Otokar MATISSE cell panel additions --- */
+
+.axis-range {
+  display: block;
+  margin-top: 1px;
+  font-size: 9px;
+  color: #666666;
+}
+
+.axis-inferred {
+  display: inline-block;
+  margin-left: 3px;
+  padding: 0 3px;
+  border: 1px solid #b0872a;
+  border-radius: 6px;
+  color: #b0872a;
+  font-size: 8px;
+  text-decoration: none;
+  cursor: help;
+}
+
+.panel-button {
+  width: 100%;
+  margin-top: 6px;
+  padding: 4px 0;
+  border: 1px solid #000000;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #000000;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.panel-button:hover:not(:disabled) {
+  background: #000000;
+  color: #ffffff;
+}
+
+.panel-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

@@ -1,0 +1,123 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>STEP part view</title>
+<style>
+  body { margin: 0; background: #0f1216; color: #e8eaed;
+         font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  header { padding: 10px 14px; border-bottom: 1px solid #262b33; }
+  h1 { font-size: 13px; margin: 0 0 6px; color: #9aa4b2; font-weight: 600; }
+  .p { margin: 2px 0; }
+  .sw { display: inline-block; width: 10px; height: 10px; margin-right: 6px;
+        vertical-align: baseline; border-radius: 2px; }
+  .wrap { position: relative; }
+  .lbl { position: absolute; color: #9aa4b2; font-size: 11px;
+         text-shadow: 0 0 4px #000; pointer-events: none; }
+  canvas { display: block; }
+</style>
+<header id="hdr"></header>
+<div class="wrap"><div id="labels"></div></div>
+<script type="module">
+import * as THREE from './three.module.js';
+
+const MM = 0.001;
+const PALETTE = ['#4da3ff', '#ffb454', '#7ddc6b', '#ff7b72', '#c792ea'];
+
+function bytes(b64) {
+  const bin = atob(b64);
+  const buf = new ArrayBuffer(bin.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
+  return buf;
+}
+
+const data = await (await fetch('./part.json')).json();
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#0f1216');
+const union = new THREE.Box3();
+
+data.parts.forEach((part, i) => {
+  const geometry = new THREE.BufferGeometry();
+  const raw = new Float32Array(bytes(part.positions));
+  const scaled = new Float32Array(raw.length);
+  for (let k = 0; k < raw.length; k++) scaled[k] = raw[k] * MM;
+  geometry.setAttribute('position', new THREE.BufferAttribute(scaled, 3));
+  geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(bytes(part.indices)), 1));
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+    color: PALETTE[i % PALETTE.length], flatShading: true,
+    metalness: 0.25, roughness: 0.65,
+  }));
+  scene.add(mesh);
+  union.expandByObject(mesh);
+});
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const key = new THREE.DirectionalLight(0xffffff, 1.7);
+key.position.set(1, -1.4, 1.2);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xffffff, 0.5);
+fill.position.set(-1.2, 0.8, 0.4);
+scene.add(fill);
+
+// 1 m grid on the CAD XY plane at the model's floor, so scale is readable.
+const centre = union.getCenter(new THREE.Vector3());
+const sphere = union.getBoundingSphere(new THREE.Sphere());
+const grid = new THREE.GridHelper(Math.ceil(sphere.radius * 4), Math.ceil(sphere.radius * 4),
+  0x3a424e, 0x232932);
+grid.rotation.x = Math.PI / 2;
+grid.position.set(centre.x, centre.y, union.min.z);
+scene.add(grid);
+
+const W = 1240, H = 900, cw = W / 2, ch = H / 2;
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H);
+renderer.setScissorTest(true);
+document.querySelector('.wrap').appendChild(renderer.domElement);
+
+const VIEWS = [
+  { name: 'FRONT — look along +Y   (CAD X right, CAD Z up)', dir: [0, -1, 0], up: [0, 0, 1] },
+  { name: 'SIDE — look along −X    (CAD Y right, CAD Z up)', dir: [1, 0, 0], up: [0, 0, 1] },
+  { name: 'TOP — look down −Z      (CAD X right, CAD Y up)', dir: [0, 0, 1], up: [0, 1, 0] },
+  { name: 'ISO', dir: [1, -1, 0.7], up: [0, 0, 1] },
+];
+
+const labels = document.getElementById('labels');
+VIEWS.forEach((view, i) => {
+  const col = i % 2, row = (i / 2) | 0;
+  const half = sphere.radius * 1.08;
+  const aspect = cw / ch;
+  const camera = new THREE.OrthographicCamera(
+    -half * aspect, half * aspect, half, -half, 0.01, sphere.radius * 20);
+  const dir = new THREE.Vector3(...view.dir).normalize();
+  camera.position.copy(centre).add(dir.multiplyScalar(sphere.radius * 6));
+  camera.up.set(...view.up);
+  camera.lookAt(centre);
+
+  const x = col * cw, y = H - (row + 1) * ch;
+  renderer.setViewport(x, y, cw, ch);
+  renderer.setScissor(x, y, cw, ch);
+  renderer.render(scene, camera);
+
+  const tag = document.createElement('div');
+  tag.className = 'lbl';
+  tag.style.left = `${x + 10}px`;
+  tag.style.top = `${row * ch + 8}px`;
+  tag.textContent = view.name;
+  labels.appendChild(tag);
+});
+
+const size = union.getSize(new THREE.Vector3());
+document.getElementById('hdr').innerHTML =
+  `<h1>${data.source} — union ${(size.x * 1000).toFixed(0)} × ${(size.y * 1000).toFixed(0)} × ${(size.z * 1000).toFixed(0)} mm (grid = 1 m)</h1>` +
+  data.parts.map((p, i) => {
+    const b = p.bbox;
+    return `<div class="p"><span class="sw" style="background:${PALETTE[i % PALETTE.length]}"></span>` +
+      `${p.label} — ${(b[3] - b[0]).toFixed(0)} × ${(b[4] - b[1]).toFixed(0)} × ${(b[5] - b[2]).toFixed(0)} mm, ` +
+      `centre (${((b[0] + b[3]) / 2).toFixed(0)}, ${((b[1] + b[4]) / 2).toFixed(0)}, ${((b[2] + b[5]) / 2).toFixed(0)}), ` +
+      `${p.solids} solids, ${p.children.length} named children</div>`;
+  }).join('');
+
+window.__ready = true;
+</script>

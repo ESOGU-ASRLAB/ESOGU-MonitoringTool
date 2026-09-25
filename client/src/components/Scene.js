@@ -98,32 +98,45 @@ function InteriorEnvironment({ intensity = 1 }) {
  * separate drei <Grid> plane) so there's only one surface at ground level --
  * two coincident planes there caused constant z-fighting flicker.
  */
-export default function Scene({ children, showGrid = true, interior = false }) {
+export default function Scene({
+  children,
+  showGrid = true,
+  interior = false,
+  // The Otokar cell is viewed from ~30 m back, where both of the fog ranges
+  // tuned for the IFARLAB cell would haze the machine out. Defaults are null
+  // so that page's look is untouched.
+  fogNear = null,
+  fogFar = null,
+  floorSize: floorSizeProp = null,
+}) {
   const gridTexture = useGridTexture();
-  const floorSize = 80;
+  const floorSize = floorSizeProp || 80;
   gridTexture.repeat.set(floorSize / TILE_METERS, floorSize / TILE_METERS);
 
   return (
     <>
-      <color attach="background" args={['#e8e8ed']} />
-      {interior ? (
-        <fog attach="fog" args={['#e8e8ed', 42, 85]} />
+      <color attach="background" args={['#dfe8ef']} />
+      {fogNear !== null && fogFar !== null ? (
+        <fog attach="fog" args={['#dfe8ef', fogNear, fogFar]} />
+      ) : interior ? (
+        <fog attach="fog" args={['#dfe8ef', 42, 85]} />
       ) : (
-        <fog attach="fog" args={['#e8e8ed', 18, 40]} />
+        <fog attach="fog" args={['#dfe8ef', 18, 40]} />
       )}
 
       {/* Indoors the environment map supplies the fill, so the flat ambient
           term drops right back -- left at its old level on top of IBL it just
           washes the glTF's own textures out again. */}
-      {interior && <InteriorEnvironment intensity={0.7} />}
+      {interior && <InteriorEnvironment intensity={0.95} />}
 
-      <ambientLight intensity={interior ? 0.08 : 0.55} />
+      <ambientLight color="#f4f7fa" intensity={interior ? 0.22 : 0.55} />
       <directionalLight
-        position={[6, 10, 4]}
-        intensity={interior ? 0.3 : 1.2}
+        color="#fff6e8"
+        position={[8, 14, 6]}
+        intensity={interior ? 0.85 : 1.2}
         castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        shadow-mapSize-width={512}
+        shadow-mapSize-height={512}
         shadow-normalBias={0.05}
         shadow-camera-near={0.5}
         shadow-camera-far={30}
@@ -132,7 +145,7 @@ export default function Scene({ children, showGrid = true, interior = false }) {
         shadow-camera-top={10}
         shadow-camera-bottom={-10}
       />
-      <hemisphereLight args={['#ffffff', '#8a8a92', interior ? 0.1 : 0.4]} />
+      <hemisphereLight args={['#f8fbff', '#748293', interior ? 0.42 : 0.4]} />
 
       {showGrid && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>

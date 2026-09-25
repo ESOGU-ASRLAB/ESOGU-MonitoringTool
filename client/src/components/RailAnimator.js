@@ -14,7 +14,7 @@ import { useFrame } from '@react-three/fiber';
 const UR10E_RAIL_RANGE = [0.8, 1.6];
 const AGV_RAIL_RANGE = [0.6, 1.8];
 
-export default function RailAnimator({ animate, animationSpeed, ur10eGroupRef, agvGroupRef }) {
+export default function RailAnimator({ animate, animationSpeed = 1, ur10eGroupRef, agvGroupRef }) {
   const timeRef = useRef(0);
 
   useFrame((state, delta) => {

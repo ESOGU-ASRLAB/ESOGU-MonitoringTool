@@ -1,0 +1,370 @@
+"""STEP -> GLB for the Otokar MATISSE cell.
+
+Run under freecadcmd. Config comes from env vars, NOT argv: freecadcmd tries to
+*open* every argv entry that isn't the script, which collides with document
+names and silently misroutes Import.insert.
+
+  STP_IN        source .stp
+  GLB_OUT       destination .glb
+  DEFLECTION    linear tessellation deflection, mm (chordal error)
+  MIN_PART_MM   drop any part whose bbox diagonal is below this (mm).
+                This is the LOD knob: fasteners, pins and chain links are all
+                small, so a size cut removes thousands of dense little solids
+                while leaving every structural part's silhouette intact.
+  DROP_NAME_RE  regex of part labels to drop outright (fasteners etc). Some
+                fasteners are long enough to survive the size cut -- the
+                M16x380 floor studs are 380 mm -- so name and size are both
+                needed.
+  CROP          optional "xmin,xmax,ymin,ymax,zmin,zmax" in mm; a part is kept
+                only if its bbox CENTRE falls inside. Every one of these files
+                contains the assembly twice -- once laid out along CAD X and a
+                mirrored copy laid out along CAD Y -- and only one of the two is
+                the machine as installed. The crop picks that one.
+  EXCLUDE_RE    optional regex of DESCENDANT labels whose solids are subtracted
+                from whatever is written. DROP_NAME_RE cannot do this: when a
+                subassembly is the thing being written, its children are already
+                skipped by the descendant guard, and the parent's Shape carries
+                their geometry regardless of any name test. Used for the axis-2
+                cable chain, which the export draws hanging straight down to
+                498 mm BELOW the factory floor and which therefore sweeps the
+                floor rail at every column height the machine actually uses.
+  INCLUDE_ONLY_RE  the inverse of EXCLUDE_RE: keep ONLY the solids belonging to
+                descendants whose label matches, and drop everything else. Used
+                to lift one sub-assembly out of a file whose root is what gets
+                written -- the axis-2 cable chain, which has to come out as its
+                own mesh so it can be folded separately.
+  REPORT_JSON   optional path for conversion stats
+  AXIS1_ROLE    for EKSEN1 only: "runway" (fixed track) or "carriage"
+                (the 1_Eksen_Hareketli moving subassembly), or "chain" (the
+                Kablo_Traktoru energy chain, which rides in the cable tray and
+                is towed by the carriage -- it is a SIBLING of the moving
+                branch, not a child, so a name test files it as static runway
+                unless it is asked for by name).
+  PLACEMENT     optional 16 comma-separated floats, a row-major 4x4 matrix in
+                MILLIMETRES, baked into the vertices so the GLB ships in the
+                cell's installed frame instead of its own file's frame.
+
+                The per-axis STEP exports do NOT share an origin: EKSEN2..5 are
+                written in the axis-2 column's own master frame, and the
+                transform onto EKSEN1's installed frame is that column's
+                assembly placement (a 180 deg rotation about Z plus a
+                translation). Baking it here is deliberate: the previous design
+                carried it as render-time offset constants, where a pure
+                translation silently stood in for a rotation -- leaving the arm
+                and camera pointing away from the body -- and bbox adjacency
+                checks could not detect it. Provenance for every matrix is
+                recorded in client/public/meshes/otokar/placements.json.
+  PLACEMENT_SRC free text describing where PLACEMENT came from; echoed into the
+                stats so a baked mesh can always be traced back to its source.
+"""
+import os, sys, json, time, re
+from collections import Counter
+import FreeCAD, Import, Part
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from glbwrite import write_glb
+
+src = os.environ["STP_IN"]
+dst = os.environ["GLB_OUT"]
+deflection = float(os.environ.get("DEFLECTION", "4"))
+min_part = float(os.environ.get("MIN_PART_MM", "0"))
+crop = os.environ.get("CROP")
+crop_box = [float(v) for v in crop.split(",")] if crop else None
+drop_re = os.environ.get("DROP_NAME_RE")
+drop_rx = re.compile(drop_re, re.I) if drop_re else None
+exclude_re = os.environ.get("EXCLUDE_RE")
+exclude_rx = re.compile(exclude_re, re.I) if exclude_re else None
+include_only_re = os.environ.get("INCLUDE_ONLY_RE")
+include_only_rx = re.compile(include_only_re, re.I) if include_only_re else None
+report = os.environ.get("REPORT_JSON")
+axis1_role = os.environ.get("AXIS1_ROLE", "")
+if axis1_role not in ("", "runway", "carriage", "chain", "fixtures"):
+    raise ValueError("AXIS1_ROLE must be runway, carriage, chain or fixtures")
+
+placement_raw = os.environ.get("PLACEMENT", "").strip()
+placement_src = os.environ.get("PLACEMENT_SRC", "")
+placement = None
+if placement_raw:
+    values = [float(v) for v in placement_raw.split(",")]
+    if len(values) != 16:
+        raise ValueError("PLACEMENT needs 16 comma-separated values, got %d" % len(values))
+    placement = FreeCAD.Matrix(*values)
+
+MM_TO_M = 0.001
+FINITE = 1e6
+
+"""
+The STEP importer must give us the assembly HIERARCHY, not one welded compound.
+
+ReadShapeCompoundMode is a persisted FreeCAD USER PREFERENCE, and until now
+this script simply inherited whatever the last tool to touch it had left
+behind. When it was left on, the import collapsed the whole file into a single
+object: every role test then matched nothing, the descendant guard had nothing
+to guard, and the runway mesh came out as the entire machine -- column, carriage
+and all -- with `parts_kept: 1` and every other counter zero. The build did not
+complain, because `set -euo pipefail` plus a `grep "^STATS:"` that matched
+nothing killed it before it reached its own failure check.
+
+So it is set here, explicitly, every run, and the result is checked below.
+"""
+FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Import/hSTEP").SetBool(
+    "ReadShapeCompoundMode", False)
+
+t0 = time.time()
+doc = FreeCAD.newDocument("conv")
+Import.insert(src, doc.Name)
+t_read = time.time() - t0
+
+# A role split needs branches to choose between. One object means the import
+# collapsed the assembly and every role would silently fall through to "runway".
+if axis1_role and len(doc.Objects) < 2:
+    raise RuntimeError(
+        "%s imported as %d object(s): the assembly hierarchy is missing, so "
+        "AXIS1_ROLE=%s cannot be separated. ReadShapeCompoundMode is set False "
+        "above; if this still fires, the importer is not honouring it."
+        % (os.path.basename(src), len(doc.Objects), axis1_role))
+
+kept, dropped_small, dropped_named, dropped_crop, skipped, skipped_non_solid = [], 0, 0, 0, 0, 0
+descendants_skipped, dropped_role, excluded_solids = 0, 0, 0
+eligible = {}
+solid_shapes = {}
+
+def ancestors(obj):
+    stack = list(obj.InList)
+    seen = set()
+    while stack:
+        parent = stack.pop()
+        if parent.Name in seen:
+            continue
+        seen.add(parent.Name)
+        yield parent
+        stack.extend(parent.InList)
+
+# Matched on Label, not internal Name: FreeCAD 1.1's STEP import names objects
+# generically (LinkGroup020, Solid057) and only Label carries the CAD product
+# name, so the previous Name-based test matched nothing and filed every part
+# into the runway.
+#
+# 2_Eksen_Sabit_SYM is the axis-2 column. "Sabit" marks it as the STATOR of
+# axis 2, not as fixed to the floor -- its base plate is bolted to the saddle,
+# so it travels with a1, and everything from the axis-2 slide upward hangs off
+# it. It is a SIBLING of the saddle in the assembly tree, so an ancestor-only
+# test mis-files it as static runway.
+# Compared case-insensitively: Robot 1's export names these branches
+# "1_Eksen_Hareketli_SYM" / "2_Eksen_Sabit_SYM" while Robot 2's uses lowercase
+# "1_eksen_hareketli" / "2_eksen_sabit" for the same hardware, and the
+# "_SYM" suffix is not consistently present either.
+# The energy chain's TOWING bracket belongs here too. It is bolted to the
+# carriage and drags the chain along behind it, but in the assembly it sits
+# beside 1_Eksen_Hareketli rather than inside it, so the branch test left it
+# parked on the rail while the carriage drove away from it.
+#
+# Only bracket 2. Bracket 1 is the chain's fixed ANCHOR, 7 m further down the
+# rail at X -4406, and it is supposed to stay where it is -- that is the whole
+# point of an anchor.
+CARRIAGE_BRANCHES = {"1_eksen_hareketli", "2_eksen_sabit",
+                     "1_eksen_kablo_traktoru_braketi_2"}
+EKSEN1_ROOT = "1_eksen"
+
+# The energy chain lying in the cable tray along the rail. It is towed by the
+# carriage, but in the assembly it is a SIBLING of 1_Eksen_Hareketli rather than
+# a child of it, so the branch test above files it with the static runway and it
+# never moves. Naming it here lets it come out as its own mesh with its own
+# motion -- see OtokarGantryRobot's cable-chain group, which drives it at half
+# the carriage's travel the way a real chain's U-bend moves.
+#
+# The BRACKETS (1_Eksen_Kablo_Traktoru_Braketi_1/2) are deliberately not
+# included: one anchors the chain to the rail and stays put, the other is a
+# 120 mm fitting at the carriage end, and neither reads as motion at this scale.
+CHAIN_BRANCHES = {"kablo_traktoru"}
+
+# The row of vehicle supports standing along the rail bed -- the stopper blocks
+# and their rubber pads, which is what the bus body actually rests against.
+# They are the one part of the runway that is not structure, and Otokar's own
+# layout drawing picks them out in amber, so they come out as their own mesh to
+# carry their own colour. Both run the full 16 m of the bed.
+#
+# Matched as a PREFIX, not by equality: the export numbers its instances, so
+# these arrive as `Stoper_Takozu001` and `kaucuk_topuz002`. The carriage and
+# chain sets above get away with equality because their labels carry a `_SYM`
+# suffix that branch_key already strips, which is exactly the kind of near-miss
+# worth spelling out rather than leaving to be rediscovered.
+FIXTURE_BRANCHES = ("stoper_takozu", "kaucuk_topuz")
+
+def branch_key(label):
+    return label.lower().removesuffix("_sym")
+
+def role_of(obj):
+    labels = {branch_key(obj.Label)} | {branch_key(p.Label) for p in ancestors(obj)}
+    if labels & CHAIN_BRANCHES:
+        return "chain"
+    if any(label.startswith(prefix) for label in labels for prefix in FIXTURE_BRANCHES):
+        return "fixtures"
+    return "carriage" if labels & CARRIAGE_BRANCHES else "runway"
+
+for o in doc.Objects:
+    # EKSEN1 needs two outputs. Its overall root contains both the static
+    # runway and moving carriage, so select its placed first-level branches.
+    if axis1_role and branch_key(o.Label) == EKSEN1_ROOT:
+        eligible[o.Name] = False
+        continue
+    s = getattr(o, "Shape", None)
+    if s is None or s.isNull() or len(s.Faces) == 0:
+        eligible[o.Name] = False
+        continue
+    # STEP imports may also expose PMI/dimension or construction geometry as
+    # Shape objects. Only tessellate actual solids; annotations must never
+    # become visible GLB geometry. The current exports contain DIMENSION
+    # records but no annotation solids, so this is both a guard and a future
+    # regression check.
+    if not getattr(s, "Solids", None):
+        skipped_non_solid += 1
+        eligible[o.Name] = False
+        continue
+    bb = s.BoundBox
+    if max(abs(bb.XMin), abs(bb.XMax), abs(bb.YMin), abs(bb.YMax), abs(bb.ZMin), abs(bb.ZMax)) > FINITE:
+        # Some assembly groups carry an infinite datum plane in Shape, even
+        # though their solid bodies are correctly placed and finite. Strip
+        # those non-solid faces before deciding whether to keep the group.
+        solid_shapes[o.Name] = Part.Compound(s.Solids)
+        bb = solid_shapes[o.Name].BoundBox
+        if max(abs(bb.XMin), abs(bb.XMax), abs(bb.YMin), abs(bb.YMax), abs(bb.ZMin), abs(bb.ZMax)) > FINITE:
+            skipped += 1
+            eligible[o.Name] = False
+            continue
+    if crop_box:
+        c = bb.Center
+        if not (crop_box[0] <= c.x <= crop_box[1]
+                and crop_box[2] <= c.y <= crop_box[3]
+                and crop_box[4] <= c.z <= crop_box[5]):
+            dropped_crop += 1
+            eligible[o.Name] = False
+            continue
+    if min_part and bb.DiagonalLength < min_part:
+        dropped_small += 1
+        eligible[o.Name] = False
+        continue
+    if drop_rx and drop_rx.search(o.Label):
+        dropped_named += 1
+        eligible[o.Name] = False
+        continue
+    eligible[o.Name] = True
+
+for o in doc.Objects:
+    if not eligible.get(o.Name):
+        continue
+    if any(eligible.get(parent.Name) for parent in ancestors(o)):
+        # Imported STEP subassembly Shapes are already placed in the assembly
+        # frame. Their child Shapes can still have local coordinates; writing
+        # both produces double geometry and detached "ghost" machine parts.
+        descendants_skipped += 1
+        continue
+    if axis1_role and role_of(o) != axis1_role:
+        dropped_role += 1
+        continue
+    kept.append(o)
+
+if not kept:
+    raise RuntimeError("No solid assembly parts survived conversion filters")
+
+# Solids belonging to excluded branches, keyed by a signature that survives
+# being read back off the parent's own Shape: the same solid appears in both,
+# but as a different Python object, so identity cannot be used to match them.
+def solid_key(solid):
+    b = solid.BoundBox
+    return (round(solid.Volume, 3), round(b.XMin, 3), round(b.YMin, 3), round(b.ZMin, 3),
+            round(b.XMax, 3), round(b.YMax, 3), round(b.ZMax, 3))
+
+
+def keys_of_matching(rx):
+    keys = set()
+    for o in doc.Objects:
+        if not rx.search(o.Label):
+            continue
+        sh = getattr(o, "Shape", None)
+        if sh is None or sh.isNull() or not getattr(sh, "Solids", None):
+            continue
+        for solid in sh.Solids:
+            keys.add(solid_key(solid))
+    return keys
+
+
+excluded_keys = keys_of_matching(exclude_rx) if exclude_rx else set()
+included_keys = keys_of_matching(include_only_rx) if include_only_rx else None
+if included_keys is not None and not included_keys:
+    raise RuntimeError("INCLUDE_ONLY_RE=%s matched no solids in %s"
+                       % (include_only_re, os.path.basename(src)))
+
+t1 = time.time()
+verts, idx, base = [], [], 0
+for o in kept:
+    try:
+        solid_shape = solid_shapes.get(o.Name)
+        if solid_shape is None:
+            solid_shape = Part.Compound(o.Shape.Solids)
+        if excluded_keys or included_keys is not None:
+            survivors = [s for s in solid_shape.Solids
+                         if solid_key(s) not in excluded_keys
+                         and (included_keys is None or solid_key(s) in included_keys)]
+            excluded_solids += len(solid_shape.Solids) - len(survivors)
+            if not survivors:
+                continue
+            solid_shape = Part.Compound(survivors)
+        pts, facets = solid_shape.tessellate(deflection)
+    except Exception:
+        continue
+    if not pts or not facets:
+        continue
+    for p in pts:
+        q = placement.multiply(p) if placement else p
+        verts.extend((q.x * MM_TO_M, q.y * MM_TO_M, q.z * MM_TO_M))
+    for f in facets:
+        idx.extend((f[0] + base, f[1] + base, f[2] + base))
+    base += len(pts)
+t_tess = time.time() - t1
+
+size = write_glb(dst, verts, idx)
+
+# Report the bbox of what was actually WRITTEN, so a baked placement shows up
+# in the stats rather than the pre-transform source bounds.
+if verts:
+    xs = verts[0::3]
+    ys = verts[1::3]
+    zs = verts[2::3]
+    bb_all = FreeCAD.BoundBox(min(xs) / MM_TO_M, min(ys) / MM_TO_M, min(zs) / MM_TO_M,
+                              max(xs) / MM_TO_M, max(ys) / MM_TO_M, max(zs) / MM_TO_M)
+else:
+    bb_all = Part.Compound(
+        [solid_shapes.get(o.Name) or Part.Compound(o.Shape.Solids) for o in kept]).BoundBox
+stats = {
+    "src": os.path.basename(src),
+    "dst": os.path.basename(dst),
+    "deflection_mm": deflection,
+    "min_part_mm": min_part,
+    "parts_kept": len(kept),
+    "parts_dropped_small": dropped_small,
+    "parts_dropped_named": dropped_named,
+    "parts_dropped_crop": dropped_crop,
+    "solids_excluded": excluded_solids,
+    "exclude_re": exclude_re,
+    "include_only_re": include_only_re,
+    "crop": crop_box,
+    "datums_skipped": skipped,
+    "non_solids_skipped": skipped_non_solid,
+    "descendants_skipped": descendants_skipped,
+    "parts_dropped_role": dropped_role,
+    "axis1_role": axis1_role,
+    "placement": placement_raw or None,
+    "placement_src": placement_src or None,
+    "vertices": len(verts) // 3,
+    "triangles": len(idx) // 3,
+    "glb_bytes": size,
+    "read_sec": round(t_read, 1),
+    "tessellate_sec": round(t_tess, 1),
+    "bbox_min_mm": [round(bb_all.XMin, 3), round(bb_all.YMin, 3), round(bb_all.ZMin, 3)],
+    "bbox_max_mm": [round(bb_all.XMax, 3), round(bb_all.YMax, 3), round(bb_all.ZMax, 3)],
+}
+print("STATS:" + json.dumps(stats))
+if report:
+    with open(report, "w") as f:
+        json.dump(stats, f, indent=2)

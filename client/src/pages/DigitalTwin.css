@@ -4,105 +4,6 @@
   height: 100%;
 }
 
-/* Secondary header inside the page (below the main Navbar) */
-.ndoc-header {
-  flex: 0 0 auto;
-  background: #fff;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-.ndoc-header-inner {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 10px 20px;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.ndoc-header-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1d1d1f;
-}
-
-.ndoc-header-version {
-  font-size: 12px;
-  color: rgba(29, 29, 31, 0.5);
-}
-
-.live-badge {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-}
-
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #9a9a9a;
-  flex: none;
-}
-
-.live-badge[data-status='live'] .live-dot {
-  background: #22c55e;
-  animation: live-blink 1.4s ease-in-out infinite;
-}
-
-.live-badge[data-status='offline'] .live-dot {
-  background: #d0342c;
-}
-
-.live-label {
-  font-weight: 600;
-}
-
-.live-caption {
-  color: rgba(29, 29, 31, 0.5);
-}
-
-.live-clock {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding-left: 10px;
-  margin-left: 4px;
-  border-left: 1px solid rgba(29, 29, 31, 0.12);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums; /* keeps the ticking seconds from reflowing neighbors */
-}
-
-.live-clock-date {
-  color: rgba(29, 29, 31, 0.5);
-}
-
-.live-clock-time {
-  font-weight: 600;
-  color: #1d1d1f;
-}
-
-@keyframes live-blink {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.25;
-  }
-}
-
-@media (max-width: 700px) {
-  .live-caption {
-    display: none;
-  }
-
-  .live-clock-date {
-    display: none;
-  }
-}
-
 .twin-layout {
   flex: 1 1 auto;
   min-height: 0;
@@ -121,6 +22,15 @@
   flex: 1 1 auto;
   min-width: 0;
   position: relative;
+}
+
+.twin-viewport.walking-mode {
+  cursor: grab;
+  user-select: none;
+}
+
+.twin-viewport.walking-mode:active {
+  cursor: grabbing;
 }
 
 .twin-viewport canvas {
@@ -170,9 +80,9 @@
   gap: 6px;
   height: 32px;
   padding: 0 12px;
-  border: 1px solid #000000;
+  border: 1px solid #0e0d0d;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.85);
+  background: #ffffff;
   backdrop-filter: blur(10px);
   color: #000000;
   font-size: 13px;
@@ -190,29 +100,6 @@
 
 .sidebar-toggle-arrow {
   font-size: 16px;
-}
-
-/* Same box as .sidebar-toggle (border/background/shadow/hover-invert),
-   just icon-only width instead of icon+label. */
-.sound-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid #000000;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(10px);
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.sound-toggle:hover {
-  background: #000000;
 }
 
 /* The collapse is desktop-only: below 900px .twin-sidebar is a fixed-position
@@ -245,6 +132,31 @@
   border-radius: 10px;
   backdrop-filter: blur(10px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.walk-toggle {
+  width: 100%;
+  min-height: 32px;
+  border: 1px solid #1e3a5f;
+  border-radius: 6px;
+  background: #eef5fb;
+  color: #1e3a5f;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.walk-toggle:hover,
+.walk-toggle.active {
+  background: #1e3a5f;
+  color: #ffffff;
+}
+
+.walk-hint {
+  color: #475569;
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .view-dpad {
@@ -294,6 +206,16 @@
   color: #ffffff;
 }
 
+.view-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.view-btn:disabled:hover {
+  background: #ffffff;
+  color: #000000;
+}
+
 /* ---- Mobile: sidebar becomes a slide-in drawer ---- */
 @media (max-width: 900px) {
   .twin-sidebar {
@@ -331,16 +253,110 @@
   }
 }
 
-@media (max-width: 480px) {
-  .ndoc-header-inner {
-    padding: 8px 14px;
-  }
+/* ===================================================================
+   MODEL LOADING OVERLAY
 
-  .ndoc-header-title {
-    font-size: 14px;
-  }
+   Sits over the canvas while the cell's GLBs come down (see
+   ModelLoadingOverlay in DigitalTwin.js). z-index 40 puts it above the
+   mobile drawer (30) and its scrim (20) as well as the viewport buttons
+   (10): while models are loading there is nothing under it worth
+   clicking, and a half-drawn control panel on top of a "Loading models"
+   card reads as two states at once.
 
-  .ndoc-header-version {
-    display: none;
+   pointer-events: none so the moment it starts fading the canvas is
+   already live to the mouse -- the fade is cosmetic, the scene is ready.
+   =================================================================== */
+.model-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: rgba(223, 232, 239, 0.82);
+  backdrop-filter: blur(3px);
+  opacity: 1;
+  transition: opacity 400ms ease;
+}
+
+/* Set the frame the fade-out runs over; the element is unmounted 450ms
+   after this class lands, so the transition always completes first. */
+.model-loading-overlay.is-done {
+  opacity: 0;
+}
+
+.model-loading-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px 14px;
+  min-width: 260px;
+  padding: 18px 24px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 6px 26px rgba(0, 0, 0, 0.12);
+}
+
+.model-loading-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #0071e3;
+  animation: model-loading-spin 900ms linear infinite;
+}
+
+@keyframes model-loading-spin {
+  to {
+    transform: rotate(360deg);
   }
+}
+
+/* Honour a reduced-motion preference: the text and the bar still report
+   progress, so nothing is lost by holding the spinner still. */
+@media (prefers-reduced-motion: reduce) {
+  .model-loading-spinner {
+    animation: none;
+  }
+}
+
+.model-loading-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.model-loading-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.model-loading-sub {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6e6e73;
+  /* The counter changes every few hundred ms and the digits are not
+     fixed-width, so without this the label jitters sideways. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Spans both columns so the bar measures the whole card, not just the
+   text beside the spinner. */
+.model-loading-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.model-loading-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: #0071e3;
+  transition: width 220ms ease;
 }
