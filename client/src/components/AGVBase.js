@@ -2,6 +2,7 @@ import React, { useMemo, Suspense } from 'react';
 import { useLoader } from '@react-three/fiber';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import * as THREE from 'three';
+import { ACCENT, METAL, POLYMER } from './scenePalette';
 
 /*
  * OTA mobile base (AGV) that carries the Kawasaki RS005L arm.
@@ -14,14 +15,19 @@ import * as THREE from 'three';
 const MM_TO_M = [0.001, 0.001, 0.001];
 const BASE = process.env.PUBLIC_URL + '/meshes/ota';
 // Gövde: Endüstriyel toz boyalı metal (Daha canlı renk, dengeli yansıma)
-const BODY = { color: '#b55400', metalness: 0.7, roughness: 0.7 }; 
+// Hazard amber, not #b55400 at metalness 0.7. An AGV shell is painted sheet,
+// so it is dielectric; and the old orange was the most saturated thing in the
+// hall, which made a support vehicle the loudest object in every shot. Amber
+// is the accent this machine is entitled to, at a value that reads as pigment
+// under factory light rather than as a warning light.
+const BODY = { ...ACCENT.hazardAmber }; 
 // Not: meshPhysicalMaterial kullanıyorsanız "clearcoat: 0.3" eklenebilir.
 
 // Ana Tekerlek: Endüstriyel kauçuk (Metalik değildir, ışığı yutar)
-const WHEEL = { color: '#121212', metalness: 0.0, roughness: 0.85 };
+const WHEEL = { ...POLYMER.rubber };
 
 // Sarhoş Tekerlek (Caster) Donanımı: Galvanizli/Döküm çelik
-const CASTER = { color: '#55595c', metalness: 0.85, roughness: 0.35 };
+const CASTER = { ...METAL.machined };
 
 function StlMesh({ url, position, rotation, material, castShadow = true, receiveShadow = true }) {
   const geometry = useLoader(STLLoader, url);

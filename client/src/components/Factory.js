@@ -1,5 +1,6 @@
 import React, { Suspense, useEffect, useMemo } from 'react';
 import { useGLTF } from '@react-three/drei';
+import { ARCHITECTURE } from './scenePalette';
 import { useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -59,23 +60,17 @@ const CONVERTED_MATERIAL_NAMES = ['mat0', 'mat1', 'mat2', 'mat3'];
 // baked their node rotations into the vertices).
 const CONVERTED_SCALE = 1 / 2.02157;
 
-// metallicFactor per material in the original export, in mat0..mat3 order
-// (floor, wall, beams, details). Only the beams were ever metal.
-const ORIGINAL_METALNESS = [0.12, 0.04, 0.55, 0.18];
-
 /*
- * Surface finish, which the converter dropped along with everything else: the
- * roughness maps are still inside the file but no material references them, so
- * every surface came through at the default 1.0 -- uniformly, perfectly matte.
- * That is why the shell read as flat no matter how it was lit: a sealed floor
- * and a steel truss do not scatter light the same way, and with one value for
- * both, nothing in the building had a highlight to place it by.
+ * Colour and finish for mat0..mat3 (floor, wall, beams, details) now come from
+ * ARCHITECTURE in scenePalette.js, applied below.
  *
- * These are ordinary values for what each surface is, not measurements: sealed
- * concrete is matte but not perfectly so, coated panels a little less, and
- * painted steel less again.
+ * Roughness matters here as much as colour, and it is the reason the shell
+ * used to read as flat however it was lit: the converter dropped the roughness
+ * maps -- they are still inside the file, but no material references them --
+ * so every surface arrived at the default 1.0, uniformly and perfectly matte.
+ * A sealed floor and a steel truss do not scatter light the same way, and with
+ * one value for both there was no highlight anywhere to place the building by.
  */
-const MATERIAL_ROUGHNESS = [0.86, 0.78, 0.52, 0.6];
 
 // The converter dropped this map; it is extracted back out of the first export
 // (identical UV layout, so it lines up on the new geometry) and re-attached.
@@ -141,30 +136,36 @@ function WarehouseModel() {
       if (slot === -1) continue;
 
       /*
-       * Base colours, replacing the four debug tints the converter wrote in.
+       * Base colours, finish included, from the shared scene palette.
        *
-       * The floor comes down from #a8a8a8 and picks up a cool cast. It is the
-       * largest surface in the shot and it was reading almost as bright as the
-       * walls, which left the cell's dark machines sitting on a pale field with
-       * nothing to ground them; sealed concrete is also a cool grey rather than
-       * the neutral one it had. (The comment beside it used to say "blue epoxy
-       * floor" while the value was flat neutral -- the comment was describing
-       * an intention nobody had carried out.)
+       * These had drifted to #ffffff, #fcfcfc, #fffcfc and #ffffff -- four
+       * shades of white -- while the comment that used to sit here described
+       * a cool darker floor and beams "a step darker and cooler than the
+       * panels". The comment was right about what the hall needs; the values
+       * were not doing it. Wall against beam measured 1.01:1, so the whole
+       * distinction between cladding and the structure holding it up rested on
+       * the texture map, and the floor was as bright as the walls, leaving the
+       * dark cells sitting on a white field with nothing grounding them.
        *
-       * Walls and beams were #f6f5f0 and #f4eeea, near-identical and both
-       * nearly white, so the whole distinction between a clad panel and the
-       * steel holding it up rested on the texture. The beams now sit a step
-       * darker and cooler, which is also what they are.
+       * ARCHITECTURE now carries all four, and verify_palette.mjs asserts the
+       * separation that the old comment only claimed: floor/wall 2.25:1,
+       * wall/steel 1.63:1, floor against the machines 2.3-2.8:1.
+       *
+       * Metalness comes from the palette too, replacing ORIGINAL_METALNESS.
+       * Sealed concrete and coated panel are dielectrics and were at 0.12 and
+       * 0.04 -- close enough -- but the "structural steel" slot was at 0.55,
+       * half metal, which is why the frames took the room's colour instead of
+       * their own. Rolled section is bare, so it keeps a little at 0.15.
        */
-      const authoredColor = [
-        '#9aa1a6', // sealed concrete floor, cool and a shade darker than before
-        '#e9eae7', // coated wall panels
-        '#c9ced2', // structural steel, cooler and darker than the panels
-        '#ffffff', // lamps and small details
+      const surface = [
+        ARCHITECTURE.floor,
+        ARCHITECTURE.wall,
+        ARCHITECTURE.steel,
+        ARCHITECTURE.details,
       ][slot];
-      mat.color.set(authoredColor || '#ffffff');
-      mat.metalness = ORIGINAL_METALNESS[slot];
-      mat.roughness = MATERIAL_ROUGHNESS[slot];
+      mat.color.set(surface.color);
+      mat.metalness = surface.metalness;
+      mat.roughness = surface.roughness;
 
       if (slot === DETAILS_MATERIAL_INDEX) {
         mat.emissive.setRGB(1, 1, 1);
