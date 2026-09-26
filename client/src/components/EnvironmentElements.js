@@ -14,48 +14,36 @@ import * as THREE from "three";
  * same true world frame.
  */
 
+import { METAL, PAINT } from './scenePalette';
+
 const MM_TO_M = [0.001, 0.001, 0.001];
 const FURNITURE_BASE = process.env.PUBLIC_URL + "/meshes/ur10e";
 const FACILITY_BASE = process.env.PUBLIC_URL + "/meshes/environment";
-// PBR standartlarına göre revize edilmiş fiziksel materyal değerleri
-
-const ALUMINUM = { 
-  color: "#101937", // Alüminyum daha açık bir gri/beyaz tona sahiptir
-  metalness: 1.0,   // Saf metal olduğu için 1.0
-  roughness: 0.35   // Fırçalanmış/endüstriyel alüminyum için hafif matlık
-};
-
-const DARK_AGV = { 
-  color: "#101937", 
-  metalness: 0.15,  // AGV'ler genellikle boyalı sac veya plastiktir (dielektrik). Boya efekti için düşük metaliklik.
-  roughness: 0.4    // Yarı parlak endüstriyel boya görünümü
-};
-
-const CONVEYOR = { 
-  color: "#353b4e", 
-  metalness: 0.6,   // Tozlu, kullanılmış veya galvanizli mat metal iskelet
-  roughness: 0.65   // Işığı fazla yansıtmayan endüstriyel yüzey
-};
-
-const FACILITY_GRAY = { 
-  color: "#101937", // Orijinal koddaki #ff9100 (turuncu) "Gray" ismine uygun olarak beton grisine çekildi
-  metalness: 1.0,   // Beton, epoksi veya duvar boyası metalik değildir
-  roughness: 1.8    // Mat zemin/duvar yansıması
-};
-
-const RAIL = { 
-  color: "#101937", // Aşınmış çelik rengi
-  metalness: 0.9,   // Üst yüzeyi aşınmış ve parlamış çelik ray
-  roughness: 0.45   // Sürtünmeden dolayı kısmi parlaklık
-};
-
-// Keep the existing material names/shape, but use physically plausible
-// industrial tones instead of the nearly-black debug palette.
-Object.assign(ALUMINUM, { color: "#c6ccd0", metalness: 0.72, roughness: 0.38 });
-Object.assign(DARK_AGV, { color: "#6b7684", metalness: 0.22, roughness: 0.42 });
-Object.assign(CONVEYOR, { color: "#3f4852", metalness: 0.58, roughness: 0.56 });
-Object.assign(FACILITY_GRAY, { color: "#1a1506", metalness: 0.12, roughness: 0.52 });
-Object.assign(RAIL, { color: "#303941", metalness: 0.8, roughness: 0.4 });
+/*
+ * Facility materials, from the shared scene palette.
+ *
+ * What used to be here was two contradictory layers. Five materials were
+ * declared with colour #101937 -- a dark navy -- under comments describing
+ * aluminium, concrete grey and worn steel, with finishes to match the comments
+ * rather than the values: FACILITY_GRAY carried metalness 1.0 directly beneath
+ * a comment saying concrete is not metallic, and a roughness of 1.8, which is
+ * outside the legal 0..1 range and was simply clamped.
+ *
+ * Every one of those five was then overwritten by an Object.assign block
+ * further down, so the entire first layer was dead code whose comments
+ * described neither what it did nor what replaced it. The live values were
+ * better, but not right: FACILITY_GRAY ended up at #1a1506, a near-black
+ * brown, for a surface called facility grey.
+ *
+ * One layer now, and the names say what the surface IS, which is what decides
+ * its finish: extrusion and rail are bare metal, the AGV shell and the
+ * facility surfaces are painted.
+ */
+const ALUMINUM = { ...METAL.aluminium };
+const DARK_AGV = { ...PAINT.body };
+const CONVEYOR = { ...METAL.galvanised };
+const FACILITY_GRAY = { ...PAINT.structure };
+const RAIL = { ...METAL.worn };
 
 function EnvMesh({
   url,

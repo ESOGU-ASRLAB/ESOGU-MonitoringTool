@@ -30,7 +30,7 @@ export const OTOKAR_MESH_BASE = process.env.PUBLIC_URL + '/meshes/otokar';
 // Bump this whenever the STEP->GLB output or its frame interpretation changes.
 // The static server still serves the same file for the query-string URL, while
 // GLTFLoader's cache key and the browser cache see a new asset revision.
-export const OTOKAR_ASSET_VERSION = '2026-09-25-fixtures-1';
+export const OTOKAR_ASSET_VERSION = '2026-09-26-draco-1';
 
 export function otokarMeshUrl(group, part, lod = 'hi') {
   return `${OTOKAR_MESH_BASE}/${group}/${lod}/${part}.glb?v=${OTOKAR_ASSET_VERSION}`;

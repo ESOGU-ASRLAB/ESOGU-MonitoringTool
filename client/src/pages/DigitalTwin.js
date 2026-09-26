@@ -10,23 +10,23 @@ import UR10eMount from "../components/UR10eMount";
 import RailAnimator from "../components/RailAnimator";
 import EnvironmentElements from "../components/EnvironmentElements";
 import Factory from "../components/Factory";
+import Bus from "../components/Bus";
+import Workers from "../components/Workers";
+import Drones from "../components/Drones";
+import FactoryMarkings, { PARKED_BUSES } from "../components/FactoryMarkings";
 import ControlPanel from "../components/ControlPanel";
 import Scene from "../components/Scene";
 import OtokarCell from "../components/OtokarCell";
 import { OTOKAR_ROBOT_HOME } from "../components/otokarAxes";
+import { LIGHTING } from "../components/scenePalette";
+import { IFARLAB_OFFSET } from "../components/cellLayout";
 
 const API_BASE = process.env.REACT_APP_API_URL
   ? process.env.REACT_APP_API_URL.replace(/\/api\/auth\/?$/, "/api")
   : "http://localhost:3001/api";
 
-// Both IFARLAB (wrapped below) and the Otokar cell (its own CELL_ORIGIN in
-// OtokarCell.js) are shifted by this same amount in +x. Without it the two
-// cells sit centred on the combined x-range -14.11..1.75 (centre -6.18m),
-// hugging the building's west wall with the east side empty; shifting both by
-// +6.18m recentres that combined range on the building's own centre (x=0)
-// instead. A rigid shift, so it changes nothing about how the two cells sit
-// relative to each other.
-const IFARLAB_SHIFT_X = 6.18;
+// Where the IFARLAB workcell stands. See components/cellLayout.js for what it
+// does, what it does NOT move, and the check to run after changing it.
 
 // Camera limits are kept just inside the warehouse shell. They prevent the
 // orbit camera and the first-person camera from escaping through the walls or
@@ -560,72 +560,56 @@ export default function DigitalTwin({ setLiveStatus }) {
 
           <Canvas
             shadows
-            gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+            /*
+             * Tone mapping and exposure, set rather than left to whatever the
+             * default happens to be. ACES filmic rolls the highlights off
+             * instead of clipping them, which is the difference between a lit
+             * white panel that still has panel in it and one that has gone to
+             * flat paper. Exposure slightly under 1 keeps the roof lights and
+             * the pale mast inside the range they roll off in.
+             */
+            gl={{
+              antialias: true,
+              alpha: false,
+              powerPreference: "high-performance",
+              toneMapping: THREE.ACESFilmicToneMapping,
+              toneMappingExposure: LIGHTING.exposure,
+            }}
             style={{ background: "#dfe8ef" }}
             dpr={[1, 1.5]}
-            /* THE OPENING FRAME, SEARCHED RATHER THAN JUDGED BY EYE.
+            /* PRESENTATION OVERVIEW, FROM THE OTHER SIDE OF THE CELL.
+               Searched by scripts/otokar/camera_framing_reverse.mjs.
 
-               scripts/otokar/camera_framing.mjs picks this. It sweeps camera
-               azimuth, distance, eye height and target height, keeps only the
-               poses that satisfy every constraint below, and scores what is
-               left. The boxes are real: verify_cell_fit.mjs replays the
-               transform chain for the Otokar cell and measureIfarlab() mounts
-               the actual React components for the workcell.
+               The previous pose looked from +z. This one looks back across the
+               hall from -z, closer in, and is scored on THE SMALLER OF THE TWO
+               GANTRIES' on-screen areas rather than on the cells' -- maximising
+               their sum lets one machine fill the frame while the other is a
+               sliver, which is not what "see the robots better" asks for.
 
-               THE SCORE IS BALANCED, and that is the point of this framing.
-               An earlier version maximised the Otokar cell's screen area with
-               IFARLAB merely required to be somewhere on screen, and it put
-               the workcell at 3.4% of the frame -- present, but not a shot of
-               it. The score is now the geometric mean of the two cells' areas,
-               which unlike a sum cannot be won by making one term huge:
-               halving either factor costs the same. Result: Otokar 37.7%,
-               IFARLAB 20.3% -- six times the workcell it had before, for a
-               quarter off the Otokar cell.
+               A literal 180-degree flip of the old azimuth is not available and
+               the search shows why: it lands within 8 degrees of the rail axis,
+               where the 12 m vehicle foreshortens to nothing and the cell reads
+               as a line. The band either side of it is empty for the same
+               reason. This is the nearest good direction on the reverse side.
 
-               The constraints, and why each one is there:
+               The top-scoring pose was NOT taken. It sits against the west wall
+               at x -15.37 and fills 55.6% of the frame with robot 1, but the
+               workcell shrinks to 2.9% -- the score rewards the gantries and
+               says nothing about the rest of the hall, so it drifts to where
+               there is nothing else to see. This pose is from the band that
+               keeps both:
 
-               BOTH CELLS FULLY IN FRAME, 4% clear of every edge, with IFARLAB
-               spanning at least 10% of the frame height.
+                 robot 1        27.4% of frame, 96% unoccluded by the vehicle
+                 robot 2        40.2% of frame, 74% unoccluded
+                 Otokar cell    43.8%, fully in frame
+                 IFARLAB        19.6%, fully in frame -- against 2.9%
+                 parked buses   pearl and steel on screen
+                 distance       13.8 m, against 18.3 for the top row
+                 eye            9.0 m, just under the 9.15 m camera ceiling
 
-               THE EYE BELOW THE BUS. No single fixed camera can look both
-               under the chassis and down onto the roof; those are opposite
-               sides of a solid body, and an earlier framing above the roofline
-               hid the underbody pass entirely -- half the programme. The bus
-               body's lowest MESH point is y 1.51 (136 mm below the placement
-               datum at cell Z +278, which CELL_ORIGIN puts at world y 1.646;
-               the mesh is what occludes). The eye at 1.30 clears it by 210 mm.
-
-               BOTH GANTRIES VISIBLE, which is the constraint this search
-               originally missed. Robot 1's rail is at world x -7.48..-6.68 and
-               robot 2's at -0.88..-0.08 -- OPPOSITE SIDES of a vehicle
-               occupying x -5.18..-2.66. So the pose a balanced score wants,
-               square-on to the rail, hides one machine behind the bus. Sight
-               lines are traced from the eye to a grid across each robot's
-               swept box and at least half must miss the vehicle: this pose
-               gets 81% of robot 1 and 96% of robot 2. IFARLAB is 100% clear.
-
-               AN ANGLE TO THE RAIL BETWEEN 22 AND 75 DEGREES. Below 22 the
-               12 m bus foreshortens to nothing down its own axis; above 75 the
-               shot flattens into an elevation and robot 1 falls to 67%. This
-               pose is 74 deg -- near the top of the band, where the two cells
-               are largest, without paying the elevation's price.
-
-               AND NOTHING IN THE WAY NEAR THE EYE. The warehouse carries
-               racking down both long walls and near is 0.05 m, so a shelf a
-               metre ahead fills the frame. The camera sits 1.5 m off the east
-               wall and there IS racking 0.26 m from it -- but behind the
-               camera, where it is never drawn. So the test is not radial
-               distance, which rejected this whole wall and every good pose
-               with it, but whether furniture falls inside the view cone within
-               4 m. Verify with:
-                 node scripts/otokar/camera_clearance.mjs 14.88 1.3 -5.38 5
-
-               ASPECT IS FRAMED PESSIMISTICALLY at 1.5: the desktop canvas is
-               nearer 1.8, but a 1366-wide laptop with the panel open drops to
-               ~1.45, and framing for the wider shape would crop the narrow
-               one. far stays at 220 because the warehouse's far corner is a
-               long way behind the subject. */
-            camera={{ position: [7.77, 7.7, 17.77], fov: 37, near: 0.05, far: 150 }}
+               Nothing stands in the view cone within 4 m, checked against the
+               warehouse racking the same way as the earlier framings. */
+            camera={{ position: [9.91, 5.0, 39.83], fov: 30, near: 0.05, far: 150 }}
           >
             <Suspense fallback={<Loader />}>
               {/* Both cells are now in one close composition; the bare-grid
@@ -637,14 +621,11 @@ export default function DigitalTwin({ setLiveStatus }) {
                 fogNear={42}
                 fogFar={95}
               >
-                {/* IFARLAB_SHIFT_X: both IFARLAB and the Otokar cell (its own
-                    CELL_ORIGIN in OtokarCell.js) are shifted by the same
-                    +6.18 m so the two cells, which used to hug the building's
-                    west wall, sit centred in the room instead -- a rigid
-                    shift, so the 2.5 m aisle between them and every other
-                    relative measurement is unchanged. Keep both in sync if
-                    this changes. */}
-                <group position={[IFARLAB_SHIFT_X, 0, 0]}>
+                {/* The whole workcell hangs off this one group, so
+                    IFARLAB_OFFSET moves all of it together, unchanged in every
+                    internal dimension. It is the only thing to edit to
+                    reposition the cell. */}
+                <group position={IFARLAB_OFFSET}>
                   {/* UR10e sits on its own 7th-axis carriage (UR10eMount), which
                       rides the fixed rail rendered in EnvironmentElements
                       (base_link.stl). railPosition is that 7th axis --
@@ -692,8 +673,16 @@ export default function DigitalTwin({ setLiveStatus }) {
                   animate={animate}
                 />
                 <Factory show={showFactory} />
-
-                {/* Original aisle prop, restored with the other large props. */}
+                {showFactory && (
+                  <>
+                    {/* Parked presentation buses; the Otokar inspection bus
+                        remains the separate, dimensioned CAD model above. */}
+                    {PARKED_BUSES.map((bus) => <Bus key={bus.livery} {...bus} />)}
+                    <FactoryMarkings />
+                    <Workers />
+                    <Drones />
+                  </>
+                )}
               </Scene>
               <RailAnimator
                 animate={animate}
@@ -710,19 +699,19 @@ export default function DigitalTwin({ setLiveStatus }) {
               minDistance={0.5}
               maxDistance={24}
               maxPolarAngle={Math.PI / 2 + 0.1}
-              /* The horizontal centre of the two cells TOGETHER, not of the
-                 Otokar cell alone, and searched alongside the camera pose by
-                 scripts/otokar/camera_framing.mjs. enablePan is false, so this
-                 is also the pivot every drag turns about: centring it on one
-                 cell would swing the other out of shot on the first orbit.
+              /* Pivot between the two cells so orbiting keeps the inspection
+                 area central; the opening view stays inside maxDistance at
+                 13.8 m, which also leaves real room to pull back -- the
+                 previous framing opened at 23.2 m against a limit of 24, so
+                 the first scroll outwards did almost nothing.
 
-                 Its height is bounded by maxPolarAngle. The eye sits BELOW the
-                 target, so the polar angle is past pi/2 and rises as the target
-                 climbs; the search rejects anything within 0.04 rad of the
-                 pi/2 + 0.1 limit, because damping overshoots on the first drag
-                 and a pose any closer snaps against the clamp. At 2.4 the
-                 angle is 1.6298, which is 0.041 clear. */
-              target={[0.23, 2.2, -1.17]}
+                 x and z are the two cells' shared horizontal centre. The
+                 height came out of the same search, which pinned it at the
+                 bottom of the range it was given: aiming below the cells' own
+                 centre lifts the tall machines into the frame rather than
+                 cutting them, and from a 9 m eye that is what keeps the
+                 gantries whole. */
+              target={[0.23, 1.2, -1.17]}
               /* DEV ONLY: prints the camera pose whenever a drag or zoom
                  settles, so a framing found by hand can be read off exactly
                  and pasted into the `camera` prop above rather than guessed

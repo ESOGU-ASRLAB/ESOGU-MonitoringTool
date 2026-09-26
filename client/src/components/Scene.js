@@ -1,6 +1,8 @@
 import React, { useMemo, useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
+import { SoftShadows } from '@react-three/drei';
 import * as THREE from 'three';
+import { ROOM, LIGHTING } from './scenePalette';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment';
 
 const TILE_METERS = 10; // matches the bold section line spacing
@@ -115,37 +117,89 @@ export default function Scene({
 
   return (
     <>
-      <color attach="background" args={['#dfe8ef']} />
+      {/* Interior air, not sky. #dfe8ef is a pale daylight blue -- right for an
+          exterior, wrong inside a shed, where it put a cold wash behind every
+          wall opening and lifted the far end of the hall into blue haze. */}
+      <color attach="background" args={[ROOM.background]} />
       {fogNear !== null && fogFar !== null ? (
-        <fog attach="fog" args={['#dfe8ef', fogNear, fogFar]} />
+        <fog attach="fog" args={[ROOM.fog, fogNear, fogFar]} />
       ) : interior ? (
-        <fog attach="fog" args={['#dfe8ef', 42, 85]} />
+        <fog attach="fog" args={[ROOM.fog, 42, 85]} />
       ) : (
-        <fog attach="fog" args={['#dfe8ef', 18, 40]} />
+        <fog attach="fog" args={[ROOM.fog, 18, 40]} />
       )}
 
-      {/* Indoors the environment map supplies the fill, so the flat ambient
-          term drops right back -- left at its old level on top of IBL it just
-          washes the glTF's own textures out again. */}
-      {interior && <InteriorEnvironment intensity={0.95} />}
+      {/*
+        THE FILL WAS DOING ALMOST ALL THE WORK, and that is what made the hall
+        look like a CAD viewport rather than a photograph of a factory.
 
-      <ambientLight color="#f4f7fa" intensity={interior ? 0.22 : 0.55} />
+        Four sources were stacked: an environment map at 0.95, ambient at 0.22,
+        hemisphere at 0.42 and only 0.85 of actual directional key. Roughly two
+        thirds of the light arriving at any surface came from every direction at
+        once, so nothing was shaded -- a cylinder and a flat plate returned the
+        same value, the vehicle's structure flattened into a white cut-out, and
+        the light surfaces climbed towards clipping with no highlight left to
+        place them by.
+
+        The ratio is inverted here, and then settled back a step. The first
+        attempt cut the fill to 0.32/0.10/0.22 against a key of 1.55, which did
+        restore form but overshot: everything not facing the key fell away, the
+        roof structure went to near-black and the hall lost the even working
+        light a lit shed actually has. These are the numbers in between -- the
+        key is still the dominant single source, so surfaces are shaded by
+        direction, but there is enough bounce left to see into the volume.
+      */}
+      {/*
+        CONTACT-HARDENING SHADOWS (PCSS).
+
+        A single shadow map gives every shadow the same hard edge whatever its
+        distance from what casts it, and that uniform edge is one of the clearest
+        tells of a real-time viewport rather than a render. Real shadows are
+        sharp where an object meets the floor and spread the further away the
+        surface gets -- a gantry leg is crisp at its foot and soft two metres up
+        the column.
+
+        drei's SoftShadows patches the shadow sampling to do that, with no extra
+        dependency and no second shadow pass. `size` is the light's apparent
+        width in world units: a 25 m roof-lit hall, not a point source. Samples
+        are kept modest because this runs every frame.
+      */}
+      {interior && <SoftShadows size={25} samples={12} focus={0.4} />}
+
+      {interior && <InteriorEnvironment intensity={LIGHTING.environment} />}
+
+      <ambientLight color={ROOM.ambient} intensity={interior ? LIGHTING.ambient : 0.55} />
       <directionalLight
-        color="#fff6e8"
+        color={ROOM.lamp}
         position={[8, 14, 6]}
-        intensity={interior ? 0.85 : 1.2}
+        intensity={interior ? LIGHTING.key : 1.2}
         castShadow
-        shadow-mapSize-width={512}
-        shadow-mapSize-height={512}
-        shadow-normalBias={0.05}
+        /*
+         * THE SHADOW CAMERA USED TO MISS MOST OF THE BUILDING. It was an
+         * orthographic box +/-10 m around the origin with far at 30, while the
+         * hall runs to x +/-16 and z +/-24. Everything outside that box -- all
+         * three parked buses at z 15 to -17, the workers around them, the
+         * whole east end -- cast and received nothing, which is why those
+         * objects read as pasted onto the floor rather than standing on it.
+         *
+         * +/-20 covers the occupied floor, and 2048 over that span gives about
+         * 2 cm per texel, against 4 cm over the old smaller box: a contact
+         * shadow with an edge rather than a grey smudge.
+         */
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-normalBias={0.03}
+        shadow-bias={-0.0004}
         shadow-camera-near={0.5}
-        shadow-camera-far={30}
-        shadow-camera-left={-10}
-        shadow-camera-right={10}
-        shadow-camera-top={10}
-        shadow-camera-bottom={-10}
+        shadow-camera-far={60}
+        shadow-camera-left={-20}
+        shadow-camera-right={20}
+        shadow-camera-top={20}
+        shadow-camera-bottom={-20}
       />
-      <hemisphereLight args={['#f8fbff', '#748293', interior ? 0.42 : 0.4]} />
+      {/* Sky bounce above, floor bounce below. The lower colour is the floor's
+          own tone, so light coming back up off the concrete carries it. */}
+      <hemisphereLight args={[ROOM.skyBounce, ROOM.groundBounce, interior ? LIGHTING.hemisphere : 0.4]} />
 
       {showGrid && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>

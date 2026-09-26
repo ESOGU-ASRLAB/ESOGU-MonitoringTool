@@ -2,28 +2,36 @@ import React from 'react';
 import Drone from './Drone';
 
 /*
- * Three drones on independent circular patrols, flown low (2.7-3.2m, down
- * from the original 4.5-6m) for visibility. At that height they can't just
- * fly over the ground clutter, so all three circles sit south of it instead:
- * the bus/lift cluster in DigitalTwin.js now spans roughly x=-13..20,
- * z=-3.77..22.77 (3 buses, a ramp, 4 lifts), so every patrol here stays
- * below z=-8 -- clear of that whole cluster, the robot workcell (near the
- * origin), and the wall shelving (x~13-15, z~12-19). Only the pallet
- * clusters near z~-21/-22 (see EnvironmentElements.js) are close enough to
- * mind, and each circle keeps a wide margin from those too.
+ * MOVED IN OVER THE CELLS.
+ *
+ * These used to orbit at z -17 and z +15 -- the far ends of the hall, past
+ * both cells, where there is nothing to inspect and, from any framing of the
+ * work, nothing to see. Three drones patrolling empty floor read as scenery.
+ *
+ * They now circle the machines they would actually be watching: two over the
+ * Otokar cell, whose own centre is near (-3.8, -1.2), and one over the IFARLAB
+ * workcell.
+ *
+ * The heights came down from 5.8-6.6 m to 5.3-5.6 m, and the radii in with
+ * them. Higher and wider, the drones read against the roof -- which is where
+ * they were hard to find. Lower, they sit against the machines themselves,
+ * which is both easier to see and closer to what a patrol over a working cell
+ * would actually look like. 5.3 m is the floor here, not a preference: the
+ * gantry columns reach 4.90 m at full extension, and a drone has to clear a
+ * raised mast at every point of its orbit, not just at rest.
  */
-const PATROLS = [
-  { center: [3, 0, -10], radius: 3, height: 3.0, speed: 0.35, phase: 0, tilt: 0.08 },
-  { center: [-3, 0, -15], radius: 3, height: 2.7, speed: 0.45, phase: 2.4, tilt: -0.1 },
-  { center: [3, 0, -19], radius: 2.5, height: 3.2, speed: 0.28, phase: 4.6, tilt: 0.12 },
-];
+export const DRONE_PATROLS = Object.freeze([
+  { center: [-4.0, 0, -4.5], radius: 2.2, height: 5.4, speed: 0.30, phase: 0, tilt: 0.08 },
+  { center: [-3.0, 0, 2.5], radius: 2.0, height: 5.6, speed: 0.26, phase: 2.2, tilt: -0.07 },
+  { center: [10.5, 0, -0.5], radius: 1.8, height: 5.3, speed: 0.32, phase: 4.1, tilt: 0.06 },
+]);
 
 export default function Drones({ show = true }) {
   if (!show) return null;
 
   return (
     <>
-      {PATROLS.map((patrol, i) => (
+      {DRONE_PATROLS.map((patrol, i) => (
         <Drone key={i} {...patrol} />
       ))}
     </>

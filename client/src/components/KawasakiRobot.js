@@ -2,6 +2,8 @@ import React, { useRef, useMemo, Suspense } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import * as THREE from 'three';
+import { PAINT, ACCENT, METAL } from './scenePalette';
+import { publishTelemetry } from './robotTelemetry';
 
 /*
  * Kawasaki RS005L Robot (6-DOF) from ESOGU-HILTest-DualRobot-2.
@@ -20,16 +22,18 @@ import * as THREE from 'three';
 const MESH_SCALE = [1, 1, 1];
 const MESH_BASE = process.env.PUBLIC_URL + '/meshes/rs005l';
 // Gövde: Yarı mat boyalı metal veya sert plastik
-const WHITE_BODY = { color: '#b9c0c1', metalness: 0.72, roughness: 0.42 };
+// Kawasaki machine enamel. This was the worst offender in the scene at
+// metalness 0.72 -- a painted white arm rendered as three-quarters chrome.
+const WHITE_BODY = { ...PAINT.shell };
 
 // Vurgu: Parlak, belirgin kırmızı
-const BLUE_ACCENT = { color: '#4f86a8', metalness: 0.56, roughness: 0.34 };
+const BLUE_ACCENT = { ...ACCENT.brandBlue };
 
 // Eklemler: Koyu renkli, yansıtıcı anotlanmış metal
-const DARK_JOINT = { color: '#303638', metalness: 0.8, roughness: 0.36 };
+const DARK_JOINT = { ...PAINT.dark };
 
 // Tutucu uç: Fırçalanmış çelik/alüminyum
-const GRIPPER_MAT = { color: '#9ca6a7', metalness: 0.82, roughness: 0.38 };
+const GRIPPER_MAT = { ...METAL.machined };
 
 function STLMesh({ url, position = [0, 0, 0], rotation = [0, 0, 0], scale = MESH_SCALE, material = WHITE_BODY }) {
   const geometry = useLoader(STLLoader, url);
@@ -64,6 +68,7 @@ export default function KawasakiRobot({
 }) {
   const jointRefs = useRef([]);
   const timeRef = useRef(0);
+  const liveRef = useRef([0, 0, 0, 0, 0, 0]);
   const toRad = (deg) => (deg * Math.PI) / 180;
 
   useFrame((state, delta) => {
@@ -96,6 +101,11 @@ export default function KawasakiRobot({
     if (jointRefs.current[3]) jointRefs.current[3].rotation.z = angles[3];  // axis 0 0 1
     if (jointRefs.current[4]) jointRefs.current[4].rotation.z = -angles[4]; // axis 0 0 -1
     if (jointRefs.current[5]) jointRefs.current[5].rotation.z = angles[5];  // axis 0 0 1
+
+    // `angles` is in radians here, whichever branch produced it; the readout
+    // is in degrees, like the sliders.
+    for (let i = 0; i < 6; i += 1) liveRef.current[i] = (angles[i] * 180) / Math.PI;
+    publishTelemetry('kawasaki', liveRef.current);
   });
 
   return (

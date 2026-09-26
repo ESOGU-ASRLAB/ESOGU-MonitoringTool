@@ -1,3 +1,5 @@
+import { BODY_IN_WHITE, PAINT, ACCENT, METAL, POLYMER } from './scenePalette';
+
 /*
  * ONE PALETTE FOR THE WHOLE CELL.
  *
@@ -20,26 +22,22 @@
  */
 
 /*
- * The body, in the blue Otokar's own layout drawing uses for the vehicle.
+ * The body, now from BODY_IN_WHITE in the shared scene palette.
  *
- * One hue, six values. The blue is what separates the thing being measured from
- * the machines measuring it -- the cell is otherwise black, grey and amber --
- * and the values keep the structure legible within it: roof lightest, sills and
- * floor darkest, so the shell still reads as roof, pillars, waist rails and
- * underfloor rather than as a flat silhouette.
+ * The history of this value is worth keeping, because it went one step too far
+ * twice. It began as the CAD's six-HUE part colouring -- green pillars,
+ * magenta interior, cyan cross members -- which is useful inside CAD and made
+ * the shell louder than the robots in the cell. That was replaced by one blue
+ * hue in six values, which fixed the noise but left the vehicle at saturation
+ * 0.52-0.77: a fluorescent cyan bus, and the largest object in the frame.
  *
- * This replaced a six-HUE version (green pillars, magenta interior, cyan cross
- * members) that came from the CAD's own part colouring. That coding is useful
- * inside CAD; in the cell it made the shell louder than the robots.
+ * What the coding is actually for survives both changes: the shell is coded by
+ * member so it can be seen at a glance which part of the vehicle the head is
+ * over. That information lives in the VALUE ORDER, not in the hue, so moving
+ * to a realistic body-in-white grey keeps it -- roof-to-sill spread 3.14:1
+ * against 3.41:1 before, at a fifth of the saturation.
  */
-export const OTOKAR_BODY_PALETTE = Object.freeze({
-  roof: '#6fc3e8',        // Roof panel and cant rail: the lightest blue.
-  upper: '#3aa6dc',       // Outer waist and roof rails along the flanks.
-  pillar: '#2e8fc4',      // Outer vertical members.
-  inner: '#2878a6',       // Interior structure: inner pillars.
-  crossMember: '#3f9bcb', // Roof bows and floor cross members.
-  sill: '#1f6188',        // Sills, floor pan and everything under the vehicle.
-});
+export const OTOKAR_BODY_PALETTE = Object.freeze({ ...BODY_IN_WHITE });
 
 /*
  * The gantries' livery.
@@ -75,15 +73,28 @@ export const OTOKAR_BODY_PALETTE = Object.freeze({
  * roughness, so it stays matte polymer next to metal that is not.
  */
 export const OTOKAR_ROBOT_LIVERY = Object.freeze({
-  graphite: '#2f3336',    // Rail bed and structural beams.
-  black: '#1e2124',       // Carriage saddle and column mast: the darkest steel.
-  armGrey: '#3f4549',     // The arm's box sections, a step up from the saddle.
-  chain: '#828a8c',       // Energy chain. Neutral, but not a dark: see below.
-  columnWhite: '#d7dade', // Pale panels on the mast.
-  amber: '#e0a92c',       // Vehicle support fixtures along the rail bed.
-  signalRed: '#b8332f',   // Drive blocks: the axis-2 slide and the wrist.
-  satinSteel: '#aab1b7',  // Exposed guides and telescoping stages.
-  sensorGrey: '#99a1a7',  // Camera enclosure, light against the red wrist.
+  /*
+   * The three structural darks now come from the shared PAINT family, one
+   * value apart each. They used to be #2f3336, #1e2124 and #3f4549 -- luminance
+   * 0.032, 0.015 and 0.058, which is 1.27:1 and 1.31:1 between them. Three
+   * names, one value: the gantries rendered as black cut-outs with no form in
+   * them. Real enamel that reads as dark still has a range in it.
+   */
+  graphite: PAINT.structure.color, // Rail bed and structural beams.
+  black: PAINT.dark.color,         // Carriage saddle and column mast.
+  armGrey: PAINT.mid.color,        // The arm's box sections.
+  chain: POLYMER.chain.color,      // Energy chain. Neutral, but not a dark.
+  columnWhite: '#d7dade',          // Pale panels on the mast.
+  /*
+   * One red and one amber in the whole hall. These were #e0a92c and #b8332f
+   * here while the AGV and the guarding carried their own, so the scene had
+   * several near-but-not-quite versions of the same two safety colours --
+   * which is precisely how an accent stops reading as a signal.
+   */
+  amber: ACCENT.hazardAmber.color, // Vehicle support fixtures along the rail bed.
+  signalRed: ACCENT.signalRed.color, // Drive blocks: axis-2 slide and wrist.
+  satinSteel: METAL.machined.color, // Exposed guides and telescoping stages.
+  sensorGrey: '#99a1a7',           // Camera enclosure, light against the wrist.
 });
 
 /*
@@ -135,14 +146,26 @@ export const OTOKAR_ROBOT_MATERIALS = Object.freeze({
 });
 
 /*
- * Bare steel, not paint: a body in white at the inspection station has no
- * topcoat on it yet. Low metalness keeps it from going mirror-like under the
- * shop lights, which at this scale reads as plastic rather than as steel. The
- * per-surface colours come from cadPartColor; this only sets the finish they
- * all share.
+ * THE FINISH THAT WAS ERASING THE BODY'S OWN COLOURS.
+ *
+ * This said metalness 0.32 under a comment claiming "low metalness keeps it
+ * from going mirror-like". 0.32 is not low, and with an environment map in the
+ * scene it was enough to hand the shell over to its reflection: a metallic
+ * surface tints what it reflects by its base colour rather than showing that
+ * colour, so the whole roof/pillar/sill value coding was being washed out and
+ * the vehicle rendered as one flat near-white skeleton -- the brightest object
+ * in a frame where it is meant to be the thing being measured.
+ *
+ * A body in white at an inspection station is bare or e-coated steel. Bare
+ * steel is metallic, but what is actually wanted here is for the structure to
+ * READ, and at 0.08 the shell shows its own values and still carries a dull
+ * sheen. This is the one place in the palette where legibility is deliberately
+ * chosen over strict physical fidelity, and it is worth saying so plainly: the
+ * colour coding exists so the inspection head's position on the vehicle can be
+ * followed, and a reflection that erases it defeats the purpose of the model.
  */
 export const OTOKAR_BODY_MATERIAL = Object.freeze({
   color: OTOKAR_BODY_PALETTE.roof,
-  metalness: 0.32,
-  roughness: 0.58,
+  metalness: 0.08,
+  roughness: 0.62,
 });

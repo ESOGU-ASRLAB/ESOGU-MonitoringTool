@@ -49,8 +49,8 @@ import { FLOOR_Z_MM } from './otokarCellGeometry';
  *   - z-centred on the IFARLAB cell, so its whole depth sits inside this
  *     cell's z-span and both read together from one camera angle
  *
- * Both cells were then shifted together by the same +6.18 m in x (see
- * IFARLAB_SHIFT_X in DigitalTwin.js, which wraps IFARLAB the same way) so the
+ * Both cells were then shifted together by the same +6.18 m in x (the
+ * workcell's half of that is IFARLAB_OFFSET in cellLayout.js) so the
  * combined pair sits centred on the building's own x=0 instead of hugging the
  * west wall with the whole east side of the room sitting empty. That rigid
  * shift is baked into CELL_ORIGIN's x below rather than applied as a second
@@ -86,19 +86,41 @@ const CELL_ORIGIN = [-3.92, -FLOOR_Z_MM * 0.001, -5.88];
 const CELL_ROTATION_Y = Math.PI / 2; // runway from local +x onto the building's z
 
 /*
- * Distance past which the light mesh tier is used. The cell is ~16 m long, so
- * beyond ~26 m a rail carriage covers a handful of pixels and the detailed
- * tier buys nothing but bandwidth and draw time.
+ * LOD SWITCHING, WITH HYSTERESIS.
+ *
+ * The cell is ~16 m long, so past roughly 26 m a rail carriage covers a
+ * handful of pixels and the detailed tier buys nothing but bandwidth and draw
+ * time. That part was right. What was wrong was using ONE threshold at 26 m:
+ * a camera sitting near it flips tier on every small movement, and each flip
+ * changes every mesh URL in the cell, so the whole cell suspends and refetches.
+ * Zooming through that distance made the models visibly reload.
+ *
+ * Two thresholds instead, with a 4 m dead band. Going out, the light tier
+ * starts at 28 m; coming back, the detailed tier resumes at 24 m. A camera
+ * anywhere between them keeps whatever it already has, so no amount of small
+ * movement can cause a switch.
  */
-const LOD_SWITCH_M = 26;
+const LOD_TO_LO_M = 28;
+const LOD_TO_HI_M = 24;
 
-function LodController({ enabled, activeLod, setActiveLod }) {
+/*
+ * Which tier a camera at `distance` should use GIVEN the one it is already on.
+ * The current tier is an input, not just an output: that is what the dead band
+ * means. Also used to choose the opening tier, where passing 'lo' as the
+ * current tier asks the stricter question ("is it close enough to earn the
+ * detailed tier?") and so never opens on hi by accident.
+ */
+function lodForDistance(distance, current) {
+  if (current === 'hi') return distance > LOD_TO_LO_M ? 'lo' : 'hi';
+  return distance < LOD_TO_HI_M ? 'hi' : 'lo';
+}
+
+function LodController({ enabled, centre, activeLod, setActiveLod }) {
   const camera = useThree((state) => state.camera);
-  const centre = useMemo(() => new THREE.Vector3(...CELL_ORIGIN), []);
 
   useFrame(() => {
     if (!enabled) return;
-    const next = camera.position.distanceTo(centre) > LOD_SWITCH_M ? 'lo' : 'hi';
+    const next = lodForDistance(camera.position.distanceTo(centre), activeLod);
     if (next !== activeLod) setActiveLod(next);
   });
 
@@ -114,7 +136,26 @@ export default function OtokarCell({
   animate = false,
   animationSpeed = 1,
 }) {
-  const [activeLod, setActiveLod] = useState('lo');
+  /*
+   * THE OPENING TIER IS DERIVED FROM WHERE THE CAMERA ACTUALLY IS, and that
+   * matters more than it looks.
+   *
+   * This used to start at 'lo' unconditionally. LodController then ran on the
+   * very first frame, found the default camera well inside the switch distance
+   * and moved to 'hi' -- so the page requested the ENTIRE light tier, abandoned
+   * it mid-flight, and requested the entire detailed tier. Measured against the
+   * meshes actually referenced here: 100.3 MB of lo plus 110.5 MB of hi, and
+   * because bus/hi/body.glb and bus/lo/body.glb are byte-identical, 137 MB of
+   * that was the same vehicle downloaded twice.
+   *
+   * Reading the camera at mount costs nothing -- this component renders inside
+   * the Canvas, so the camera already exists -- and the first request is then
+   * the only request.
+   */
+  const camera = useThree((state) => state.camera);
+  const centre = useMemo(() => new THREE.Vector3(...CELL_ORIGIN), []);
+  const [activeLod, setActiveLod] = useState(() =>
+    lodForDistance(camera.position.distanceTo(centre), 'lo'));
   const lod = lodMode === 'auto' ? activeLod : lodMode;
   const axes = robotAxes || OTOKAR_ROBOT_HOME;
 
@@ -124,6 +165,7 @@ export default function OtokarCell({
     <group position={CELL_ORIGIN} rotation={[0, CELL_ROTATION_Y, 0]}>
       <LodController
         enabled={lodMode === 'auto'}
+        centre={centre}
         activeLod={activeLod}
         setActiveLod={setActiveLod}
       />

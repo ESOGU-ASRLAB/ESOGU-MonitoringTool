@@ -2,6 +2,7 @@ import React, { useMemo, Suspense } from 'react';
 import { useLoader } from '@react-three/fiber';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import * as THREE from 'three';
+import { METAL, PAINT } from './scenePalette';
 
 /*
  * The UR10e's own travelling mount (7th-axis linear carriage). The arm's
@@ -15,7 +16,7 @@ import * as THREE from 'three';
 const MESH_SCALE = [0.001, 0.001, 0.001];
 const MESH_URL = process.env.PUBLIC_URL + '/meshes/ur10e/linear_axis_moving_link.stl';
 const RECENTER_OFFSET = [0.105561, -0.1260, -0.6445];
-const CARRIAGE_MATERIAL = { color: '#c7c9cf', metalness: 0.4, roughness: 0.6 };
+const CARRIAGE_MATERIAL = { ...METAL.aluminium };
 
 // Neither the carriage nor the arm's own base.stl come with a mounting-plate
 // mesh in the source package, and there's a real (small, ~2.5cm) gap between
@@ -37,7 +38,7 @@ const CARRIAGE_MATERIAL = { color: '#c7c9cf', metalness: 0.4, roughness: 0.6 };
 // put the plate ~9-12cm off to the side of the base, not underneath it.
 const PLATE_POSITION = [0.052439, 0.0768, 0.045575];
 const PLATE_SIZE = [0.19, 0.19, 0.05];
-const PLATE_MATERIAL = { color: '#4a4a50', metalness: 0.5, roughness: 0.5 };
+const PLATE_MATERIAL = { ...PAINT.structure };
 
 export default function UR10eMount() {
   const geometry = useLoader(STLLoader, MESH_URL);

@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { publishTelemetry } from './robotTelemetry';
 import * as THREE from 'three';
 import OtokarMesh from './OtokarMesh';
 import { OTOKAR_AXES } from './otokarAxes';
@@ -258,6 +259,8 @@ export default function OtokarGantryRobot({
   // frame), and seconds elapsed since it started. A scratch array avoids
   // allocating on every sample.
   const seqRef = useRef(null);
+  // Reused each frame; see robotTelemetry.js for why it is not a fresh array.
+  const liveRef = useRef([0, 0, 0, 0, 0]);
   const sampleOut = useRef([0, 0, 0, 0, 0]);
 
   /*
@@ -393,6 +396,13 @@ export default function OtokarGantryRobot({
     if (g.a3middle) g.a3middle.position.copy(kinematics.axis3Dir).multiplyScalar((a3 - CAD_POSE.a3) * MM * 0.5);
     if (g.a4) g.a4.quaternion.setFromAxisAngle(kinematics.axis4Axis, toRad(a4 - CAD_POSE.a4));
     if (g.a5) g.a5.quaternion.setFromAxisAngle(kinematics.axis5Axis, toRad(a5 - CAD_POSE.a5));
+
+    liveRef.current[0] = a1;
+    liveRef.current[1] = a2;
+    liveRef.current[2] = a3;
+    liveRef.current[3] = a4;
+    liveRef.current[4] = a5;
+    publishTelemetry(robotId, liveRef.current);
   });
 
   return (
