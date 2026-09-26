@@ -2,6 +2,8 @@ import React, { useRef, useMemo, Suspense } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import * as THREE from 'three';
+import { PAINT, ACCENT, METAL } from './scenePalette';
+import { publishTelemetry } from './robotTelemetry';
 
 /*
  * UR10e Robot Visualizer using actual STL meshes from the
@@ -15,16 +17,21 @@ const MESH_SCALE = [0.001, 0.001, 0.001];
 const MESH_BASE = process.env.PUBLIC_URL + '/meshes/ur10e';
 
 // Material presets// Ana gövde: Fırçalanmış alüminyum/gümüş (Saf beyaz yerine açık gri)
-const SILVER = { color: '#e4e3d8', metalness: 0.42, roughness: 0.48 };
+// UR shells are painted/moulded, so they are dielectric. These were at
+// metalness 0.42-0.78, which lit an enamelled arm as though it were bare
+// alloy: it took the room's colour instead of its own and lost its form the
+// moment it left a highlight.
+const SILVER = { ...PAINT.shell };
 
 // Eklemler/Motorlar: Koyu renkli döküm metal
-const DARK_METAL = { color: '#35393b', metalness: 0.72, roughness: 0.4 };
+const DARK_METAL = { ...PAINT.dark };
 
 // Vurgu kapakları: Anotlanmış mavi alüminyum veya sert plastik
-const BLUE_ACCENT = { color: '#4778a8', metalness: 0.56, roughness: 0.4 };
+const BLUE_ACCENT = { ...ACCENT.brandBlue };
 
 // Tutucu uç: İşlenmiş karbon çeliği veya mat koyu metal
-const GRIPPER_MAT = { color: '#454b4d', metalness: 0.78, roughness: 0.42 };
+// The gripper body is anodised alloy -- genuinely bare, so genuinely metallic.
+const GRIPPER_MAT = { ...METAL.machined };
 
 // gripper_body_1/lower_1/upper_1.stl share the same raw coordinate frame as
 // the rest of the arm's collision meshes (their raw centers sit right past
@@ -87,6 +94,9 @@ export default function UR10eRobot({
 }) {
   const jointRefs = useRef([]);
   const timeRef = useRef(0);
+  // Reused every frame; publishTelemetry keeps the reference, so a fresh
+  // array here would allocate sixty times a second for one readout.
+  const liveRef = useRef([0, 0, 0, 0, 0, 0]);
   const toRad = (deg) => (deg * Math.PI) / 180;
 
   useFrame((state, delta) => {
@@ -119,6 +129,7 @@ export default function UR10eRobot({
       if (jointRefs.current[3]) jointRefs.current[3].rotation.y = toRad(demo[3]);
       if (jointRefs.current[4]) jointRefs.current[4].rotation.z = -toRad(demo[4]);
       if (jointRefs.current[5]) jointRefs.current[5].rotation.y = toRad(demo[5]);
+      for (let i = 0; i < 6; i += 1) liveRef.current[i] = demo[i];
     } else {
       if (jointRefs.current[0]) jointRefs.current[0].rotation.z = toRad(jointAngles[0]);
       if (jointRefs.current[1]) jointRefs.current[1].rotation.y = toRad(jointAngles[1]);
@@ -126,7 +137,9 @@ export default function UR10eRobot({
       if (jointRefs.current[3]) jointRefs.current[3].rotation.y = toRad(jointAngles[3]);
       if (jointRefs.current[4]) jointRefs.current[4].rotation.z = -toRad(jointAngles[4]);
       if (jointRefs.current[5]) jointRefs.current[5].rotation.y = toRad(jointAngles[5]);
+      for (let i = 0; i < 6; i += 1) liveRef.current[i] = jointAngles[i];
     }
+    publishTelemetry('ur10e', liveRef.current);
   });
 
   /*
@@ -234,7 +247,7 @@ export default function UR10eRobot({
                                           <STLMesh
                                             url={`${MESH_BASE}/sick_camera_mo.stl`}
                                             position={[-1.02433, -0.5466, -0.730752]}
-                                            material={{ color: '#6babf4', metalness: 0.5, roughness: 0.4 }}
+                                            material={BLUE_ACCENT}
                                           />
                                         </group>
 

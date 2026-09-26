@@ -121,3 +121,160 @@
   opacity: 0.4;
   cursor: default;
 }
+
+/* ===================================================================
+   LIVE AXIS DATA
+
+   Sits under the last control section, in the space the panel already
+   had spare. Deliberately quieter than the controls above it: this is a
+   readout, not something to operate, so it carries no borders, buttons
+   or hover states that would invite a click.
+   =================================================================== */
+/* The rule sits BELOW the block, not above it: the telemetry is the first
+   thing under the robot tabs now, so a top border would double up with the
+   tabs' own edge, while a bottom one separates the readout from the controls
+   that follow it. */
+.control-section.telemetry {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  padding-bottom: 12px;
+}
+
+.telemetry-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.telemetry-header h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6e6e73;
+}
+
+.telemetry-state {
+  font-size: 11px;
+  font-weight: 500;
+  color: #8a8a8f;
+}
+
+/* The running state is the only colour in the block, so it reads at a
+   glance without the reader having to find the word. */
+.telemetry-state.is-running {
+  color: #1d8a4e;
+}
+
+.telemetry-state.is-running::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: telemetry-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes telemetry-pulse {
+  50% { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .telemetry-state.is-running::before { animation: none; }
+}
+
+.telemetry-robot {
+  margin-bottom: 8px;
+}
+
+.telemetry-robot:last-child {
+  margin-bottom: 0;
+}
+
+.telemetry-name {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1d1d1f;
+  margin-bottom: 3px;
+}
+
+/* Values on the left, the live strip in the space to the right of them --
+   which on the Otokar rows, with only five axes, was most of the width. */
+.telemetry-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Wraps rather than scrolls: six joints do not fit one narrow column,
+   and a readout that needs scrolling to be read is not a readout. */
+.telemetry-axes {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 6px;
+}
+
+/* Fixed width, so the axis values to its left wrap to the same column count
+   on every row and the four robots line up as a table rather than drifting. */
+.telemetry-spark {
+  flex: none;
+  width: 110px;
+  height: 34px;
+  overflow: visible;
+}
+
+.telemetry-spark-base {
+  stroke: rgba(0, 0, 0, 0.12);
+  stroke-width: 1;
+  /* Unscaled by preserveAspectRatio="none", which stretches x but not the
+     stroke, so this stays a hairline. */
+  vector-effect: non-scaling-stroke;
+}
+
+.telemetry-spark-line {
+  fill: none;
+  stroke: #0071e3;
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Narrow panels: the strip is the first thing to go. The numbers are the
+   readout; the chart is the gloss on it. */
+@media (max-width: 380px) {
+  .telemetry-spark {
+    display: none;
+  }
+}
+
+.telemetry-axis {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.telemetry-axis-label {
+  color: #8a8a8f;
+  font-weight: 500;
+  min-width: 16px;
+}
+
+/* Tabular figures, because these numbers change every eighth of a
+   second: with proportional digits the whole row jitters sideways on
+   every update and becomes hard to read precisely when it is moving,
+   which is exactly when it matters. */
+.telemetry-axis-value {
+  color: #1d1d1f;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 44px;
+}
