@@ -7,6 +7,7 @@
 import * as THREE from '../../client/node_modules/three/build/three.module.js';
 import { readGlbBox, measureIfarlab, ROOT } from './scene_inspection.mjs';
 import { resolve } from 'node:path';
+import { IFARLAB_OFFSET } from '../../client/src/components/cellLayout.js';
 
 const MESH = resolve(ROOT, 'client/public/meshes/otokar');
 const CAD_POSE = { a1: 0, a2: 0, a3: 0 };
@@ -25,7 +26,6 @@ const PIVOTS = {
 const AXIS4_CHAIN_OFFSET = { robot1: [0, 583, 0], robot2: [0, -583, 0] };
 const BUILDING = { min: [-16.39, -0.16, -24.73], max: [16.39, 10.17, 24.73] };
 const LOW_ROOF_Y = 5.31;
-const IFARLAB_SHIFT_X = 6.18;
 const MM = 0.001;
 
 const boxFor = (group, part, lod = 'hi') =>
@@ -156,7 +156,7 @@ if (roof <= 0) bad = true;
 console.log(`  roof beams at ${LOW_ROOF_Y} m: clearance ${roof.toFixed(2)} m ${roof > 0 ? 'OK' : '*** CLIPPING ***'}`);
 
 const ifarlab = measureIfarlab().box;
-ifarlab.translate(new THREE.Vector3(IFARLAB_SHIFT_X, 0, 0));
+ifarlab.translate(new THREE.Vector3(...IFARLAB_OFFSET));
 console.log(`\nIFARLAB UNION min(${f(ifarlab.min.toArray())}) max(${f(ifarlab.max.toArray())})`);
 const overlap = cellBox.intersectsBox(ifarlab);
 const gap = new THREE.Vector3(

@@ -22,6 +22,9 @@
   flex: 1 1 auto;
   min-width: 0;
   position: relative;
+  /* Drags orbit the view (touch included), so the browser must not pan. */
+  touch-action: none;
+  cursor: grab;
 }
 
 .twin-viewport.walking-mode {
@@ -251,112 +254,4 @@
     background: rgba(0, 0, 0, 0.4);
     z-index: 20;
   }
-}
-
-/* ===================================================================
-   MODEL LOADING OVERLAY
-
-   Sits over the canvas while the cell's GLBs come down (see
-   ModelLoadingOverlay in DigitalTwin.js). z-index 40 puts it above the
-   mobile drawer (30) and its scrim (20) as well as the viewport buttons
-   (10): while models are loading there is nothing under it worth
-   clicking, and a half-drawn control panel on top of a "Loading models"
-   card reads as two states at once.
-
-   pointer-events: none so the moment it starts fading the canvas is
-   already live to the mouse -- the fade is cosmetic, the scene is ready.
-   =================================================================== */
-.model-loading-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  background: rgba(223, 232, 239, 0.82);
-  backdrop-filter: blur(3px);
-  opacity: 1;
-  transition: opacity 400ms ease;
-}
-
-/* Set the frame the fade-out runs over; the element is unmounted 450ms
-   after this class lands, so the transition always completes first. */
-.model-loading-overlay.is-done {
-  opacity: 0;
-}
-
-.model-loading-card {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 8px 14px;
-  min-width: 260px;
-  padding: 18px 24px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 6px 26px rgba(0, 0, 0, 0.12);
-}
-
-.model-loading-spinner {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2.5px solid rgba(0, 0, 0, 0.1);
-  border-top-color: #0071e3;
-  animation: model-loading-spin 900ms linear infinite;
-}
-
-@keyframes model-loading-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Honour a reduced-motion preference: the text and the bar still report
-   progress, so nothing is lost by holding the spinner still. */
-@media (prefers-reduced-motion: reduce) {
-  .model-loading-spinner {
-    animation: none;
-  }
-}
-
-.model-loading-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
-.model-loading-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1d1d1f;
-}
-
-.model-loading-sub {
-  font-size: 12px;
-  font-weight: 500;
-  color: #6e6e73;
-  /* The counter changes every few hundred ms and the digits are not
-     fixed-width, so without this the label jitters sideways. */
-  font-variant-numeric: tabular-nums;
-}
-
-/* Spans both columns so the bar measures the whole card, not just the
-   text beside the spinner. */
-.model-loading-bar {
-  grid-column: 1 / -1;
-  height: 4px;
-  border-radius: 2px;
-  overflow: hidden;
-  background: rgba(0, 0, 0, 0.08);
-}
-
-.model-loading-bar-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: #0071e3;
-  transition: width 220ms ease;
 }

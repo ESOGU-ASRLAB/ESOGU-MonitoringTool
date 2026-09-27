@@ -1,12 +1,14 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { MARKING } from './scenePalette';
+import { BAY_A, BAY_B } from './busRoute';
 
 // Same centres and liveries feed both the parked buses and their floor bays.
 export const PARKED_BUSES = Object.freeze([
-  { position: [-12.3, 0, -7.0], rotation: Math.PI / 2, livery: 'pearl' },
-  { position: [10.5, 0, -5.0], rotation: Math.PI / 2, livery: 'graphite' },
-  { position: [2.5, 0, -16.0], rotation: Math.PI / 2, livery: 'forest' },
+  // The two trade bays all through the presentation (busRoute.js).
+  { position: [BAY_A[0], 0, BAY_A[1]], rotation: Math.PI / 2, livery: 'graphite', shuttle: true },
+  // Rear towards the opening camera, so its Otokar plate is in shot.
+  { position: [BAY_B[0], 0, BAY_B[1]], rotation: Math.PI / 2, livery: 'forest', shuttle: true },
 ]);
 
 const BAY_HALF_WIDTH = 1.65;

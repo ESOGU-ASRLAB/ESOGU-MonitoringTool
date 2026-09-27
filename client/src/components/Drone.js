@@ -31,7 +31,9 @@ const PROPELLER_CLIPS = ['Cube.003Action', 'Cube.004Action', 'Cube.005Action.001
  * Move the camera back in and this will look oversized. The number to change
  * is here and nowhere else.
  */
-const DRONE_SCALE = 0.062;
+// Raised from 0.062 (2.37 m) to 0.075 (2.86 x 2.09 x 2.24 m) once the patrols
+// came down beside the cells, where they must read next to the machines.
+const DRONE_SCALE = 0.075;
 /*
  * FINISHES.
  *
@@ -106,7 +108,7 @@ const PROPELLER_NODES = new Set(
   PROPELLER_CLIPS.map((c) => c.replace(/Action.*$/, '').replace(/\./g, '')),
 );
 
-function applyRealisticMaterials(group) {
+function applyRealisticMaterials(group, shell = SHELL_MATERIAL) {
   group.traverse((child) => {
     if (!child.isMesh) return;
       // Small airborne props do not need a second shadow-map draw pass.
@@ -122,13 +124,29 @@ function applyRealisticMaterials(group) {
       // colour over all of it was most of why the drone read as a toy.
       child.material = GEAR_MATERIAL;
     } else {
-      child.material = SHELL_MATERIAL;
+      child.material = shell;
     }
   });
 }
 
-function DroneModel({ radius, height, center, speed, phase, tilt }) {
+/*
+ * FOLLOWING A TARGET. With `follow`, a function of time returning
+ * { x, z, visible }, the drone flies to `height` over that point instead of
+ * orbiting, easing after it so it trails rather than snaps, and turning to
+ * face the way it is going. Where the target cannot be followed -- out of
+ * sight, or past `minZ` towards the far wall's door heads -- it holds at
+ * `wait` until the target comes back.
+ */
+const FOLLOW_RATE = 1.4; // 1/s, how quickly the drone closes on its target
+const followTarget = new THREE.Vector3();
+
+function DroneModel({ radius, height, center, speed, phase, tilt, color, follow, wait, minZ = -Infinity, scale = DRONE_SCALE }) {
   const { scene, animations } = useGLTF(DRONE_URL);
+  const shell = useMemo(
+    () => (color ? new THREE.MeshStandardMaterial({ color, metalness: 0.05, roughness: 0.42 }) : SHELL_MATERIAL),
+    [color],
+  );
+  const followState = useRef(null);
 
   const droneRoot = useMemo(() => {
     /*
@@ -142,9 +160,9 @@ function DroneModel({ radius, height, center, speed, phase, tilt }) {
     const found = scene.getObjectByName(DRONE_ROOT_NAME) || scene;
     
     const clone = found.clone(true);
-    applyRealisticMaterials(clone);
+    applyRealisticMaterials(clone, shell);
     return clone;
-  }, [scene]);
+  }, [scene, shell]);
 
   const groupRef = useRef(null);
   const { actions } = useAnimations(animations, groupRef);
@@ -157,9 +175,27 @@ function DroneModel({ radius, height, center, speed, phase, tilt }) {
     }
   }, [actions]);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     const group = groupRef.current;
     if (!group) return;
+
+    if (follow) {
+      const target = follow(clock.getElapsedTime());
+      if (target.visible && target.z >= minZ) followTarget.set(target.x, height, target.z);
+      else followTarget.set(wait[0], height, wait[1]);
+      const state = followState.current || (followState.current = { position: followTarget.clone(), yaw: 0 });
+      const step = followTarget.clone().sub(state.position).multiplyScalar(1 - Math.exp(-delta * FOLLOW_RATE));
+      state.position.add(step);
+      if (step.lengthSq() > 1e-6) {
+        const heading = Math.atan2(step.x, step.z);
+        state.yaw += Math.atan2(Math.sin(heading - state.yaw), Math.cos(heading - state.yaw)) * Math.min(1, delta * 3);
+      }
+      const bob = Math.sin(clock.getElapsedTime() * 1.7) * 0.12;
+      group.position.set(state.position.x, state.position.y + bob, state.position.z);
+      group.rotation.set(Math.min(step.length() * 2, 0.12), state.yaw, 0);
+      return;
+    }
+
     const t = clock.getElapsedTime() * speed + phase;
     const x = center[0] + Math.cos(t) * radius;
     const z = center[2] + Math.sin(t) * radius;
@@ -174,7 +210,7 @@ function DroneModel({ radius, height, center, speed, phase, tilt }) {
 
   return (
     <group ref={groupRef}>
-      <primitive object={droneRoot} scale={[DRONE_SCALE, DRONE_SCALE, DRONE_SCALE]} />
+      <primitive object={droneRoot} scale={[scale, scale, scale]} />
     </group>
   );
 }

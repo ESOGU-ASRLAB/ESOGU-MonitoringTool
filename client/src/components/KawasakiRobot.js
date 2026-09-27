@@ -60,13 +60,23 @@ function STLMesh({ url, position = [0, 0, 0], rotation = [0, 0, 0], scale = MESH
   );
 }
 
+/*
+ * Driven from outside (IfarlabTasks.js) like the UR10e: `jointsRef` receives
+ * the joint groups, `toolRef` a node just past the gripper's tip (the tool
+ * points along its local +z), and `driveRef`, when its .current is an array of
+ * six angles in degrees, takes over from the demo cycle.
+ */
 export default function KawasakiRobot({
   jointAngles = [0, 0, 0, 0, 0, 0],
   animate = false,
   animationSpeed = 1,
   gripperOpen = 0.5,
+  jointsRef,
+  toolRef,
+  driveRef,
 }) {
   const jointRefs = useRef([]);
+  if (jointsRef) jointsRef.current = jointRefs.current;
   const timeRef = useRef(0);
   const liveRef = useRef([0, 0, 0, 0, 0, 0]);
   const toRad = (deg) => (deg * Math.PI) / 180;
@@ -77,7 +87,10 @@ export default function KawasakiRobot({
     // phase, mirroring UR10eRobot's demo pose -- consistent, repeatable
     // motion instead of independent per-joint noise on top of whatever
     // (possibly extreme) angles happen to be live.
-    const angles = animate
+    const driven = driveRef && Array.isArray(driveRef.current) ? driveRef.current : null;
+    const angles = driven
+      ? driven.map(toRad)
+      : animate
       ? (() => {
           timeRef.current += delta * animationSpeed;
           const t = timeRef.current;
@@ -152,6 +165,8 @@ export default function KawasakiRobot({
                                       +0.05 push here was leaving a visible gap to J6. */}
                                   <group position={[0, 0, 0]}>
                                     <STLMesh url={`${MESH_BASE}/gripper.STL`} material={GRIPPER_MAT} />
+                                    {/* The gripper runs 0..0.104 along this frame's z. */}
+                                    <group ref={toolRef} position={[0, 0, 0.11]} />
                                     <STLMesh
                                       url={`${MESH_BASE}/left_finger.STL`}
                                       position={[-0.025 * gripperOpen, 0, 0]}

@@ -22,47 +22,61 @@ function LiveClock() {
 
   return (
     <div className="live-clock">
-      <span className="live-clock-date">{date}</span>
       <span className="live-clock-time">{time}</span>
+      <span className="live-clock-date">{date}</span>
     </div>
   );
 }
 
 /*
- * The three marks form one lockup, so they live in a single link rather than
- * three that all point at "/" -- three identical targets in a row is noise to
- * work through on a keyboard or a screen reader. Only the first carries alt
- * text for the same reason: the lockup names the site once.
+ * Each partner mark links to its own organisation. They open in a new tab so
+ * following one never unloads the live twin, and each image's alt text is the
+ * organisation's name, which is what the link is announced as. Otokar is shown
+ * but not linked -- there is no site for it here.
  */
+const LOGO_LINKS = [
+  { name: 'MATISSE', src: 'logo.svg', href: 'https://matisse-kdt.eu/' },
+  { name: 'Eskişehir Osmangazi University', src: 'logo3.png', href: 'https://www.ogu.edu.tr/' },
+  { name: 'ASRLab', src: 'asrlab.png', href: 'https://srlab.ogu.edu.tr/' },
+  { name: 'IFARLAB', src: 'ifarlab.png', href: 'https://ifarlab.ogu.edu.tr/' },
+];
+
 export default function Navbar({ liveStatus }) {
   const statusLabel = liveStatus === 'live' ? 'Live' : liveStatus === 'offline' ? 'Offline' : 'Connecting';
-  const statusCaption = liveStatus === 'live'
-    ? 'Streaming real robot data from the backend'
-    : 'Backend not sending robot data';
 
   return (
     <header className="navbar">
-      <a className="navbar-logos" href="/">
-        <img
-          className="navbar-logo"
-          src={`${process.env.PUBLIC_URL}/assets/logo/logo.svg`}
-          alt="MATISSE"
-        />
-        <img className="navbar-logo" src={`${process.env.PUBLIC_URL}/assets/logo/logo3.png`} alt="" />
-        <img className="navbar-logo" src={`${process.env.PUBLIC_URL}/assets/logo/logo2.png`} alt="" />
-      </a>
-      <div className="navbar-heading">
-        <span className="navbar-title">Monitoring Tool</span>
+      <div className="navbar-logos">
+        {LOGO_LINKS.map((logo) => (
+          <a
+            key={logo.href}
+            className="navbar-logo-link"
+            href={logo.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={logo.name}
+          >
+            <img className="navbar-logo" src={`${process.env.PUBLIC_URL}/assets/logo/${logo.src}`} alt={logo.name} />
+          </a>
+        ))}
+        <img className="navbar-logo" src={`${process.env.PUBLIC_URL}/assets/logo/logo2.png`} alt="Otokar" />
       </div>
+      <div className="navbar-heading">
+        <span className="navbar-brand">
+          <span className="navbar-title">Monitoring Tool</span>
+        </span>
+      </div>
+      <nav className="navbar-links">
+        <a className="navbar-home" href="/">Home</a>
+        <a className="navbar-home" href="/docs">Documentation</a>
+      </nav>
       <div className="navbar-monitoring">
-        <div className="live-badge" data-status={liveStatus} role="status" aria-label={`${statusLabel}: ${statusCaption}`}>
+        <div className="live-badge" data-status={liveStatus} role="status" aria-label={statusLabel}>
           <span className="live-dot" aria-hidden="true" />
           <span className="live-label" aria-hidden="true">{statusLabel}</span>
-          <span className="live-caption" aria-hidden="true">{statusCaption}</span>
         </div>
         <LiveClock />
       </div>
-      <a className="navbar-home" href="/">Home</a>
     </header>
   );
 }
