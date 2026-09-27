@@ -3,6 +3,10 @@ import './App.css';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import DigitalTwin from './pages/DigitalTwin';
+import Documentation from './pages/Documentation';
+
+// Two pages, chosen by path: the technical guide at /docs, the twin otherwise.
+const isDocs = () => /^\/docs\/?$/.test(window.location.pathname);
 
 export default function App() {
   // Lifted out of DigitalTwin so the live-status badge can render in the
@@ -14,7 +18,7 @@ export default function App() {
     <div className="app-shell">
       <Navbar liveStatus={liveStatus} />
       <main className="app-main">
-        <DigitalTwin setLiveStatus={setLiveStatus} />
+        {isDocs() ? <Documentation /> : <DigitalTwin setLiveStatus={setLiveStatus} />}
       </main>
       <Footer />
     </div>

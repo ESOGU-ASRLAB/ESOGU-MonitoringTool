@@ -6,7 +6,7 @@ export default function Footer() {
 
   return (
     <footer className="footer">
-      <span>© {year} MATISSE IFARLAB-EDIH</span>
+      <span>© {year} MATISSE IFARLAB-EDIH Doç. Dr. UĞUR YAYAN</span>
     </footer>
   );
 }

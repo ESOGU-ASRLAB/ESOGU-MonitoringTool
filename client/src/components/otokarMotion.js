@@ -270,6 +270,15 @@ export const OTOKAR_INSPECTION_PROGRAMS = {
     // Spread across the body's length. Head X is -12653 + a1, and the body runs
     // from cell X -11564 to 290, so these five land inside the vehicle.
     stations: [1500, 4500, 7500, 10000, 12500],
+    /*
+     * The scan at each station: the head nods through +/-tilt, the column
+     * sweeps between two heights, the head rolls through +/-roll, and then it
+     * slides `slide` mm along the body still inserted -- a continuous pass
+     * under the floor rather than a still frame. The column stops at 580 mm,
+     * which keeps the outer stage's top edge ~70 mm under the sill (it is 250
+     * mm under at the 400 mm working height).
+     */
+    sweep: { columnLow: 250, columnHigh: 580, tilt: 25, roll: 35, slide: 1200 },
   },
   robot2: {
     zone: 'roof',
@@ -279,13 +288,39 @@ export const OTOKAR_INSPECTION_PROGRAMS = {
     // The whole stroke. The head ends up 820 mm past the body's side plane --
     // inside the cabin, not at its edge.
     depth: 1800,
-    // Head turned up at the roof from inside. +60 deg measured best: it leaves
-    // 217 mm at the tightest station against 207 mm at +45 and 63 mm at +75.
-    tilt: 60,
+    // Head turned up at the roof from inside. +60 measured the most clearance
+    // (217 mm at the tightest station); 72 turns the camera properly at the
+    // roof, and with the +/-8 deg nod below it is re-checked by
+    // verify_inspection_program.mjs.
+    tilt: 72,
     roll: 0,
     dwell: 1.8,
     // The rear-most station is left out on purpose -- see the note above.
     stations: [2750, 4500, 7625, 9125, 11875],
+    /*
+     * Inside the cabin through the window band the margins are tight, so the
+     * sweep is too: +/-8 deg of nod about the roof-facing 72, 60 mm of column
+     * either way, and no slide -- running along the body with the arm through
+     * a window would take it into a pillar.
+     */
+    sweep: { columnLow: 2540, columnHigh: 2660, tilt: 8, roll: 25, slide: 0 },
+    /*
+     * Up in the cabin the arm is already at its full 1800 mm stroke, so the
+     * variety is in what the head does there. Each station runs the next of
+     * these in turn, as [axis index, value] steps about the station pose:
+     *
+     *   pan      the camera turns on its own axis through 180 deg, sweeping
+     *            the roof panel from one cant rail to the other
+     *   nod      the head nods through the roof's curve, front to back
+     *   rise     the column lifts the head towards the roof and back
+     *   orbit    pan and nod together, tracing a ring on the roof
+     */
+    patterns: [
+      [['pan left', { 4: -90 }], ['pan right', { 4: 90 }], ['pan back', { 4: 0 }]],
+      [['nod forward', { 3: 64 }], ['nod back', { 3: 80 }], ['nod forward', { 3: 66 }], ['level', { 3: 72 }]],
+      [['rise', { 1: 2660, 3: 78 }], ['hold at the roof', { 1: 2660, 3: 64 }], ['lower', { 1: 2540 }], ['level', {}]],
+      [['orbit 1', { 3: 80, 4: 60 }], ['orbit 2', { 3: 64, 4: -60 }], ['orbit 3', { 3: 80, 4: -60 }], ['orbit 4', { 3: 64, 4: 60 }], ['level', {}]],
+    ],
   },
 };
 
@@ -299,17 +334,35 @@ export const OTOKAR_INSPECTION_PROGRAMS = {
  * or stall on them forever.
  */
 export function buildInspectionSequence(program) {
-  const { columnHeight, depth, tilt, roll, dwell, stations } = program;
+  const { columnHeight, depth, tilt, roll, dwell, stations, sweep, patterns } = program;
   const parked = (a1) => [a1, columnHeight, 0, tilt, roll];
   const legs = [];
-  for (const station of stations) {
+  for (const [index, station] of stations.entries()) {
+    const at = (overrides) => [station, columnHeight, depth, tilt, roll].map((v, i) => overrides[i] ?? v);
     legs.push({ name: `travel to ${station} mm`, axes: parked(station), hold: 0 });
-    legs.push({
-      name: `${program.zone} scan at ${station} mm`,
-      axes: [station, columnHeight, depth, tilt, roll],
-      hold: dwell,
-    });
-    legs.push({ name: `withdraw at ${station} mm`, axes: parked(station), hold: 0 });
+    legs.push({ name: `${program.zone} scan at ${station} mm`, axes: at({}), hold: sweep ? dwell / 2 : dwell });
+    let exitAt = station;
+    if (patterns) {
+      for (const [name, overrides] of patterns[index % patterns.length]) {
+        legs.push({ name, axes: at(overrides), hold: 0.4 });
+      }
+      legs.push({ name: 'recentre', axes: at({}), hold: dwell / 2 });
+    } else if (sweep) {
+      legs.push(
+        { name: 'nod up', axes: at({ 3: tilt + sweep.tilt }), hold: 0.3 },
+        { name: 'nod down', axes: at({ 3: tilt - sweep.tilt }), hold: 0.3 },
+        { name: 'column high', axes: at({ 1: sweep.columnHigh }), hold: 0.3 },
+        { name: 'column low', axes: at({ 1: sweep.columnLow }), hold: 0.3 },
+        { name: 'roll one way', axes: at({ 4: roll + sweep.roll }), hold: 0.2 },
+        { name: 'roll the other', axes: at({ 4: roll - sweep.roll }), hold: 0.2 },
+        { name: 'recentre', axes: at({}), hold: dwell / 2 },
+      );
+      if (sweep.slide) {
+        exitAt = station + sweep.slide;
+        legs.push({ name: `slide scan to ${exitAt} mm`, axes: [exitAt, columnHeight, depth, tilt, roll], hold: 0.4 });
+      }
+    }
+    legs.push({ name: `withdraw at ${exitAt} mm`, axes: parked(exitAt), hold: 0 });
   }
   return legs;
 }

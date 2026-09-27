@@ -21,8 +21,8 @@
 import * as THREE from '../../client/node_modules/three/build/three.module.js';
 import { measureIfarlab } from './scene_inspection.mjs';
 import { warehousePoints, furnitureInShot, FURNITURE_Y } from './camera_clearance.mjs';
+import { IFARLAB_OFFSET } from '../../client/src/components/cellLayout.js';
 
-const IFARLAB_SHIFT_X = 6.18; // keep in sync with DigitalTwin.js
 
 /*
  * The Otokar cell's SWEPT volume, not its home pose: the carriages travel the
@@ -221,7 +221,7 @@ const inside = (r) =>
 const furniture = warehousePoints().filter(
   (p) => p.y >= FURNITURE_Y[0] && p.y <= FURNITURE_Y[1]);
 const ifarlab = measureIfarlab().box.clone();
-ifarlab.translate(new THREE.Vector3(IFARLAB_SHIFT_X, 0, 0));
+ifarlab.translate(new THREE.Vector3(...IFARLAB_OFFSET));
 
 const union = OTOKAR.clone().union(ifarlab);
 const centre = union.getCenter(new THREE.Vector3());

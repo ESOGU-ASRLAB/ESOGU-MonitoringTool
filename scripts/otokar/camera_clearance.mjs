@@ -54,8 +54,31 @@ const apply = (m, p) => [
   m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14],
 ];
 
+/*
+ * Vertex positions for an accessor, or the eight corners of its bounding box
+ * when the data is not directly readable.
+ *
+ * Draco-compressed primitives keep their geometry inside the extension's own
+ * buffer, so POSITION carries no bufferView and there is nothing here to
+ * decode without pulling in a Draco decoder. Every accessor still declares
+ * `min` and `max`, though, and for the question this file asks -- is there a
+ * shelf standing in the camera's view cone -- a primitive's corners answer it
+ * about as well as its vertices do.
+ *
+ * This became necessary when the warehouse asset was Draco-compressed as part
+ * of the load-time work; before that every POSITION was a plain bufferView and
+ * this function just read it.
+ */
 function positions(accIdx) {
   const acc = gltf.accessors[accIdx];
+  if (acc.bufferView === undefined) {
+    if (!acc.min || !acc.max) return [];
+    const out = [];
+    for (const x of [acc.min[0], acc.max[0]])
+      for (const y of [acc.min[1], acc.max[1]])
+        for (const z of [acc.min[2], acc.max[2]]) out.push([x, y, z]);
+    return out;
+  }
   const bv = gltf.bufferViews[acc.bufferView];
   const stride = bv.byteStride || 12;
   const base = binStart + (bv.byteOffset || 0) + (acc.byteOffset || 0);

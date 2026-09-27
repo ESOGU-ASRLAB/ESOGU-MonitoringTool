@@ -36,6 +36,10 @@ import { BODY_IN_WHITE, PAINT, ACCENT, METAL, POLYMER } from './scenePalette';
  * over. That information lives in the VALUE ORDER, not in the hue, so moving
  * to a realistic body-in-white grey keeps it -- roof-to-sill spread 3.14:1
  * against 3.41:1 before, at a fifth of the saturation.
+ *
+ * The grey has since given way to a single oxide-primer red, because a grey
+ * shell disappeared among the hall's grey machines; the value order is kept.
+ * See BODY_IN_WHITE for the numbers.
  */
 export const OTOKAR_BODY_PALETTE = Object.freeze({ ...BODY_IN_WHITE });
 

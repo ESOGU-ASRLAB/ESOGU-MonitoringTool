@@ -101,7 +101,7 @@ export const ARCHITECTURE = Object.freeze({
    */
   wall: Object.freeze({ color: '#f1e7d1', metalness: 0.0, roughness: 0.78 }),
   steel: Object.freeze({ color: '#0471ba', metalness: 0.15, roughness: 0.52 }),
-  details: Object.freeze({ color: '#eef0f1', metalness: 0.0, roughness: 0.6 }),
+  details: Object.freeze({ color: '#07567d', metalness: 0.0, roughness: 0.6 }),
 });
 
 /* ------------------------------------------------------------------ *
@@ -194,27 +194,47 @@ export const POLYMER = Object.freeze({
  * can be seen at a glance which part of the vehicle the inspection head is
  * over, and a flat neutral shell throws that away.
  *
- * But a body in white is not blue. It is bare or e-coated steel: grey, with a
- * slight cool cast, at a saturation nearer 0.1 than 0.7. The coding does not
- * actually live in the hue -- it lives in the VALUE ORDER, roof lightest down
- * to sills darkest -- so it survives the move intact:
+ * The coding does not actually live in the hue -- it lives in the VALUE
+ * ORDER, roof lightest down to sills darkest -- so it has survived every
+ * change of colour since:
  *
- *              saturation        roof-to-sill spread
- *   before     0.52 - 0.77       3.41:1
- *   after      0.08 - 0.22       3.14:1
+ *                   saturation        roof-to-sill spread
+ *   CAD blue        0.52 - 0.77       3.41:1
+ *   steel grey      0.08 - 0.22       3.14:1
+ *   darker grey     0.18 - 0.23       2.80:1
+ *   oxide primer    0.52 - 0.66       2.54:1
+ *   lighter primer  0.62 - 0.70       2.53:1
  *
- * Same structure, same legibility, a vehicle that now looks like sheet steel
- * on an inspection stand instead of a toy. The roof is set a little darker
- * than a straight conversion would give, so that the gantry's pale mast still
- * separates from it where the two overlap (1.38:1 rather than 1.27:1).
+ * The two greys were the realistic reading -- bare or e-coated steel -- and
+ * both lost the vehicle. The hall is grey machines, grey rails and grey-blue
+ * steel on a pale floor, and a grey shell among them read as one more piece of
+ * the building rather than as the thing the cell exists to inspect; darkening
+ * it only traded a white ghost for a grey one.
+ *
+ * So the body carries a colour again, but ONE colour, and a real one: the
+ * red shop primer a welded bus skeleton wears before paint. It is the only
+ * warm red in a hall that is otherwise blue, beige and grey, and it stays
+ * clear of the gantries' own gold and amber, which sit further round towards
+ * yellow. One hue in six values, so it is a primed vehicle, not the multi-hue
+ * CAD coding the first round took out.
+ *
+ * The first primer was a dark oxide, and its lower members rendered at 0.12
+ * to 0.29 -- brown, and back into the same murk as the gantries' darks. The
+ * ramp now sits a step lighter and more vivid, rendering 0.72 at the roof down
+ * to 0.32 at the sills, so the whole shell reads as colour and not only its
+ * top. What carries it against the pale wall and floor is the hue rather than
+ * the value (roof 2.31:1 off the wall, pillars 3.04:1 off the floor), and the
+ * lift also separates the shell from the machines around it: sills 1.40:1 off
+ * the rail bed and pillars 1.33:1 off the gantry arm, where the dark oxide was
+ * 1.11:1 and 1.14:1.
  * ------------------------------------------------------------------ */
 export const BODY_IN_WHITE = Object.freeze({
-  roof: '#9fabb2',        // Roof panel and cant rail: the lightest.
-  upper: '#8d9aa2',       // Outer waist and roof rails along the flanks.
-  crossMember: '#7d8a93', // Roof bows and floor cross members.
-  pillar: '#6d7a84',      // Outer vertical members.
-  inner: '#5e6b75',       // Interior structure: inner pillars.
-  sill: '#4d5862',        // Sills, floor pan and everything under the vehicle.
+  roof: '#598474',      // Roof panel and cant rail: the lightest.
+  upper: '#598474',       // Outer waist and roof rails along the flanks.
+  crossMember: '#598474', // Roof bows and floor cross members.
+  pillar: '#598474',      // Outer vertical members.
+  inner: '#598474',       // Interior structure: inner pillars.
+  sill: '#598474',        // Sills, floor pan and everything under the vehicle.
 });
 
 /*
@@ -226,10 +246,10 @@ export const BODY_IN_WHITE = Object.freeze({
  *
  * The stripe is gone entirely now. Each vehicle is one paint colour over flank
  * and roof, with the chassis skirt a step off it rather than a second livery
- * colour, and the three are told apart by value AND hue: white, fleet green
- * and dark graphite, rendering 0.81, 0.47 and 0.14 -- far enough apart that no
- * two read as the same vehicle. The glazing is transparent now rather than a
- * tinted panel, so what makes the window band read is seeing through it.
+ * colour, and the three are told apart by value AND hue: sand gold, fleet
+ * green and dark graphite, rendering 0.76, 0.47 and 0.14 -- far enough apart
+ * that no two read as the same vehicle. The glazing is dark glossy glass,
+ * opaque: see Bus.js for why the see-through version striped.
  *
  * Roofs are not checked against their bodies. The opening camera sits at 1.3 m
  * -- below the vehicles' waistline -- so a parked bus's roof is never in shot,
@@ -237,12 +257,12 @@ export const BODY_IN_WHITE = Object.freeze({
  */
 export const BUS_LIVERY = Object.freeze({
   /*
-   * Fleet white. Not #ffffff and not trying to be: a white bus under this
-   * hall's light photographs as a light neutral grey, and pushing it higher
-   * only walks it back into the top of the tone curve where the panels stop
-   * having shape. Renders at 0.81.
+   * Sand gold, a plain fleet livery in the warm yellow the other two lack. It
+   * replaces fleet white, which stopped separating from the floor once the
+   * floor went to pale blue (1.20:1); it is also the only warm, light hue
+   * standing on that floor.
    */
-  pearl: Object.freeze({ body: '#b4b7b5', chassis: '#787d7c' }),
+  sand: Object.freeze({ body: '#bf9f5f', chassis: '#6b5d45' }),
   /*
    * Was #3f6b8c, a corporate blue. Changed because blue is already doing two
    * other jobs in this hall -- it is the accent on both IFARLAB arms and the
