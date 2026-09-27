@@ -85,14 +85,32 @@ function CoordinateFrame({ size = 0.1 }) {
   );
 }
 
+/*
+ * Driven from outside (IfarlabTasks.js), the arm takes its pose and grip from
+ * refs instead of props, so a task can move it every frame without React:
+ *
+ *   jointsRef  receives the six joint groups, for the task's IK to work on
+ *   toolRef    receives a node at the gripper's fingertip centre; the tool
+ *              points along its local +x (the fingers open across local z)
+ *   driveRef   when its .current is an array of six angles in degrees, the arm
+ *              follows it and the demo sway is skipped
+ *   gripRef    when set, its .current (0 closed .. 1 open) drives the fingers
+ */
 export default function UR10eRobot({
   jointAngles = [0, 0, 0, 0, 0, 0],
   showFrames = false,
   gripperOpen = 0.5,
   animate = false,
   animationSpeed = 1,
+  jointsRef,
+  toolRef,
+  driveRef,
+  gripRef,
 }) {
   const jointRefs = useRef([]);
+  const upperFinger = useRef(null);
+  const lowerFinger = useRef(null);
+  if (jointsRef) jointsRef.current = jointRefs.current;
   const timeRef = useRef(0);
   // Reused every frame; publishTelemetry keeps the reference, so a fresh
   // array here would allocate sixty times a second for one readout.
@@ -100,7 +118,20 @@ export default function UR10eRobot({
   const toRad = (deg) => (deg * Math.PI) / 180;
 
   useFrame((state, delta) => {
-    if (animate) {
+    const grip = gripRef ? gripRef.current : gripperOpen;
+    if (upperFinger.current) upperFinger.current.position.z = grip * GRIPPER_FINGER_TRAVEL;
+    if (lowerFinger.current) lowerFinger.current.position.z = -grip * GRIPPER_FINGER_TRAVEL;
+
+    const driven = driveRef && Array.isArray(driveRef.current) ? driveRef.current : null;
+    if (driven) {
+      if (jointRefs.current[0]) jointRefs.current[0].rotation.z = toRad(driven[0]);
+      if (jointRefs.current[1]) jointRefs.current[1].rotation.y = toRad(driven[1]);
+      if (jointRefs.current[2]) jointRefs.current[2].rotation.y = toRad(driven[2]);
+      if (jointRefs.current[3]) jointRefs.current[3].rotation.y = toRad(driven[3]);
+      if (jointRefs.current[4]) jointRefs.current[4].rotation.z = -toRad(driven[4]);
+      if (jointRefs.current[5]) jointRefs.current[5].rotation.y = toRad(driven[5]);
+      for (let i = 0; i < 6; i += 1) liveRef.current[i] = driven[i];
+    } else if (animate) {
       // Demo mode ignores the live/manual jointAngles entirely and instead
       // drives a single, coherent sway/scan cycle from one shared phase --
       // a fixed, repeatable pose sequence instead of independent per-joint
@@ -257,24 +288,24 @@ export default function UR10eRobot({
                                           position={FLANGE_OFFSET}
                                           material={GRIPPER_MAT}
                                         />
-                                        <STLMesh
-                                          url={`${MESH_BASE}/gripper_lower_1.stl`}
-                                          position={[
-                                            FLANGE_OFFSET[0],
-                                            FLANGE_OFFSET[1],
-                                            FLANGE_OFFSET[2] - gripperOpen * GRIPPER_FINGER_TRAVEL,
-                                          ]}
-                                          material={GRIPPER_MAT}
-                                        />
-                                        <STLMesh
-                                          url={`${MESH_BASE}/gripper_upper_1.stl`}
-                                          position={[
-                                            FLANGE_OFFSET[0],
-                                            FLANGE_OFFSET[1],
-                                            FLANGE_OFFSET[2] + gripperOpen * GRIPPER_FINGER_TRAVEL,
-                                          ]}
-                                          material={GRIPPER_MAT}
-                                        />
+                                        {/* Fingers ride on groups the frame loop slides open and shut. */}
+                                        <group ref={lowerFinger}>
+                                          <STLMesh
+                                            url={`${MESH_BASE}/gripper_lower_1.stl`}
+                                            position={FLANGE_OFFSET}
+                                            material={GRIPPER_MAT}
+                                          />
+                                        </group>
+                                        <group ref={upperFinger}>
+                                          <STLMesh
+                                            url={`${MESH_BASE}/gripper_upper_1.stl`}
+                                            position={FLANGE_OFFSET}
+                                            material={GRIPPER_MAT}
+                                          />
+                                        </group>
+                                        {/* Fingertip centre, measured off the finger meshes
+                                            (x 0.095..0.162, y 0.068..0.131 in this frame). */}
+                                        <group ref={toolRef} position={[0.16, 0.1, -0.01]} />
                                       </group>
 
                                       {/* Cable channel flange (fixed from tool0) */}

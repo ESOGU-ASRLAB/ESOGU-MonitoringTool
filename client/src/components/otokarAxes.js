@@ -43,7 +43,7 @@
 export const OTOKAR_AXES = [
   {
     id: 'a1', index: 0, kind: 'linear', deckName: 'Z',
-    label: 'Axis 1 — long rail',
+    label: 'Long rail',
     // CAD +X for robot1. Robots are normalised into a shared frame by
     // OtokarGantryRobot, so this is the canonical direction, not per-robot.
     cadAxis: 'x',
@@ -60,7 +60,7 @@ export const OTOKAR_AXES = [
   },
   {
     id: 'a2', index: 1, kind: 'linear', deckName: 'Y',
-    label: 'Axis 2 — vertical column',
+    label: 'Vertical column',
     cadAxis: 'z',
     min: 0, max: 3350, home: 1200, step: 10, unit: 'mm',
     accel: 175, speed: 300, decel: 175, maxSpeed: 800, motionUnit: 'mm/s',
@@ -68,7 +68,7 @@ export const OTOKAR_AXES = [
   },
   {
     id: 'a3', index: 2, kind: 'linear', deckName: 'X',
-    label: 'Axis 3 — horizontal arm',
+    label: 'Horizontal arm',
     cadAxis: 'y',
     min: 0, max: 1800, home: 600, step: 10, unit: 'mm',
     accel: 150, speed: 250, decel: 150, maxSpeed: 470, motionUnit: 'mm/s',
@@ -76,7 +76,7 @@ export const OTOKAR_AXES = [
   },
   {
     id: 'a4', index: 3, kind: 'rotary', deckName: 'AX',
-    label: 'Axis 4 — wrist tilt',
+    label: 'Wrist tilt',
     cadAxis: 'y',
     // The deck specifies no travel for the rotary axes; +/-180 is a convention.
     min: -180, max: 180, home: 0, step: 1, unit: '°',
@@ -85,7 +85,7 @@ export const OTOKAR_AXES = [
   },
   {
     id: 'a5', index: 4, kind: 'rotary', deckName: 'AZ',
-    label: 'Axis 5 — camera roll',
+    label: 'Camera roll',
     cadAxis: 'z',
     min: -180, max: 180, home: 0, step: 1, unit: '°',
     accel: 100, speed: 150, decel: 100, maxSpeed: 250, motionUnit: '°/s',

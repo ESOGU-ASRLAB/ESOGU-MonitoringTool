@@ -22,13 +22,28 @@
   width: auto;
 }
 
+.navbar-logo-link {
+  display: block;
+  border-radius: 6px;
+  transition: opacity 0.15s ease;
+}
+
+.navbar-logo-link:hover {
+  opacity: 0.75;
+}
+
+.navbar-logo-link:focus-visible {
+  outline: 2px solid #2060CD;
+  outline-offset: 3px;
+}
+
 .navbar-monitoring {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
+  gap: 14px;
   min-width: 0;
-  margin-left: auto;
+  padding-left: 18px;
+  border-left: 1px solid #000000;
 }
 
 .navbar-heading {
@@ -39,12 +54,31 @@
   white-space: nowrap;
 }
 
+/*
+ * The product name on a dark brand plate: deep navy lit by a cool glow from
+ * the top-left, a hairline highlight along the top edge, and an underline in
+ * the two MATISSE blues. The pulse glyph says "monitoring" without a word.
+ */
+/*
+ * The product name set as a quiet label beside the partner marks: a hairline
+ * divider, then spaced small capitals. No plate, no colour block -- the marks
+ * carry the brand and this only names the tool.
+ */
+.navbar-brand {
+  /* The wordmark alone: one colour, widely tracked, space around it. */
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding-left: 18px;
+}
+
 .navbar-title {
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.035em;
+  font-weight: 500;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: #000000;
+  color: #111111;
 }
 
 .navbar-version {
@@ -98,8 +132,6 @@
   font-weight: 600;
   align-items: baseline;
   gap: 6px;
-  padding-left: 12px;
-  border-left: 1px solid #000000;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -108,6 +140,14 @@
 .live-clock-time {
   font-weight: 600;
   color: #1d1d1f;
+}
+
+.navbar-links {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 0 0 auto;
 }
 
 .navbar-home {

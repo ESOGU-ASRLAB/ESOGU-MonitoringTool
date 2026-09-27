@@ -107,6 +107,40 @@ const isConvertedExport = (materials) =>
 // the robots); the shell's own depth/AO is already baked into its maps.
 const FLOOR_MATERIAL_NAMES = ['floor', 'mat0'];
 
+/*
+ * THE SHUTTER OPENINGS, CUT THROUGH.
+ *
+ * The far wall's two roller shutters are painted onto one continuous wall
+ * sheet, and a girt runs straight across both. So a bus driving out met a solid
+ * wall and simply vanished into it -- it looked like a portal. The building's
+ * materials now discard every fragment inside the two openings (x = +/-(3.21 ..
+ * 8.69), y < 3.63, at the far wall), which makes real holes through the
+ * cladding and the steel, and the yard outside (Yard.js) shows through them.
+ * GarageDoors.js puts a real curtain in each hole.
+ */
+export const SHUTTER_OPENINGS = Object.freeze({ inner: 3.21, outer: 8.69, top: 3.63, wallZ: -24.2 });
+
+function cutShutterOpenings(material) {
+  if (material.userData.shutterCut) return;
+  material.userData.shutterCut = true;
+  const { inner, outer, top, wallZ } = SHUTTER_OPENINGS;
+  material.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+varying vec3 vShutterWorld;`)
+      .replace('#include <worldpos_vertex>', `#include <worldpos_vertex>
+vShutterWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+varying vec3 vShutterWorld;`)
+      .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+        if (vShutterWorld.z < ${wallZ.toFixed(3)} && vShutterWorld.y < ${top.toFixed(3)}
+            && abs(vShutterWorld.x) > ${inner.toFixed(3)} && abs(vShutterWorld.x) < ${outer.toFixed(3)}) discard;`);
+  };
+  material.customProgramCacheKey = () => 'shutter-openings';
+  material.needsUpdate = true;
+}
+
 function WarehouseModel() {
   const { scene } = useGLTF(FACTORY_URL);
   const emissiveMap = useLoader(THREE.TextureLoader, EMISSIVE_URL);
@@ -118,6 +152,7 @@ function WarehouseModel() {
     scene.traverse((obj) => {
       if (!obj.isMesh) return;
       const objMaterials = Array.isArray(obj.material) ? obj.material : [obj.material];
+      objMaterials.forEach(cutShutterOpenings);
       obj.castShadow = false;
       obj.receiveShadow = objMaterials.some((mat) => FLOOR_MATERIAL_NAMES.includes(mat?.name));
     });

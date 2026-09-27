@@ -40,7 +40,9 @@ const FACILITY_BASE = process.env.PUBLIC_URL + "/meshes/environment";
  * facility surfaces are painted.
  */
 const ALUMINUM = { ...METAL.aluminium };
-const DARK_AGV = { ...PAINT.body };
+// The test chassis: clear-anodised aluminium extrusion, a light satin metal
+// with a faint cool cast, rather than the flat grey paint it wore.
+const CHASSIS = { color: '#c3c8cf', metalness: 0.75, roughness: 0.32 };
 const CONVEYOR = { ...METAL.galvanised };
 const FACILITY_GRAY = { ...PAINT.structure };
 const RAIL = { ...METAL.worn };
@@ -90,6 +92,111 @@ function EnvMesh({
  * to stop the two wall representations from clipping into each other.
  * linear_axis_moving_link now rides with UR10e (see UR10eMount) instead of
  * sitting fixed here, since it's the arm's own travelling mount. */
+/*
+ * The test chassis with see-through panels. Its STL is one mesh, but the
+ * panels are the only big flat vertical faces in it -- the back panel (0.47 m^2
+ * triangles) and the centre divider (0.21 m^2) -- so every vertical triangle
+ * over 0.1 m^2 is split into a clear acrylic group, and the Kawasaki can be
+ * watched working inside. The floor sheet and the extrusion stay solid.
+ */
+const ACRYLIC = new THREE.MeshStandardMaterial({
+  color: '#d9eef7', metalness: 0, roughness: 0.08, transparent: true, opacity: 0.18,
+  side: THREE.DoubleSide, depthWrite: false,
+});
+const PANEL_MIN_AREA = 0.1 * 1e6; // mm^2, in the STL's own units
+
+function ChassisMesh({ position, rotation }) {
+  const source = useLoader(STLLoader, `${FURNITURE_BASE}/chassis.stl`);
+  const geometry = useMemo(() => {
+    const pos = source.getAttribute('position');
+    const frame = [];
+    const panels = [];
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    const c = new THREE.Vector3();
+    const n = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i += 3) {
+      a.fromBufferAttribute(pos, i);
+      b.fromBufferAttribute(pos, i + 1);
+      c.fromBufferAttribute(pos, i + 2);
+      n.subVectors(b, a).cross(c.clone().sub(a));
+      const area = n.length() / 2;
+      const vertical = Math.abs(n.z) < 0.1 * n.length();
+      (vertical && area > PANEL_MIN_AREA ? panels : frame).push(i);
+    }
+    const out = new THREE.BufferGeometry();
+    const data = new Float32Array(pos.count * 3);
+    let v = 0;
+    [frame, panels].forEach((list) => {
+      for (const i of list) for (let k = 0; k < 3; k += 1) {
+        data.set([pos.getX(i + k), pos.getY(i + k), pos.getZ(i + k)], v * 3);
+        v += 1;
+      }
+    });
+    out.setAttribute('position', new THREE.BufferAttribute(data, 3));
+    out.addGroup(0, frame.length * 3, 0);
+    out.addGroup(frame.length * 3, panels.length * 3, 1);
+    out.computeVertexNormals();
+    return out;
+  }, [source]);
+  const materials = useMemo(() => [
+    new THREE.MeshStandardMaterial({ ...CHASSIS, side: THREE.DoubleSide }),
+    ACRYLIC,
+  ], []);
+
+  return (
+    <mesh geometry={geometry} material={materials} scale={MM_TO_M} position={position} rotation={rotation} receiveShadow />
+  );
+}
+
+/*
+ * The conveyor with its belt in green. The belt is the up-facing surface at
+ * z = 843 mm (the rails either side stand to 926), so those triangles are
+ * split into their own group; the frame keeps the galvanised finish.
+ */
+const BELT = new THREE.MeshStandardMaterial({ color: '#2f8f4e', roughness: 0.85, metalness: 0 });
+
+function ConveyorMesh() {
+  const source = useLoader(STLLoader, `${FURNITURE_BASE}/conveyorbelt.stl`);
+  const geometry = useMemo(() => {
+    const pos = source.getAttribute('position');
+    const frame = [];
+    const belt = [];
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    const c = new THREE.Vector3();
+    const n = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i += 3) {
+      a.fromBufferAttribute(pos, i);
+      b.fromBufferAttribute(pos, i + 1);
+      c.fromBufferAttribute(pos, i + 2);
+      n.subVectors(b, a).cross(c.clone().sub(a));
+      const z = (a.z + b.z + c.z) / 3;
+      const up = n.z > 0.9 * n.length();
+      (up && z > 836 && z < 850 ? belt : frame).push(i);
+    }
+    const out = new THREE.BufferGeometry();
+    const data = new Float32Array(pos.count * 3);
+    let v = 0;
+    [frame, belt].forEach((list) => {
+      for (const i of list) for (let k = 0; k < 3; k += 1) {
+        data.set([pos.getX(i + k), pos.getY(i + k), pos.getZ(i + k)], v * 3);
+        v += 1;
+      }
+    });
+    out.setAttribute('position', new THREE.BufferAttribute(data, 3));
+    out.addGroup(0, frame.length * 3, 0);
+    out.addGroup(frame.length * 3, belt.length * 3, 1);
+    out.computeVertexNormals();
+    return out;
+  }, [source]);
+  const materials = useMemo(() => [
+    new THREE.MeshStandardMaterial({ ...CONVEYOR, side: THREE.DoubleSide }),
+    BELT,
+  ], []);
+  return <mesh geometry={geometry} material={materials} scale={MM_TO_M} receiveShadow />;
+}
+
 function Furniture() {
   return (
     <Suspense fallback={null}>
@@ -98,21 +205,16 @@ function Furniture() {
         material={ALUMINUM}
         receiveShadow
       />
-      <EnvMesh
-        url={`${FURNITURE_BASE}/conveyorbelt.stl`}
-        material={CONVEYOR}
-        receiveShadow
-      />
+      <ConveyorMesh />
       <EnvMesh
         url={`${FURNITURE_BASE}/base_link.stl`}
         material={ALUMINUM}
         receiveShadow
       />
-      <EnvMesh
-        url={`${FURNITURE_BASE}/chassis.stl`}
-        material={DARK_AGV}
-        receiveShadow
-      />
+      {/* Turned end for end about its own vertical centre line
+          (x -1.113, y 1.235), so its open side faces the Kawasaki and the arm
+          reaches in through the gaps instead of meeting the side panels. */}
+      <ChassisMesh position={[-2.226, 2.47, 0]} rotation={[0, 0, Math.PI]} />
     </Suspense>
   );
 }

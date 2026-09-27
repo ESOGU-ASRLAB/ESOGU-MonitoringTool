@@ -56,6 +56,15 @@ export function createInspector(overrides = {}) {
     useRef: (current) => ({ current }),
     useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}],
     useEffect: () => {},
+    /*
+     * Returns the callback itself. The harness renders each component once and
+     * never re-renders, so memoisation has nothing to preserve -- what matters
+     * is only that the component gets a callable back. Without this the mount
+     * died with "useCallback is not a function" the moment OtokarGantryRobot
+     * started using it for its chain-geometry callback, and the verification
+     * could not run at all.
+     */
+    useCallback: (fn) => fn,
   };
   const useLoader = (_, url) => {
     if (!geometries.has(url)) {

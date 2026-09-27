@@ -1,7 +1,9 @@
-import React, { Suspense, useMemo } from 'react';
+import React, { Suspense, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
+import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BUS_LIVERY, POLYMER } from './scenePalette';
+import VehicleLamps from './VehicleLamps';
 
 // Parked presentation buses, separate from the Otokar inspection-body CAD.
 // The old bus asset is Y-up and in centimetres, hence its 0.01 scale.
@@ -35,19 +37,18 @@ import { BUS_LIVERY, POLYMER } from './scenePalette';
  */
 const BUS_URL = process.env.PUBLIC_URL + '/assets/bus/bus.glb';
 const BUS_SCALE = 0.01;
+const OTOKAR_LOGO_URL = process.env.PUBLIC_URL + '/assets/logo/logo2.png';
 
 /*
  * From BUS_LIVERY in the shared scene palette. Each vehicle is one paint
  * colour now; the three are told apart by that colour alone, without a stripe.
  */
 const LIVERIES = Object.freeze({
-  pearl: { ...BUS_LIVERY.pearl },
+  sand: { ...BUS_LIVERY.sand },
   forest: { ...BUS_LIVERY.forest },
   graphite: { ...BUS_LIVERY.graphite },
 });
 
-// The source has no material IDs or UVs. Keep glazing separate from the much
-// larger painted flank; neither glass nor the underbody should tint it black.
 /*
  * Tyres and underbody. The bottom fifth of the vehicle is all wheel, arch and
  * skirt, and the source carries no material IDs to separate them, so this one
@@ -56,61 +57,185 @@ const LIVERIES = Object.freeze({
 const TYRE = new THREE.MeshStandardMaterial({ ...POLYMER.rubber, flatShading: true });
 
 /*
- * REAL GLAZING: transparent, so the far side of the vehicle shows through it.
+ * GLAZING: DARK, GLOSSY AND OPAQUE.
  *
- * It was an opaque tinted panel before, which is why the window band read as
- * paint that happened to be a different colour rather than as glass. Three
- * things together make it read as glazing:
+ * It was transparent, double-sided and wrote no depth, so the far side of the
+ * vehicle would show through. But the height band that stands for glass here
+ * is not one pane: it holds the outer skin at |z| = 1.10 m and three inner
+ * layers at 1.08, 1.05 and 1.00 m -- frames and inner panels -- which all got
+ * the glass material because they sit at its height. With no depth test
+ * between them those layers blended in whatever order they happened to draw,
+ * and slid against each other as the camera moved: the band of shifting
+ * horizontal stripes along every window line.
  *
- *   opacity 0.30       you see through it to the interior and out the far
- *                      windows, which is the single strongest cue
- *   DoubleSide         without it the far windows' back faces are culled and
- *                      looking through the near glass shows nothing at all
- *   depthWrite false   a transparent surface that writes depth hides whatever
- *                      is behind it in the same mesh -- which here is the rest
- *                      of the bus
- *
- * roughness 0.05 keeps a sharp reflection of the roof lights on top of that,
- * so the band still reads as a hard surface rather than a hole.
- *
- * three.js sorts render items per material GROUP, not per mesh, so one
- * transparent group inside this otherwise opaque bus lands in the transparent
- * pass on its own and draws in the right order.
+ * Tinted glazing has no such failure. Opaque, the outer skin hides what is
+ * behind it, and low roughness keeps the Fresnel reflection of the hall, which
+ * is what reads as glass from the outside anyway.
  */
 const GLASS = new THREE.MeshStandardMaterial({
-  color: '#a8c6d2',
+  color: '#1d2830',
   metalness: 0.0,
-  roughness: 0.05,
-  transparent: true,
-  opacity: 0.3,
-  side: THREE.DoubleSide,
-  depthWrite: false,
+  roughness: 0.08,
+  flatShading: true,
 });
+
 const geometryCache = new WeakMap();
+
+/*
+ * THE WHEELS, CUT OUT OF THE BODY SO THEY CAN TURN.
+ *
+ * The source is one mesh with no parts, so the wheels were painted by height
+ * like everything else: black below 0.6 m, skirt and body colour above -- which
+ * put the top of every tyre in the paint. They are now lifted out by where they
+ * are, measured off the mesh in its own centimetres:
+ *
+ *   axles     x = 233 (front, under the raked nose) and x = -186 (rear), both
+ *             at y = 47 -- the front from a circle fit to the tyre wall, the
+ *             rear from where its tread touches the ground (its wall is buried
+ *             in the wheel arch and would not fit cleanly)
+ *   tyre      radius 50; wall from |z| = 76 out to the body side
+ *
+ * Every triangle wholly inside one of those four cylinders becomes part of a
+ * wheel: its own mesh, centred on its axle, so it can be spun about it. Tyre
+ * rubber is black; the hub, inside radius 30, is steel grey.
+ */
+const AXLES_CM = [233, -186];
+const AXLE_Y_CM = 47;
+const TYRE_RADIUS_CM = 50;
+const HUB_RADIUS_CM = 30;
+const TYRE_INNER_Z_CM = 76;
+export const WHEEL_RADIUS_M = TYRE_RADIUS_CM * BUS_SCALE;
+const HUB = new THREE.MeshStandardMaterial({ color: '#8b9196', metalness: 0.6, roughness: 0.4, flatShading: true });
+const WHEEL_MATERIALS = [TYRE, HUB];
+
+// Which wheel (0-3) a triangle belongs to, or -1.
+function wheelOf(triangle) {
+  for (let a = 0; a < AXLES_CM.length; a += 1) {
+    const inside = triangle.every(([x, y, z]) => Math.hypot(x - AXLES_CM[a], y - AXLE_Y_CM) <= TYRE_RADIUS_CM + 1
+      && Math.abs(z) >= TYRE_INNER_Z_CM);
+    if (!inside) continue;
+    const side = triangle[0][2] > 0 ? 1 : 0;
+    if (triangle.every(([, , z]) => (z > 0 ? 1 : 0) === side)) return a * 2 + side;
+  }
+  return -1;
+}
+
+// A wheel's triangles as a geometry centred on its axle: tyre group, hub group.
+function wheelGeometry(triangles, axleX) {
+  const parts = [[], []];
+  for (const triangle of triangles) {
+    const r = triangle.reduce((sum, [x, y]) => sum + Math.hypot(x - axleX, y - AXLE_Y_CM), 0) / 3;
+    parts[r < HUB_RADIUS_CM ? 1 : 0].push(triangle);
+  }
+  const geometry = new THREE.BufferGeometry();
+  const position = new Float32Array(triangles.length * 9);
+  let vertex = 0;
+  parts.forEach((part, slot) => {
+    const start = vertex;
+    for (const triangle of part) {
+      for (const [x, y, z] of triangle) {
+        position.set([x - axleX, y - AXLE_Y_CM, z], vertex * 3);
+        vertex += 1;
+      }
+    }
+    if (vertex > start) geometry.addGroup(start, vertex - start, slot);
+  });
+  geometry.setAttribute('position', new THREE.BufferAttribute(position, 3));
+  geometry.computeVertexNormals();
+  return { geometry, position: [axleX, AXLE_Y_CM, 0] };
+}
+
+/*
+ * HALF THE TRIANGLES WERE THERE TWICE.
+ *
+ * 22,299 of the source's 46,228 triangles repeat another one exactly -- same
+ * three corners, same winding -- so each was drawn twice. Opaque, the copy is
+ * invisible and only costs time; under the old see-through glazing it doubled
+ * the tint wherever it sat. Copies are dropped here. A triangle and its
+ * reversed twin are both kept, since that pair is what makes a panel visible
+ * from both sides.
+ */
+function triangleKey(corners) {
+  const keys = corners.map((p) => p.map((c) => Math.round(c * 10)).join(',')); // 1 mm grid
+  const lead = keys.indexOf([...keys].sort()[0]);
+  return `${keys[lead]}|${keys[(lead + 1) % 3]}|${keys[(lead + 2) % 3]}`;
+}
+
+/*
+ * BANDS ARE CUT, NOT ASSIGNED.
+ *
+ * The zones below used to be handed out whole triangles at a time, by where
+ * each triangle's centre fell. This model's flanks are a few very large
+ * triangles running from the skirt up past the window line, so one whose
+ * centre landed in the glass band painted glazing in a long diagonal down the
+ * side, and the neighbouring one painted body colour up into the windows: the
+ * sharp lines running across the flanks. Each triangle is now split along the
+ * band edges first, so every band ends on a straight horizontal line.
+ */
+const BAND_EDGES = [0.20, 0.30, 0.52, 0.72];
+
+// Splits a triangle along the plane y = level, keeping its winding.
+function splitAtLevel(triangle, level) {
+  const side = triangle.map((p) => (p[1] > level + 1e-4 ? 1 : p[1] < level - 1e-4 ? -1 : 0));
+  if (!side.includes(1) || !side.includes(-1)) return [triangle];
+  const cut = (from, to) => {
+    const t = (level - from[1]) / (to[1] - from[1]);
+    return [from[0] + (to[0] - from[0]) * t, level, from[2] + (to[2] - from[2]) * t];
+  };
+  // Lead with the odd corner out: the one on the plane, else the one alone on its side.
+  let lead = side.indexOf(0);
+  if (lead === -1) lead = side.findIndex((s, i) => s !== side[(i + 1) % 3] && s !== side[(i + 2) % 3]);
+  const a = triangle[lead];
+  const b = triangle[(lead + 1) % 3];
+  const c = triangle[(lead + 2) % 3];
+  if (side[lead] === 0) {
+    const m = cut(b, c);
+    return [[a, b, m], [a, m, c]];
+  }
+  const p = cut(a, b);
+  const q = cut(a, c);
+  return [[a, p, q], [p, b, c], [p, c, q]];
+}
 
 function preparedBusGeometry(scene) {
   if (geometryCache.has(scene)) return geometryCache.get(scene);
   const source = scene.getObjectByProperty('isMesh', true);
   if (!source) return null;
 
-  const geometry = source.geometry.clone();
-  geometry.computeBoundingBox();
-  const { min, max } = geometry.boundingBox;
-  geometry.translate(-(min.x + max.x) / 2, -min.y, -(min.z + max.z) / 2);
-  const pos = geometry.attributes.position;
+  const sourceGeometry = source.geometry;
+  sourceGeometry.computeBoundingBox();
+  const { min, max } = sourceGeometry.boundingBox;
+  const centreX = (min.x + max.x) / 2;
+  const centreZ = (min.z + max.z) / 2;
   const height = max.y - min.y;
-  const index = geometry.index;
+  const pos = sourceGeometry.attributes.position;
+  const index = sourceGeometry.index;
+  const count = index ? index.count : pos.count;
+  const corner = (k) => {
+    const i = index ? index.getX(k) : k;
+    return [pos.getX(i) - centreX, pos.getY(i) - min.y, pos.getZ(i) - centreZ];
+  };
 
-  if (index) {
-    // Four zones: black rubber at the bottom, a lighter chassis skirt above
-    // it, the painted flank, and the glazing. The source has no material IDs,
-    // so a height fraction is the only handle there is.
-    const groups = [[], [], [], [], []]; // tyres, body, chassis skirt, glass, roof
-    for (let i = 0; i < index.count; i += 3) {
-      const a = index.getX(i);
-      const b = index.getX(i + 1);
-      const c = index.getX(i + 2);
-      const y = (pos.getY(a) + pos.getY(b) + pos.getY(c)) / (3 * height);
+  // Four zones: black rubber at the bottom, a lighter chassis skirt above it,
+  // the painted flank, and the glazing. The source has no material IDs, so a
+  // height fraction is the only handle there is.
+  const groups = [[], [], [], [], []]; // tyres, body, chassis skirt, glass, roof
+  const wheelTriangles = [[], [], [], []];
+  const seen = new Set();
+  for (let k = 0; k < count; k += 3) {
+    const triangle = [corner(k), corner(k + 1), corner(k + 2)];
+    const key = triangleKey(triangle);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const wheel = wheelOf(triangle);
+    if (wheel >= 0) {
+      wheelTriangles[wheel].push(triangle);
+      continue;
+    }
+    let pieces = [triangle];
+    for (const edge of BAND_EDGES) pieces = pieces.flatMap((piece) => splitAtLevel(piece, edge * height));
+    for (const piece of pieces) {
+      const y = (piece[0][1] + piece[1][1] + piece[2][1]) / (3 * height);
       /*
        * The thin 0.32-0.37 band that used to carry the orange stripe is gone.
        * It was a fifth of a metre tall on a three-metre vehicle and it cut
@@ -120,55 +245,168 @@ function preparedBusGeometry(scene) {
        * ones that follow something real: rubber, skirt, flank, glass.
        */
       const slot = y < 0.20 ? 0 : y < 0.30 ? 2 : y < 0.52 ? 1 : y < 0.72 ? 3 : 4;
-      groups[slot].push(a, b, c);
+      groups[slot].push(piece);
     }
-    geometry.setIndex(groups.flat());
-    geometry.clearGroups();
-    let offset = 0;
-    groups.forEach((faces, slot) => {
-      if (faces.length) geometry.addGroup(offset, faces.length, slot);
-      offset += faces.length;
-    });
   }
+
+  const triangles = groups.reduce((sum, group) => sum + group.length, 0);
+  const position = new Float32Array(triangles * 9);
+  const geometry = new THREE.BufferGeometry();
+  let vertex = 0;
+  groups.forEach((group, slot) => {
+    const start = vertex;
+    for (const triangle of group) {
+      for (const p of triangle) {
+        position.set(p, vertex * 3);
+        vertex += 1;
+      }
+    }
+    if (vertex > start) geometry.addGroup(start, vertex - start, slot);
+  });
+  geometry.setAttribute('position', new THREE.BufferAttribute(position, 3));
 
   // The legacy GLB contains positions only. Lit PBR paint needs vertex normals;
   // without them every livery becomes a near-black silhouette in the factory.
   geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
 
-  geometryCache.set(scene, geometry);
-  return geometry;
+  const prepared = {
+    geometry,
+    wheels: wheelTriangles.map((triangles, i) => wheelGeometry(triangles, AXLES_CM[Math.floor(i / 2)])),
+  };
+  geometryCache.set(scene, prepared);
+  return prepared;
 }
 
-function BusModel({ position, rotation = Math.PI / 2, livery = 'pearl' }) {
+function busMaterials(paint) {
+  // Painted panels are dielectric; keeping metalness low preserves the livery
+  // colour under the warehouse lighting. One paint over flank and roof, the
+  // chassis skirt a step off it, black rubber below, tinted glazing.
+  const shell = new THREE.MeshStandardMaterial({
+    color: paint.body, metalness: 0.05, roughness: 0.3, flatShading: true,
+  });
+  const skirt = new THREE.MeshStandardMaterial({
+    color: paint.chassis, metalness: 0.05, roughness: 0.6, flatShading: true,
+  });
+  return [TYRE, shell, skirt, GLASS, shell];
+}
+
+/*
+ * Rear number plate in the Turkish format -- 520 x 110 mm, black rim, blue TR
+ * band -- carrying the Otokar mark where the registration would be. Painted
+ * once at 0.5 mm per pixel and shared by every bus.
+ */
+const PLATE = Object.freeze({ width: 0.52, height: 0.11, centreY: 0.75, standoff: 0.004 });
+const plateCache = new WeakMap();
+
+function plateTexture(logo) {
+  if (plateCache.has(logo)) return plateCache.get(logo);
+  const width = 1040;
+  const height = 220;
+  const rim = 8;
+  const band = 82;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#111111';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, width, height, 22);
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.roundRect(rim, rim, width - rim * 2, height - rim * 2, 16);
+  ctx.fill();
+  ctx.fillStyle = '#1b3e94';
+  ctx.beginPath();
+  ctx.roundRect(rim, rim, band, height - rim * 2, [16, 0, 0, 16]);
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '700 48px Arial, Helvetica, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('TR', rim + band / 2, height - 36);
+
+  // The mark sits on its own white ground; multiplying drops that ground into
+  // the plate's white instead of leaving a visible box.
+  ctx.globalCompositeOperation = 'multiply';
+  const logoHeight = 150;
+  const logoWidth = (logoHeight * logo.width) / logo.height;
+  const faceLeft = rim + band;
+  const faceWidth = width - rim - faceLeft;
+  ctx.drawImage(logo, faceLeft + (faceWidth - logoWidth) / 2, (height - logoHeight) / 2, logoWidth, logoHeight);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  plateCache.set(logo, texture);
+  return texture;
+}
+
+/*
+ * Lamps, in the bus's own frame in metres (nose +x). The headlamps sit low on
+ * the nose, whose face is at x = 4.14 below the windscreen; the tail and
+ * reversing lamps on the flat rear (x = -4.43), either side of the plate.
+ */
+const BUS_LAMPS = [
+  ...[-0.92, 0.92].map((z) => ({ kind: 'head', position: [4.15, 0.78, z], size: [0.04, 0.13, 0.34], facing: [1, 0, 0] })),
+  ...[-1.0, 1.0].map((z) => ({ kind: 'tail', position: [-4.44, 1.05, z], size: [0.03, 0.26, 0.14], facing: [-1, 0, 0] })),
+  ...[-0.98, 0.98].map((z) => ({ kind: 'reverse', position: [-4.44, 0.82, z], size: [0.03, 0.1, 0.12], facing: [-1, 0, 0] })),
+];
+
+/*
+ * `rollRef`, when given, holds the distance the bus has rolled in metres
+ * (signed: negative when reversing); the wheels turn to match it.
+ * `lampRef` holds 'forward', 'reverse' or 'off' for the lamps (VehicleLamps.js).
+ */
+function BusModel({ position, rotation = Math.PI / 2, livery = 'forest', rollRef, lampRef }) {
   const { scene } = useGLTF(BUS_URL);
-  const geometry = useMemo(() => preparedBusGeometry(scene), [scene]);
-  // Painted panels are dielectric; keeping metalness low preserves their
-  // livery colour under the warehouse lighting.
-  const materials = useMemo(() => {
-    const paint = LIVERIES[livery] || LIVERIES.pearl;
-    // One paint colour over the flank and the roof, so the vehicle still reads
-    // as a single colour; the chassis skirt a step off it rather than a second
-    // livery colour; black rubber below; glazing transparent.
-    const shell = new THREE.MeshStandardMaterial({
-      color: paint.body, metalness: 0.05, roughness: 0.3, flatShading: true,
-    });
-    const skirt = new THREE.MeshStandardMaterial({
-      color: paint.chassis, metalness: 0.05, roughness: 0.6, flatShading: true,
-    });
-    return [TYRE, shell, skirt, GLASS, shell];
-  }, [livery]);
+  const logo = useLoader(THREE.ImageLoader, OTOKAR_LOGO_URL);
+  const prepared = useMemo(() => preparedBusGeometry(scene), [scene]);
+  const geometry = prepared && prepared.geometry;
+  const wheelRefs = useRef([]);
+
+  useFrame(() => {
+    if (!rollRef) return;
+    // Rolling forward (+x) turns a wheel about -z: the contact patch stays put.
+    const angle = -rollRef.current / WHEEL_RADIUS_M;
+    for (const wheel of wheelRefs.current) if (wheel) wheel.rotation.z = angle;
+  });
+  const paint = LIVERIES[livery] || LIVERIES.forest;
+  const materials = useMemo(() => busMaterials(paint), [paint]);
+  const plate = useMemo(() => plateTexture(logo), [logo]);
 
   if (!geometry) return null;
+  // The flat rear (-x in the model; the raked windscreen is +x) faces +z once
+  // parked at rotation pi/2, so the plate faces the opening camera.
+  const rearX = geometry.boundingBox.min.x * BUS_SCALE - PLATE.standoff;
   return (
-    <mesh
-      geometry={geometry}
-      material={materials}
-      scale={BUS_SCALE}
-      position={position}
-      rotation={[0, rotation, 0]}
-      castShadow={false}
-      receiveShadow
-    />
+    <group position={position} rotation={[0, rotation, 0]}>
+      <mesh
+        geometry={geometry}
+        material={materials}
+        scale={BUS_SCALE}
+        castShadow={false}
+        receiveShadow
+      >
+        {prepared.wheels.map((wheel, i) => (
+          <mesh
+            key={i}
+            ref={(mesh) => { wheelRefs.current[i] = mesh; }}
+            geometry={wheel.geometry}
+            material={WHEEL_MATERIALS}
+            position={wheel.position}
+            receiveShadow
+          />
+        ))}
+      </mesh>
+      {lampRef && <VehicleLamps lamps={BUS_LAMPS} modeRef={lampRef} />}
+      <mesh position={[rearX, PLATE.centreY, 0]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[PLATE.width, PLATE.height]} />
+        <meshStandardMaterial map={plate} roughness={0.4} metalness={0} />
+      </mesh>
+    </group>
   );
 }
 
