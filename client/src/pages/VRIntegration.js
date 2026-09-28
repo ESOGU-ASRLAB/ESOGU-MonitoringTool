@@ -44,15 +44,32 @@ export default function VRIntegration() {
       <DocSidebar label="VR integration" sections={SECTIONS} />
 
       <article className="doc-content">
-        <header className="doc-hero">
-          <p className="doc-kicker">MATISSE IFARLAB-EDIH Monitoring Tool</p>
-          <h1>VR integration</h1>
-          <p className="doc-lead">
-            Walk the digital twin at full scale in a Meta Quest 3. The headset opens this same web
-            app in its browser through WebXR, so there is nothing to install, and the hall, the
-            robots and the live telemetry are the ones on the desktop. Everyone else looking at
-            the hall, in a browser or in a headset, stands in it with you.
-          </p>
+        <header className="doc-hero has-media">
+          <div>
+            <p className="doc-kicker">MATISSE IFARLAB-EDIH Monitoring Tool</p>
+            <h1>VR integration</h1>
+            <p className="doc-lead">
+              Walk the digital twin at full scale in a Meta Quest 3. The headset opens this same web
+              app in its browser through WebXR, so there is nothing to install, and the hall, the
+              robots and the live telemetry are the ones on the desktop. Everyone else looking at
+              the hall, in a browser or in a headset, stands in it with you.
+            </p>
+            <ul className="doc-hero-tags" aria-label="At a glance">
+              <li>Meta Quest 3</li>
+              <li>WebXR</li>
+              <li>No install</li>
+              <li>Shared hall</li>
+            </ul>
+          </div>
+          <figure className="doc-hero-media">
+            <img
+              src={`${process.env.PUBLIC_URL}/assets/vr/quest3-hero.webp`}
+              alt="A person wearing a Meta Quest 3 headset, reaching for virtual objects with its controllers"
+              width="936"
+              height="496"
+            />
+            <figcaption>Meta Quest 3 · image: Meta</figcaption>
+          </figure>
         </header>
 
         <Anchor id="overview">Overview</Anchor>
