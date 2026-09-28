@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { PRESENCE_URL } from './apiBase';
+import { runWhileVisible } from './pageActivity';
 
 /*
  * WHO ELSE IS IN THE HALL -- the page's side of api/presence.js.
@@ -168,13 +169,19 @@ export function usePeers() {
   );
 }
 
-/** Holds the page's presence connection open while mounted, tagged desktop or vr. */
+/**
+ * Holds the page's presence connection open while mounted, tagged desktop or
+ * vr -- closed after a minute in a background tab, where nobody is looking
+ * from, and reopened when it is shown (pageActivity.js).
+ */
 export function usePresence(currentKind) {
-  useEffect(() => {
-    wanted = true;
-    connect();
-    return disconnect;
-  }, []);
+  useEffect(() => runWhileVisible(
+    () => {
+      wanted = true;
+      connect();
+    },
+    disconnect,
+  ), []);
 
   useEffect(() => {
     kind = currentKind;

@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createXRStore } from '@react-three/xr';
+import { setXRActive } from './pageActivity';
 
 /*
  * ONE XR STORE FOR THE PAGE, AND THE KNOBS QA TURNS ON THE HEADSET.
@@ -121,6 +122,10 @@ export const xrStore = createXRStore({
 // For automated checks on test hosts only: drive the emulator's sticks and
 // trigger, read where the origin went. Never exposed on production.
 if (isTestHost && typeof window !== 'undefined') window.__xrStore = xrStore;
+
+// Background tabs close their streams (pageActivity.js), but a headset may
+// call the page hidden mid-session: tell it when a session runs.
+xrStore.subscribe((state) => setXRActive(state.session != null));
 
 const subscribe = (callback) => xrStore.subscribe(callback);
 const sessionActive = () => xrStore.getState().session != null;
