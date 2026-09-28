@@ -71,18 +71,15 @@
   color: var(--nav-text);
 }
 
-/* ---- Partner marks, grouped on a pale tray ---- */
+/* ---- Partner marks, set off by a hairline as the product name is ---- */
 
 .navbar-partners {
   display: flex;
   align-items: center;
   gap: 12px;
   flex: 0 0 auto;
-  height: 40px;
-  padding: 0 14px 0 8px;
-  border: 1px solid var(--nav-line);
-  border-radius: 999px;
-  background: #ffffff;
+  padding-left: 20px;
+  border-left: 1px solid var(--nav-line);
 }
 
 .partner-link {
@@ -140,18 +137,13 @@ a.partner-link:hover {
   font-weight: 600;
 }
 
-/* ---- Status chip: telemetry state and local time ---- */
+/* ---- Status: telemetry state and local time ---- */
 
 .navbar-status {
   display: flex;
   align-items: center;
   gap: 10px;
   flex: 0 0 auto;
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--nav-line);
-  border-radius: 999px;
-  background: #ffffff;
   font-size: 12px;
   white-space: nowrap;
 }
@@ -322,14 +314,10 @@ a.partner-link:hover {
 }
 
 .navbar-menu-partners {
-  display: inline-flex;
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 16px;
-  padding: 8px 16px 8px 10px;
-  border: 1px solid var(--nav-line);
-  border-radius: 999px;
-  background: #ffffff;
 }
 
 .navbar-menu-partners .partner-logo {
@@ -409,11 +397,6 @@ a.partner-link:hover {
     padding-left: 10px;
     font-size: 10px;
     letter-spacing: 0.16em;
-  }
-
-  .navbar-status {
-    height: 30px;
-    padding: 0 10px;
   }
 }
 
