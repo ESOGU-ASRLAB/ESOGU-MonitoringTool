@@ -37,8 +37,8 @@ function LiveClock() {
 const LOGO_LINKS = [
   { name: 'MATISSE', src: 'logo.svg', href: 'https://matisse-kdt.eu/' },
   { name: 'Eskişehir Osmangazi University', src: 'logo3.png', href: 'https://www.ogu.edu.tr/' },
-  { name: 'ASRLab', src: 'asrlab.png', href: 'https://srlab.ogu.edu.tr/' },
-  { name: 'IFARLAB', src: 'ifarlab.png', href: 'https://ifarlab.ogu.edu.tr/' },
+  { name: 'ASRLab', src: 'asrlab.webp', href: 'https://srlab.ogu.edu.tr/' },
+  { name: 'IFARLAB', src: 'ifarlab.webp', href: 'https://ifarlab.ogu.edu.tr/' },
 ];
 
 export default function Navbar({ liveStatus }) {

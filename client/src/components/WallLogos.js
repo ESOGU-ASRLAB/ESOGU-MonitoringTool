@@ -62,12 +62,15 @@ const SIGN_INK = '#ffffff';
 const SIGN_ACCENT = '#5aa9e6';
 const SIGN_DIVIDER = 'rgba(255, 255, 255, 0.55)';
 
+// The -wall variants are 512 px: the roundel is painted ~440 px across on the
+// 2048 px face, so the navbar's 58 px files would blur, and the original PNGs
+// (1.9 MB for ASRLab) would be downloaded just to be scaled down.
 const LABS = [
   // Centred under MATISSE, in the middle bay; the hall monitor moved to its old
   // place over the west shutter (HallMonitor.js).
-  { x: 0, bottom: 5.25, logo: LOGO_BASE + 'asrlab.png', name: 'ASRLab', ink: SIGN_INK, accent: SIGN_ACCENT },
+  { x: 0, bottom: 5.25, logo: LOGO_BASE + 'asrlab-wall.webp', name: 'ASRLab', ink: SIGN_INK, accent: SIGN_ACCENT },
   // Under ASRLab and hung from it; the video walls took the shutter bays.
-  { x: 0, bottom: 3.6, logo: LOGO_BASE + 'ifarlab.png', name: 'IFARLAB', ink: SIGN_INK, accent: SIGN_ACCENT },
+  { x: 0, bottom: 3.6, logo: LOGO_BASE + 'ifarlab-wall.webp', name: 'IFARLAB', ink: SIGN_INK, accent: SIGN_ACCENT },
 ];
 
 // The headline sign, centred in the middle bay between the x = +/-2.97 posts.
