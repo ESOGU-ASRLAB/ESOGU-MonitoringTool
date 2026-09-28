@@ -47,7 +47,7 @@ import {
 import { latestJointStates, subscribeJointStates } from "../components/telemetryStream";
 import { usePresence } from "../components/presence";
 import Visitors, { PresenceBroadcaster } from "../components/Visitors";
-import TrainingMode from "../components/training/TrainingMode";
+import TrainingStations from "../components/training/TrainingStations";
 import VRSoundscape from "../components/VRSoundscape";
 import { unlockAudio } from "../components/vrAudio";
 import { RobotHitBoxes, RobotInfoCard, RobotInfoPanel3D } from "../components/RobotInfo";
@@ -325,14 +325,6 @@ export default function DigitalTwin({ liveStatus }) {
   // The robot whose details panel is open, if any (RobotInfo.js).
   const [infoRobot, setInfoRobot] = useState(null);
   const closeInfo = useCallback(() => setInfoRobot(null), []);
-  // Every pick as its own event, for the headset training: choosing the robot
-  // whose panel is already open changes nothing in infoRobot, but it is still
-  // the pick a "select" step is waiting for.
-  const [robotPick, setRobotPick] = useState(null);
-  const pickRobot = useCallback((id) => {
-    setInfoRobot(id);
-    setRobotPick({ id, at: performance.now() });
-  }, []);
   const infoContext = useMemo(() => ({ animate, liveStatus }), [animate, liveStatus]);
 
   const ur10eGroupRef = useRef(null);
@@ -804,7 +796,7 @@ export default function DigitalTwin({ liveStatus }) {
                   {/* Other people on the page, as workers where they stand. */}
                   <Visitors />
                   {/* Click (or point and trigger) a robot for its details. */}
-                  <RobotHitBoxes targets={robotTargets} selected={infoRobot} onSelect={pickRobot} />
+                  <RobotHitBoxes targets={robotTargets} selected={infoRobot} onSelect={setInfoRobot} />
                   {inVR && infoRobot && (
                     <RobotInfoPanel3D robotId={infoRobot} context={infoContext} onClose={closeInfo} />
                   )}
@@ -901,8 +893,8 @@ export default function DigitalTwin({ liveStatus }) {
                 walkingMode={walkingMode}
                 orbitTarget={ORBIT_TARGET}
               />
-              {/* Headset only: step-by-step training and the hall's sound. */}
-              {inVR && <TrainingMode targets={robotTargets} robotPick={robotPick} />}
+              {/* Headset only: hands-on training stations and the hall's sound. */}
+              {inVR && <TrainingStations />}
               {inVR && <VRSoundscape targets={robotTargets} />}
               {VR_OPTIONS.stats && <VRStatsHud />}
             </XR>

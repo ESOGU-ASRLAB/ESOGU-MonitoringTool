@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { solveIK } from './robotIK';
 import { ifarlab } from './inspectionState';
+import { cellTraining } from './training/cellTraining';
 
 /*
  * THE IFARLAB WORKCELL AT WORK.
@@ -31,6 +32,12 @@ import { ifarlab } from './inspectionState';
  * targets that follow these paths, so the motion is continuous and the tools
  * go where the paths say. The paths keep every approach vertical over the
  * belt and table and horizontal into the chassis, clear of the furniture.
+ *
+ * The headset's pick-and-place training (training/PickPlaceStation.js) can
+ * take the UR10e over through training/cellTraining.js: it clears the table,
+ * waits at home at the end of each cycle, and starts the next one only when
+ * the wearer has put a box on the infeed -- that box rides in along the
+ * infeed and the belt, and the arm picks it and sets it down as usual.
  */
 const DEG = 180 / Math.PI;
 const smooth = (u) => u * u * (3 - 2 * u);
@@ -47,6 +54,10 @@ const RAIL_PICK = 0.25;
 const RAIL_PLACE = 2.35;
 const BOX_START_Y = -0.3;
 const BOX_ARRIVES = 2.6; // s into the cycle
+// A box the training hands over starts out on the infeed, outside the fence,
+// and rides in at this speed; the arm's cycle starts late enough for the box
+// to reach the pick point when the normal one's would.
+const HANDOVER_SPEED = 0.35; // m/s
 
 /*
  * One UR cycle as keyframes: duration to reach it, rail, tool point, grip
@@ -160,7 +171,10 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
     beamFrom: new THREE.Vector3(), beamTo: new THREE.Vector3(),
     mid: new THREE.Vector3(), dir: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0),
   }), []);
-  const run = useRef({ urCycle: -1, kawRound: -1, kawBay: -1, started: false, boxes: [], finds: 0 });
+  const run = useRef({
+    urT: null, urKeys: null, urSpot: null, urHold: false, spotCount: 0, trainingRun: null,
+    kawRound: -1, kawBay: -1, started: false, boxes: [], finds: 0,
+  });
   const materials = useMemo(() => ({
     box: new THREE.MeshStandardMaterial({ color: '#c49a62', roughness: 0.8 }),
     boxDetected: new THREE.MeshStandardMaterial({ color: '#c49a62', emissive: '#38d98a', emissiveIntensity: 0.9, roughness: 0.8 }),
@@ -206,10 +220,29 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
     mesh.visible = true;
   }
 
-  useFrame(({ clock }) => {
+  // A new UR cycle: the next table spot (the table is cleared when full), and
+  // a box -- the program's own on the belt, or one the wearer handed over.
+  function beginUrCycle(state, feed) {
+    if (state.spotCount % TABLE_SPOTS.length === 0) state.boxes = [];
+    const spot = TABLE_SPOTS[state.spotCount % TABLE_SPOTS.length];
+    state.spotCount += 1;
+    state.urSpot = spot;
+    state.urKeys = urKeys(spot);
+    state.boxes = state.boxes.filter((b) => b.onTable);
+    const startY = feed ? feed.y : BOX_START_Y;
+    const rideStart = feed ? BOX_ARRIVES - (PICK[1] - startY) / HANDOVER_SPEED : 0;
+    state.boxes.push({ onTable: false, held: false, detected: false, startY, rideStart, training: Boolean(feed) });
+    // A handed-over box rides before the arm moves: the clock starts negative.
+    state.urT = Math.min(0, rideStart);
+    state.urHold = false;
+  }
+
+  useFrame(({ clock }, delta) => {
     const state = run.current;
     if (!root.current) return;
-    if (!active) {
+    // A headset training may run the UR10e even with the engine off.
+    const on = active || cellTraining.active;
+    if (!on) {
       // Hand the arms back to the sliders.
       if (state.started) {
         ur.driveRef.current = null;
@@ -238,17 +271,33 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
     const elapsed = now - state.t0;
 
     // ---------------------------------------------------------- UR10e
-    const cycle = Math.floor(elapsed / UR_CYCLE);
-    const ct = elapsed - cycle * UR_CYCLE;
-    const spot = TABLE_SPOTS[cycle % TABLE_SPOTS.length];
-    const keys = urKeys(spot);
-    if (cycle !== state.urCycle) {
-      state.urCycle = cycle;
-      // A fresh box on the belt; the table is cleared once it is full.
-      if (cycle % TABLE_SPOTS.length === 0) state.boxes = [];
-      state.boxes = state.boxes.filter((b) => b.onTable);
-      state.boxes.push({ onTable: false, held: false, detected: false });
+    // Its own clock, so a training can hold it at home between boxes.
+    if (state.urT == null) beginUrCycle(state, null);
+    if (!state.urHold) state.urT += delta;
+    if (state.urHold || state.urT >= UR_CYCLE) {
+      if (cellTraining.active) {
+        if (state.trainingRun !== cellTraining.run) {
+          // A new training: an empty table for its boxes.
+          state.trainingRun = cellTraining.run;
+          state.boxes = [];
+          state.spotCount = 0;
+        }
+        const feed = cellTraining.feeds.find((f) => !f.taken);
+        if (feed) {
+          feed.taken = true;
+          beginUrCycle(state, feed);
+        } else {
+          state.urHold = true;
+          state.urT = 0;
+        }
+      } else {
+        beginUrCycle(state, null);
+      }
     }
+    cellTraining.waiting = state.urHold;
+    const ct = Math.max(0, state.urT);
+    const spot = state.urSpot;
+    const keys = state.urKeys;
     const { from, to, u, index } = sampleKeys(keys, ct);
     const railY = lerp(from.rail, to.rail, u);
     if (ur.groupRef.current) ur.groupRef.current.position.z = -railY;
@@ -258,16 +307,20 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
     drive(ur, UR_JOINTS, target, aim.copy(DOWN), UR_TOOL_AXIS);
     ifarlab.ur = to.state;
 
-    const box = state.boxes[state.boxes.length - 1];
+    // Holding at home there is no box in play (the last one is on the table).
+    const box = state.urHold ? null : state.boxes[state.boxes.length - 1];
     const attachAt = keys.slice(1).findIndex((k) => k.attach) + 1;
     const releaseAt = keys.slice(1).findIndex((k) => k.release) + 1;
-    box.held = index > attachAt && index <= releaseAt;
-    if (index > releaseAt && !box.onTable) {
-      box.onTable = true;
-      box.spot = spot;
-      ifarlab.picks += 1;
+    if (box) {
+      box.held = index > attachAt && index <= releaseAt;
+      if (index > releaseAt && !box.onTable) {
+        box.onTable = true;
+        box.spot = spot;
+        ifarlab.picks += 1;
+        if (box.training) cellTraining.placed += 1;
+      }
+      box.detected = keys[index].detect || (index > 2 && index <= attachAt);
     }
-    box.detected = keys[index].detect || (index > 2 && index <= attachAt);
 
     // Boxes: riding the belt, in the gripper, or sitting on the table.
     boxRefs.current.forEach((mesh, i) => {
@@ -281,8 +334,9 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
         ur.toolRef.current.getWorldPosition(scratch.b);
         place(mesh, scratch.b);
       } else {
-        const y = lerp(BOX_START_Y, PICK[1], Math.min(ct / BOX_ARRIVES, 1));
-        place(mesh, toWorld(scratch.a, PICK[0], y, BELT_TOP + BOX.h / 2));
+        // Along the belt (and, for a handed-over box, the infeed before it).
+        const ride = THREE.MathUtils.clamp((state.urT - b.rideStart) / (BOX_ARRIVES - b.rideStart), 0, 1);
+        place(mesh, toWorld(scratch.a, PICK[0], lerp(b.startY, PICK[1], ride), BELT_TOP + BOX.h / 2));
       }
       mesh.children[0].material = b.detected && !b.onTable ? materials.boxDetected : materials.box;
     });

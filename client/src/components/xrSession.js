@@ -31,6 +31,8 @@ import { setXRActive } from './pageActivity';
 const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
 const hostname = typeof window === 'undefined' ? '' : window.location.hostname;
 const isTestHost = hostname === 'localhost' || hostname.startsWith('qa.');
+/** localhost and qa.: where automated checks may reach into the scene. */
+export const IS_TEST_HOST = isTestHost;
 
 function choice(name, allowed, fallback) {
   const value = params.get(name);
