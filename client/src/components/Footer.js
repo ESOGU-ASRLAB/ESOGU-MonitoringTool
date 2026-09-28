@@ -6,7 +6,12 @@ export default function Footer() {
 
   return (
     <footer className="footer">
-      <span>© {year} MATISSE IFARLAB-EDIH Doç. Dr. UĞUR YAYAN</span>
+      <p className="footer-credit">
+        <span>© {year}</span>
+        <strong>MATISSE IFARLAB-EDIH</strong>
+        <span className="footer-sep" aria-hidden="true" />
+        <span>Doç. Dr. UĞUR YAYAN</span>
+      </p>
     </footer>
   );
 }

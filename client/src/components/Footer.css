@@ -1,11 +1,66 @@
+/*
+ * The navbar's mirror: the same cool grey fading to white, tinted on the edge
+ * that meets the page, and the MATISSE blue-to-teal line along that edge --
+ * the top here, the bottom on the navbar -- so the page sits between two
+ * matching rules. Kept short: on the twin every pixel here is taken from the
+ * 3D view.
+ */
 .footer {
+  position: relative;
   flex: 0 0 auto;
-  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 20px;
+  background: linear-gradient(180deg, #f4f7fb 0%, #ffffff 100%);
+  color: #334155;
+  box-shadow: 0 -1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.footer::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #2060cd 0%, #19a7ce 100%);
+  pointer-events: none;
+}
+
+.footer-credit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.02em;
   text-align: center;
-  background: #ffffff;
-  color: #000000;
-  font-size: 11px;
-  font-weight: 700;
-  border-bottom: 1px solid #e5e5e5;
-  border-top: 1px solid #e5e5e5;
+}
+
+.footer-credit strong {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* A short hairline, as between the navbar's logo and product name. */
+.footer-sep {
+  width: 1px;
+  height: 14px;
+  margin: 0 6px;
+  background: #cbd5e1;
+}
+
+@media (max-width: 640px) {
+  .footer {
+    min-height: 34px;
+    padding: 6px 14px;
+  }
+
+  .footer-credit {
+    font-size: 11px;
+  }
 }
