@@ -44,7 +44,7 @@ import {
   useXRSessionActive,
   xrStore,
 } from "../components/xrSession";
-import { API_BASE } from "../components/apiBase";
+import { latestJointStates, subscribeJointStates } from "../components/telemetryStream";
 import { usePresence } from "../components/presence";
 import Visitors, { PresenceBroadcaster } from "../components/Visitors";
 import { RobotHitBoxes, RobotInfoCard, RobotInfoPanel3D } from "../components/RobotInfo";
@@ -268,7 +268,7 @@ function FactoryCameraController({
   return null;
 }
 
-export default function DigitalTwin({ liveStatus, setLiveStatus }) {
+export default function DigitalTwin({ liveStatus }) {
   const [selectedRobot, setSelectedRobot] = useState("otokar1");
   const [jointAngles, setJointAngles] = useState([0, -90, 0, -90, 0, 0]);
   /*
@@ -322,8 +322,6 @@ export default function DigitalTwin({ liveStatus, setLiveStatus }) {
   const closeInfo = useCallback(() => setInfoRobot(null), []);
   const infoContext = useMemo(() => ({ animate, liveStatus }), [animate, liveStatus]);
 
-  const lastTelemetryTsRef = useRef(null);
-  const lastSuccessfulEventRef = useRef(0);
   const ur10eGroupRef = useRef(null);
   const agvGroupRef = useRef(null);
   // Refs the IFARLAB tasks drive the two arms through (IfarlabTasks.js).
@@ -549,68 +547,29 @@ export default function DigitalTwin({ liveStatus, setLiveStatus }) {
     if (!showFactory && walkingMode) setWalkingMode(false);
   }, [showFactory, walkingMode]);
 
+  /*
+   * Live joint states from the page's telemetry stream (App opens it; see
+   * telemetryStream.js). While the demo animation runs they are not applied;
+   * switching it off applies the latest one at once, as reopening the stream
+   * used to.
+   */
+  const animateRef = useRef(animate);
+  animateRef.current = animate;
+  const applyJointStates = useCallback((payload) => {
+    if (Array.isArray(payload.ur10e) && payload.ur10e.length === 6) setJointAngles(payload.ur10e);
+    if (Array.isArray(payload.kawasaki) && payload.kawasaki.length === 6) setKawasakiAngles(payload.kawasaki);
+    if (Number.isFinite(payload.ur10eRail)) setRailPosition(payload.ur10eRail);
+    if (Number.isFinite(payload.agvRail)) setAgvRailPosition(payload.agvRail);
+  }, []);
+
+  useEffect(() => subscribeJointStates((payload) => {
+    if (!animateRef.current) applyJointStates(payload);
+  }), [applyJointStates]);
+
   useEffect(() => {
-    const url = `${API_BASE}/telemetry/joint-states/stream?interval=250`;
-    const es = new EventSource(url);
-
-    const markRecentActivity = () => {
-      lastSuccessfulEventRef.current = Date.now();
-      setLiveStatus((prev) => (prev === "offline" ? "connecting" : prev));
-    };
-
-    es.addEventListener("open", () => {
-      setLiveStatus((prev) => (prev === "live" ? prev : "connecting"));
-    });
-
-    es.addEventListener("hello", () => {
-      markRecentActivity();
-      setLiveStatus((prev) => (prev === "live" ? prev : "connecting"));
-    });
-
-    es.addEventListener("joint_states", (evt) => {
-      try {
-        const payload = JSON.parse(evt.data);
-        const ur10eOk =
-          Array.isArray(payload?.ur10e) && payload.ur10e.length === 6;
-        const kawasakiOk =
-          Array.isArray(payload?.kawasaki) && payload.kawasaki.length === 6;
-        if (!ur10eOk && !kawasakiOk) return;
-        if (
-          payload.timestamp &&
-          payload.timestamp === lastTelemetryTsRef.current
-        )
-          return;
-        lastTelemetryTsRef.current = payload.timestamp || null;
-
-        lastSuccessfulEventRef.current = Date.now();
-        setLiveStatus("live");
-
-        // If user enabled demo animation, don't override angles.
-        if (animate) return;
-        if (ur10eOk) setJointAngles(payload.ur10e);
-        if (kawasakiOk) setKawasakiAngles(payload.kawasaki);
-        if (Number.isFinite(payload.ur10eRail))
-          setRailPosition(payload.ur10eRail);
-        if (Number.isFinite(payload.agvRail))
-          setAgvRailPosition(payload.agvRail);
-      } catch {
-        // ignore parse errors
-      }
-    });
-
-    es.addEventListener("error", () => {
-      const noRecentData = Date.now() - lastSuccessfulEventRef.current > 10000;
-      if (noRecentData) {
-        setLiveStatus("offline");
-      } else {
-        setLiveStatus((prev) => (prev === "live" ? prev : "connecting"));
-      }
-    });
-
-    return () => {
-      es.close();
-    };
-  }, [animate, setLiveStatus]);
+    const latest = latestJointStates();
+    if (!animate && latest) applyJointStates(latest);
+  }, [animate, applyJointStates]);
 
   return (
     <div className="dt-wrapper">

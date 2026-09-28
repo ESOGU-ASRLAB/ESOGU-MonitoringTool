@@ -1,7 +1,8 @@
-import React, { lazy, Suspense, useState } from 'react';
+import React, { lazy, Suspense } from 'react';
 import './App.css';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import { useTelemetryStream } from './components/telemetryStream';
 import Documentation from './pages/Documentation';
 import VRIntegration from './pages/VRIntegration';
 
@@ -15,11 +16,16 @@ const DigitalTwin = lazy(() => import('./pages/DigitalTwin'));
 const isDocs = () => /^\/docs\/?$/.test(window.location.pathname);
 const isVR = () => /^\/vr\/?$/.test(window.location.pathname);
 
+// The twin moves its arms at the stream's pace; the guides only show the
+// badge, so they ask the API to poll MongoDB every 2 s instead of 4 times a second.
+const TWIN_STREAM_MS = 250;
+const GUIDE_STREAM_MS = 2000;
+
 export default function App() {
-  // Lifted out of DigitalTwin so the live-status badge can render in the
-  // Navbar (one header row instead of two) while DigitalTwin's SSE effect
-  // keeps driving it exactly as before, just through the passed-in setter.
-  const [liveStatus, setLiveStatus] = useState('connecting'); // 'connecting' | 'live' | 'offline'
+  const onGuide = isDocs() || isVR();
+  // One telemetry stream per page, for the navbar's badge on every page and
+  // for the twin's arms (telemetryStream.js).
+  const liveStatus = useTelemetryStream(onGuide ? GUIDE_STREAM_MS : TWIN_STREAM_MS); // 'connecting' | 'live' | 'offline'
 
   return (
     <div className="app-shell">
@@ -27,7 +33,7 @@ export default function App() {
       <main className="app-main">
         {isDocs() ? <Documentation /> : isVR() ? <VRIntegration /> : (
           <Suspense fallback={null}>
-            <DigitalTwin liveStatus={liveStatus} setLiveStatus={setLiveStatus} />
+            <DigitalTwin liveStatus={liveStatus} />
           </Suspense>
         )}
       </main>
