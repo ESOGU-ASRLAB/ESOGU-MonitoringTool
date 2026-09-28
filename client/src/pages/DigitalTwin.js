@@ -288,6 +288,15 @@ export default function DigitalTwin({ liveStatus, setLiveStatus }) {
   const [panelOpen, setPanelOpen] = useState(
     () => typeof window === "undefined" || !window.matchMedia("(max-width: 900px)").matches,
   );
+  // ...and follows the width after load too: a window narrowed to phone size
+  // (or a browser switched to its mobile view) used to keep the drawer open
+  // over the scene, since the width was only read once.
+  useEffect(() => {
+    const mobile = window.matchMedia("(max-width: 900px)");
+    const onChange = (event) => setPanelOpen(!event.matches);
+    mobile.addEventListener("change", onChange);
+    return () => mobile.removeEventListener("change", onChange);
+  }, []);
   // Desktop-only: collapses the sidebar to zero width so the viewport takes the
   // full row. Separate from panelOpen, which drives the mobile slide-in drawer.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -650,7 +659,8 @@ export default function DigitalTwin({ liveStatus, setLiveStatus }) {
             onClick={() => setPanelOpen((o) => !o)}
             aria-label="Toggle control panel"
           >
-            Menu
+            {/* Not "Menu": the navbar's toggle is the page menu on phones. */}
+            Control panel
           </button>
 
           {/* Desktop collapse handle + sound toggle, grouped so the sound
