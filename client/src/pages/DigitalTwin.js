@@ -47,6 +47,15 @@ import {
 import { API_BASE } from "../components/apiBase";
 import { usePresence } from "../components/presence";
 import Visitors, { PresenceBroadcaster } from "../components/Visitors";
+import { RobotHitBoxes, RobotInfoCard, RobotInfoPanel3D } from "../components/RobotInfo";
+
+/*
+ * What a click on each robot resolves to: the part that moves, so the click
+ * target follows it. The Otokar gantries are found by name because they mount
+ * inside OtokarCell's Suspense; their carriage carries everything but the rail.
+ */
+const otokarCarriage = (robotId) => (scene) =>
+  scene.getObjectByName(`${robotId}-cad-frame`)?.getObjectByName("axis-1-carriage");
 
 // Where the IFARLAB workcell stands. See components/cellLayout.js for what it
 // does, what it does NOT move, and the check to run after changing it.
@@ -259,7 +268,7 @@ function FactoryCameraController({
   return null;
 }
 
-export default function DigitalTwin({ setLiveStatus }) {
+export default function DigitalTwin({ liveStatus, setLiveStatus }) {
   const [selectedRobot, setSelectedRobot] = useState("otokar1");
   const [jointAngles, setJointAngles] = useState([0, -90, 0, -90, 0, 0]);
   /*
@@ -299,6 +308,10 @@ export default function DigitalTwin({ setLiveStatus }) {
   const otokarLod = VR_OPTIONS.lod ?? (headsetShading ? "lo" : "auto");
   // Everyone else looking at the hall, and this page's own place in it.
   usePresence(inVR ? "vr" : "desktop");
+  // The robot whose details panel is open, if any (RobotInfo.js).
+  const [infoRobot, setInfoRobot] = useState(null);
+  const closeInfo = useCallback(() => setInfoRobot(null), []);
+  const infoContext = useMemo(() => ({ animate, liveStatus }), [animate, liveStatus]);
 
   const lastTelemetryTsRef = useRef(null);
   const lastSuccessfulEventRef = useRef(0);
@@ -318,6 +331,12 @@ export default function DigitalTwin({ setLiveStatus }) {
   const kawTask = useMemo(() => ({
     jointsRef: kawJointsRef, toolRef: kawToolRef, driveRef: kawDriveRef, groupRef: agvGroupRef,
   }), []);
+  const robotTargets = useMemo(() => [
+    { id: "ur10e", resolve: () => ur10eGroupRef.current },
+    { id: "kawasaki", resolve: () => agvGroupRef.current },
+    { id: "robot1", resolve: otokarCarriage("robot1") },
+    { id: "robot2", resolve: otokarCarriage("robot2") },
+  ], []);
   const controlsRef = useRef(null);
   // The page's own camera. During a session R3F swaps in the headset's, so
   // VRWalk reads where the desktop view was from this.
@@ -444,7 +463,8 @@ export default function DigitalTwin({ setLiveStatus }) {
     const inViewport = (event) => {
       const t = event.target;
       if (!(t instanceof Element)) return false;
-      if (t.closest(".view-controls, .sidebar-toggle, .panel-toggle, button, a, input")) return false;
+      // The robot details card scrolls and selects text like any page element.
+      if (t.closest(".view-controls, .sidebar-toggle, .panel-toggle, .robot-info, button, a, input")) return false;
       return t.tagName === "CANVAS" || Boolean(t.closest(".twin-viewport"));
     };
     const down = (event) => { if (inViewport(event)) pointerDownRef.current?.(event); };
@@ -801,6 +821,11 @@ export default function DigitalTwin({ setLiveStatus }) {
                   <BodyInspection />
                   {/* Other people on the page, as workers where they stand. */}
                   <Visitors />
+                  {/* Click (or point and trigger) a robot for its details. */}
+                  <RobotHitBoxes targets={robotTargets} selected={infoRobot} onSelect={setInfoRobot} />
+                  {inVR && infoRobot && (
+                    <RobotInfoPanel3D robotId={infoRobot} context={infoContext} onClose={closeInfo} />
+                  )}
                   <Factory show={showFactory} />
                   {showFactory && (
                     <>
@@ -891,6 +916,10 @@ export default function DigitalTwin({ setLiveStatus }) {
               {VR_OPTIONS.stats && <VRStatsHud />}
             </XR>
           </Canvas>
+
+          {!inVR && infoRobot && (
+            <RobotInfoCard robotId={infoRobot} context={infoContext} onClose={closeInfo} />
+          )}
 
           {/* Manual equivalents of the mouse gestures (rotate / zoom) */}
           <div className="view-controls" aria-label="3D view controls">

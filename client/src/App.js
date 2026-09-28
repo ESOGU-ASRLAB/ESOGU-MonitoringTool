@@ -27,7 +27,7 @@ export default function App() {
       <main className="app-main">
         {isDocs() ? <Documentation /> : isVR() ? <VRIntegration /> : (
           <Suspense fallback={null}>
-            <DigitalTwin setLiveStatus={setLiveStatus} />
+            <DigitalTwin liveStatus={liveStatus} setLiveStatus={setLiveStatus} />
           </Suspense>
         )}
       </main>

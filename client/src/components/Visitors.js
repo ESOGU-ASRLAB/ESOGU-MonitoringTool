@@ -41,9 +41,12 @@ const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
  */
 export function PresenceBroadcaster({ bounds }) {
   const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
   useFrame(() => {
-    camera.getWorldPosition(scratch.pos);
-    camera.getWorldQuaternion(scratch.quat);
+    // In a session the XR camera holds the head pose (see RobotInfoPanel3D).
+    const head = gl.xr.isPresenting ? gl.xr.getCamera() : camera;
+    head.getWorldPosition(scratch.pos);
+    head.getWorldQuaternion(scratch.quat);
     scratch.euler.setFromQuaternion(scratch.quat, 'YXZ');
     const x = THREE.MathUtils.clamp(scratch.pos.x, bounds.minX + WALL_MARGIN, bounds.maxX - WALL_MARGIN);
     const z = THREE.MathUtils.clamp(scratch.pos.z, bounds.minZ + WALL_MARGIN, bounds.maxZ - WALL_MARGIN);

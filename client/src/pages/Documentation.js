@@ -1,6 +1,7 @@
 import React from 'react';
 import './Documentation.css';
 import { OTOKAR_AXES } from '../components/otokarAxes';
+import { KAWASAKI_SPECS, UR10E_SPECS } from '../components/robotDetails';
 import { Anchor, Callout, DocSidebar, SpecTable } from './docKit';
 
 /*
@@ -79,17 +80,7 @@ export default function Documentation() {
           A collaborative 6-axis arm by Universal Robots, mounted on a linear 7th-axis carriage. It
           carries a 2-finger gripper and a SICK camera on its flange.
         </p>
-        <SpecTable rows={[
-          ['Payload', '12.5 kg'],
-          ['Reach', '1300 mm'],
-          ['Degrees of freedom', '6 rotating joints (+ linear rail, 0 to 2.4 m in this cell)'],
-          ['Pose repeatability', '± 0.05 mm'],
-          ['Joint range', '± 360° on all joints'],
-          ['Joint speed', 'Base and shoulder 120 °/s, elbow and wrists 180 °/s'],
-          ['Weight', '33.5 kg'],
-          ['Sensing', 'Built-in force/torque sensor at the tool flange'],
-          ['Task', 'Pick and place: detects a box on the conveyor, grips it and sets it on the table'],
-        ]} />
+        <SpecTable rows={UR10E_SPECS} />
 
         <Anchor id="kawasaki">
           <img className="doc-h2-logo is-wide" src={`${LOGO}kawasaki_icon.png`} alt="" />
@@ -99,14 +90,7 @@ export default function Documentation() {
           A compact 6-axis industrial arm mounted on an OTA AGV mobile base, which itself rides a
           floor rail. The arm carries a SCHUNK EGP-50 gripper.
         </p>
-        <SpecTable rows={[
-          ['Payload', '5 kg'],
-          ['Maximum reach', '705 mm'],
-          ['Degrees of freedom', '6 rotating joints (+ AGV on its rail)'],
-          ['Pose repeatability', '± 0.03 mm'],
-          ['Mobile base', 'OTA AGV, differential drive with casters'],
-          ['Task', 'Chassis inspection: scans the outside, reaches in through the upper bay, scans inside and withdraws'],
-        ]} />
+        <SpecTable rows={KAWASAKI_SPECS} />
 
         <Anchor id="otokar">
           <img className="doc-h2-logo is-wide" src={`${LOGO}logo2.png`} alt="" />

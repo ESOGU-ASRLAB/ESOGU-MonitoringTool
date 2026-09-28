@@ -25,6 +25,11 @@ export function publishTelemetry(id, values, extra) {
   store.set(id, { values, extra });
 }
 
+/** One robot's current axis values (the publisher's live array: copy before keeping). */
+export function readTelemetry(id) {
+  return store.get(id)?.values;
+}
+
 /*
  * Nothing calls this when the page unmounts, and it does not need to: the
  * store is keyed by robot id, so a remount overwrites rather than accumulates.
