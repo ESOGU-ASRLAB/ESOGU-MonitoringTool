@@ -4,9 +4,12 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import DigitalTwin from './pages/DigitalTwin';
 import Documentation from './pages/Documentation';
+import VRIntegration from './pages/VRIntegration';
 
-// Two pages, chosen by path: the technical guide at /docs, the twin otherwise.
+// Pages chosen by path: the technical guide at /docs, the VR guide at /vr, the
+// twin otherwise.
 const isDocs = () => /^\/docs\/?$/.test(window.location.pathname);
+const isVR = () => /^\/vr\/?$/.test(window.location.pathname);
 
 export default function App() {
   // Lifted out of DigitalTwin so the live-status badge can render in the
@@ -18,7 +21,7 @@ export default function App() {
     <div className="app-shell">
       <Navbar liveStatus={liveStatus} />
       <main className="app-main">
-        {isDocs() ? <Documentation /> : <DigitalTwin setLiveStatus={setLiveStatus} />}
+        {isDocs() ? <Documentation /> : isVR() ? <VRIntegration /> : <DigitalTwin setLiveStatus={setLiveStatus} />}
       </main>
       <Footer />
     </div>
