@@ -132,7 +132,8 @@ export default function Navbar({ liveStatus }) {
     <header className="navbar">
       <div className="navbar-brand">
         <a className="navbar-brand-logo" href="https://matisse-kdt.eu/" target="_blank" rel="noopener noreferrer" title="MATISSE">
-          <img src={LOGO_BASE + 'logo.svg'} alt="MATISSE" />
+          {/* The reversed mark for the dark bar: the blue letters white, the teal kept. */}
+          <img src={LOGO_BASE + 'logo-light.svg'} alt="MATISSE" />
         </a>
         <span className="navbar-product">Monitoring Tool</span>
       </div>
