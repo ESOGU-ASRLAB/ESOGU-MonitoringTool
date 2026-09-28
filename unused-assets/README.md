@@ -13,9 +13,8 @@ Paths mirror `client/public/`, so moving a file back is a single `git mv`.
 | `assets/factory/warehouse.glb` | 9 MB | Superseded by `warehouse_blender.blend.glb` (the one `Factory.js` loads). |
 | `assets/factory/warehouse_blender.glb` | 9 MB | Same as above. |
 
-Note: `scripts/otokar/export_bus_solids.py` still writes `collision.glb` into
-`client/public/meshes/otokar/bus/`. After re-running it, move that output here
-again (or change the script's output path) before committing.
+`scripts/otokar/export_bus_solids.py` writes `collision.glb` straight into this
+folder; its `hi/` and `lo/` body exports still go to `client/public/`.
 
 These are Git LFS objects (`*.glb` in `.gitattributes`); moving them does not
 change the LFS storage they use.

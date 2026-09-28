@@ -30,7 +30,11 @@ for name, selection, deflection in [('hi/body',kept,6),('lo/body',kept,20),('col
         base=len(verts)//3
         verts.extend(v*.001 for p in pts for v in (p.x,p.y,p.z))
         indices.extend(base+j for f in faces for j in f)
-    path=os.path.join(root,'client/public/meshes/otokar/bus',name+'.glb')
+    # collision.glb (~200 MB) is never loaded by the app, so it is written
+    # outside the served public/ folder; see unused-assets/README.md.
+    out_dir='unused-assets/meshes/otokar/bus' if name=='collision' else 'client/public/meshes/otokar/bus'
+    os.makedirs(os.path.join(root,out_dir),exist_ok=True)
+    path=os.path.join(root,out_dir,name+'.glb')
     write_glb(path,verts,indices)
     print('EXPORTED',name,len(indices)//3,flush=True)
 with open(os.path.join(root,'client/public/meshes/otokar/bus/geometry-audit.json'),'w') as f:
