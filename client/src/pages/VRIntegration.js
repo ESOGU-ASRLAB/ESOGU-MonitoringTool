@@ -110,7 +110,7 @@ export default function VRIntegration() {
           rows={[
             ['Left thumbstick', 'Walk where your head faces, at 2.5 m/s, whether you look ahead, down or up'],
             ['Right thumbstick', 'Turn 45° on the spot'],
-            ['Trigger, pointing at a robot', 'Open that robot\'s details panel; the robot is outlined while pointed at'],
+            ['Trigger, pointing at a robot', 'Open that robot\'s details panel; the chosen robot is outlined'],
             ['Trigger, pointing at the panel', 'Close the details panel'],
             ['Trigger, pointing at the floor', 'Teleport: an arc shows where you will land'],
             ['Pinch (hand tracking)', 'Teleport without controllers'],
@@ -134,7 +134,7 @@ export default function VRIntegration() {
           rows={[
             ['In a headset', 'Where they stand, facing where they look', <><code>Visitor 2 · VR</code></>],
             ['On a desktop, walk mode', 'Where they walk', <code>Visitor 3</code>],
-            ['On a desktop, orbit view', 'On the floor under their camera, kept inside the hall', <code>Visitor 4</code>],
+            ['On a desktop, orbit view', '5 m in front of what their view is centred on, facing it: in the opening view, just ahead of where a headset wearer starts', <code>Visitor 4</code>],
           ]}
         />
         <ul>
@@ -182,22 +182,23 @@ export default function VRIntegration() {
         <Anchor id="performance">Headset performance</Anchor>
         <p>
           A Quest 3 draws every frame twice, once per eye, on a mobile GPU. Measured on the hall as
-          it loads, the Otokar cell alone is 0.79 million triangles at its light detail tier and
-          6.1 million at its detailed one, and a shadow map draws every shadow-casting part a
-          second time. Walking up to the cell on the desktop settings asked the headset for about
-          26 million triangles a frame. The headset therefore uses its own profile:
+          it loads, the two cells were modelled at CAD density: the IFARLAB workcell 1.13 million
+          triangles, the Otokar cell 1.16 million at its light detail tier and 6.1 million at its
+          detailed one, and a shadow map drew every shadow-casting part a second time. The hall
+          came to 2.9 million triangles per eye before walking anywhere. Now:
         </p>
         <SpecTable rows={[
+          ['IFARLAB meshes', 'Simplified to 0.15 million triangles for every viewer, within 0.2% of each part\'s shape (the fence wire mesh within 0.03%); a 54 MB download became about 6 MB'],
+          ['Otokar detail', 'Its own headset tier, 0.32 million triangles, wherever you stand'],
+          ['Scenery', 'The parked buses, forklift, floor scrubber, drones and yard are left out in the headset; the staff, signs and safety equipment stay'],
           ['Refresh rate', '72 Hz, which gives each frame 13.9 ms; the headset\'s highest rate (90 or 120 Hz) leaves 8 to 11 ms'],
-          ['Otokar detail', 'Always the light tier on the headset, wherever you stand'],
           ['Shadows', 'Off. On the Quest browser this applies from page load, so entering VR recompiles nothing.'],
           ['Robot camera feeds', 'Paused in VR: each would draw the hall again and stall the GPU to read it back'],
           ['Foveation', 'Full fixed foveation: the edges of each eye, blurred by the lens anyway, render at lower resolution'],
         ]} />
-        <Callout title="What is left">
-          With this profile the headset draws about 2.9 million triangles per eye, of which 1.6
-          million are the IFARLAB workcell&apos;s CAD meshes, which are not yet simplified. Lighter
-          versions of those meshes are the next step for frame rate (see Next steps).
+        <Callout title="Result">
+          The headset now draws about 0.7 million triangles per eye, down from 2.9 million, in
+          150 draw calls instead of 193.
         </Callout>
 
         <Anchor id="testing">Testing and release</Anchor>
@@ -216,7 +217,8 @@ export default function VRIntegration() {
           rows={[
             [<code>?vrhz=72|90|120</code>, 'Refresh rate asked of the headset (default 72)'],
             [<code>?vrshadows=off|hard|soft</code>, 'Shadow quality in VR (default off)'],
-            [<code>?lod=auto|lo|hi</code>, 'Otokar mesh detail (default: light on the headset, by distance elsewhere)'],
+            [<code>?lod=auto|vr|lo|hi</code>, 'Otokar mesh detail (default: vr on the headset, by distance elsewhere)'],
+            [<code>?vrscenery=lite|full</code>, 'Hall decoration in the headset (default lite)'],
             [<code>?vrscale=0.8</code>, 'Render scale; below 1 trades sharpness for frame rate'],
             [<code>?vrstats=1|0</code>, 'Frame-rate card on or off'],
             [<code>?vremu=1</code>, 'Meta Quest 3 emulator in a desktop browser, to test without a headset'],
@@ -229,7 +231,6 @@ export default function VRIntegration() {
 
         <Anchor id="next">Next steps</Anchor>
         <ul>
-          <li><strong>Lighter IFARLAB meshes:</strong> simplify the workcell&apos;s CAD meshes, the largest remaining cost on the headset and the largest download on a first visit.</li>
           <li><strong>Head and hands for headset visitors:</strong> show where a headset visitor is looking and pointing, not only where they stand.</li>
           <li><strong>Follow view:</strong> desktop viewers watch through a headset visitor&apos;s eyes, or from behind them, for presentations.</li>
           <li><strong>&quot;Look here&quot;:</strong> a desktop viewer marks a machine and the headset user sees the marker.</li>
