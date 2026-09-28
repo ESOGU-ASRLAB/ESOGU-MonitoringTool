@@ -37,8 +37,8 @@ function LiveClock() {
 const LOGO_LINKS = [
   { name: 'MATISSE', src: 'logo.svg', href: 'https://matisse-kdt.eu/' },
   { name: 'Eskişehir Osmangazi University', src: 'logo3.png', href: 'https://www.ogu.edu.tr/' },
-  { name: 'ASRLab', src: 'asrlab.png', href: 'https://srlab.ogu.edu.tr/' },
-  { name: 'IFARLAB', src: 'ifarlab.png', href: 'https://ifarlab.ogu.edu.tr/' },
+  { name: 'ASRLab', src: 'asrlab.webp', href: 'https://srlab.ogu.edu.tr/' },
+  { name: 'IFARLAB', src: 'ifarlab.webp', href: 'https://ifarlab.ogu.edu.tr/' },
 ];
 
 export default function Navbar({ liveStatus }) {
@@ -68,7 +68,16 @@ export default function Navbar({ liveStatus }) {
       </div>
       <nav className="navbar-links">
         <a className="navbar-home" href="/">Home</a>
-        <a className="navbar-home" href="/docs">Documentation</a>
+        {/* Full labels need the widest screens; below 1300px they shorten
+            (Navbar.css) rather than push the badge off the edge. */}
+        <a className="navbar-home" href="/docs" aria-label="Documentation">
+          <span className="navbar-link-full">Documentation</span>
+          <span className="navbar-link-short" aria-hidden="true">Docs</span>
+        </a>
+        <a className="navbar-home" href="/vr" aria-label="VR Integration">
+          <span className="navbar-link-full">VR Integration</span>
+          <span className="navbar-link-short" aria-hidden="true">VR</span>
+        </a>
       </nav>
       <div className="navbar-monitoring">
         <div className="live-badge" data-status={liveStatus} role="status" aria-label={statusLabel}>

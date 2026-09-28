@@ -168,6 +168,10 @@
   font-weight: 700;
 }
 
+.navbar-link-short {
+  display: none;
+}
+
 @keyframes live-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.25; }
@@ -179,8 +183,27 @@
   }
 }
 
+/*
+ * THE BAR RUNS OUT OF ROOM IN STEPS, SO IT GIVES WAY IN STEPS.
+ *
+ * Logos, title, three links and the clock need ~1260px at full size. Below
+ * that, in order: the links take short labels and the clock drops its date;
+ * the title goes; the logos shrink; on phones only the MATISSE mark stays.
+ * Each step is sized so the bar fits down to the next one.
+ */
+@media (max-width: 1299px) {
+  .live-clock-date,
+  .navbar-link-full {
+    display: none;
+  }
+
+  .navbar-link-short {
+    display: inline;
+  }
+}
+
 @media (max-width: 1050px) {
-  .live-clock-date {
+  .navbar-heading {
     display: none;
   }
 }
@@ -194,10 +217,33 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 680px) {
+  .navbar-logos {
+    gap: 10px;
+  }
+
+  .navbar-logo {
+    height: 20px;
+  }
+}
+
+@media (max-width: 520px) {
   .navbar {
     padding: 0 14px;
     gap: 10px;
+  }
+
+  .navbar-links {
+    gap: 10px;
+  }
+
+  .navbar-home {
+    padding-left: 10px;
+  }
+
+  .navbar-logo-link:not(:first-child),
+  .navbar-logos > img {
+    display: none;
   }
 
   .navbar-logos {

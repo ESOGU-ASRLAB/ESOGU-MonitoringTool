@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import './Documentation.css';
 import { OTOKAR_AXES } from '../components/otokarAxes';
+import { Anchor, Callout, DocSidebar, SpecTable } from './docKit';
 
 /*
  * Technical guide, laid out like the Node.js / GitHub docs: a sticky table of
  * contents on the left, one long page of sections on the right, each heading
- * linkable. The Otokar axis table is generated from otokarAxes.js, so the
- * guide cannot drift from what the twin actually runs.
+ * linkable (the layout pieces are in docKit.js, shared with the VR page). The
+ * Otokar axis table is generated from otokarAxes.js, so the guide cannot drift
+ * from what the twin actually runs.
  */
 const LOGO = `${process.env.PUBLIC_URL}/assets/logo/`;
 
@@ -19,39 +21,6 @@ const SECTIONS = [
   { id: 'confidentiality', title: 'Confidentiality and model use' },
   { id: 'credits', title: 'Credits and licences' },
 ];
-
-function Anchor({ id, children }) {
-  return (
-    <h2 id={id} className="doc-h2">
-      <a href={`#${id}`} className="doc-anchor" aria-hidden="true">#</a>
-      {children}
-    </h2>
-  );
-}
-
-function Callout({ kind = 'note', title, children }) {
-  return (
-    <div className={`doc-callout is-${kind}`}>
-      <strong>{title}</strong>
-      <div>{children}</div>
-    </div>
-  );
-}
-
-function SpecTable({ rows }) {
-  return (
-    <table className="doc-table">
-      <tbody>
-        {rows.map(([k, v]) => (
-          <tr key={k}>
-            <th scope="row">{k}</th>
-            <td>{v}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
 
 function LabCard({ logo, name, full, href }) {
   return (
@@ -67,42 +36,9 @@ function LabCard({ logo, name, full, href }) {
 }
 
 export default function Documentation() {
-  const [active, setActive] = useState(SECTIONS[0].id);
-
-  // Highlight the section being read in the sidebar.
-  useEffect(() => {
-    const root = document.querySelector('.doc-content');
-    if (!root) return undefined;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActive(visible[0].target.id);
-      },
-      { root, rootMargin: '0px 0px -70% 0px' },
-    );
-    SECTIONS.forEach(({ id }) => {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    });
-    return () => observer.disconnect();
-  }, []);
-
   return (
     <div className="doc-page">
-      <aside className="doc-sidebar" aria-label="Contents">
-        <div className="doc-sidebar-head">
-          <span>Technical guide</span>
-        </div>
-        <nav>
-          <ul>
-            {SECTIONS.map(({ id, title }) => (
-              <li key={id}>
-                <a href={`#${id}`} className={active === id ? 'is-active' : ''}>{title}</a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      </aside>
+      <DocSidebar label="Technical guide" sections={SECTIONS} />
 
       <article className="doc-content">
         <header className="doc-hero">
@@ -131,8 +67,8 @@ export default function Documentation() {
         <Anchor id="labs">ESOGU laboratories</Anchor>
         <div className="doc-labs">
           <LabCard logo="logo3.png" name="ESOGU" full="Eskişehir Osmangazi University" href="https://www.ogu.edu.tr/" />
-          <LabCard logo="asrlab.png" name="ASRLab" full="ESOGU research laboratory" href="https://srlab.ogu.edu.tr/" />
-          <LabCard logo="ifarlab.png" name="IFARLAB" full="Intelligent Factory and Robotics Laboratory" href="https://ifarlab.ogu.edu.tr/" />
+          <LabCard logo="asrlab.webp" name="ASRLab" full="ESOGU research laboratory" href="https://srlab.ogu.edu.tr/" />
+          <LabCard logo="ifarlab.webp" name="IFARLAB" full="Intelligent Factory and Robotics Laboratory" href="https://ifarlab.ogu.edu.tr/" />
         </div>
 
         <Anchor id="ur10e">

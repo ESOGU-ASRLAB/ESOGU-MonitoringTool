@@ -11,8 +11,9 @@ import App from './App';
  * survive reloads, so public/sw-assets.js answers the second visit from disk
  * with no network at all.
  *
- * Its scope is only binary 3D assets and the Draco decoder -- HTML, JS, CSS
- * and API calls are passed through untouched, so it cannot serve stale code or
+ * Its scope is only binary 3D assets (GLB, STL), the Draco decoder and the
+ * PNG/WebP images under /assets -- HTML, JS bundles, CSS and API calls are
+ * passed through untouched, so it cannot serve stale code or
  * interfere with hot reloading. Registration is deliberately late (after load)
  * so installing it never competes with the first paint for bandwidth.
  *

@@ -110,6 +110,11 @@ export default function Scene({
   fogNear = null,
   fogFar = null,
   floorSize: floorSizeProp = null,
+  // A headset renders every pixel twice at 72-90 Hz on a mobile GPU; the PCSS
+  // below costs dozens of shadow-map reads per pixel. DigitalTwin turns these
+  // off for the headset profile (see xrSession.js).
+  softShadows = true,
+  castShadows = true,
 }) {
   const gridTexture = useGridTexture();
   const floorSize = floorSizeProp || 80;
@@ -164,7 +169,7 @@ export default function Scene({
         width in world units: a 25 m roof-lit hall, not a point source. Samples
         are kept modest because this runs every frame.
       */}
-      {interior && <SoftShadows size={25} samples={12} focus={0.4} />}
+      {interior && softShadows && <SoftShadows size={25} samples={12} focus={0.4} />}
 
       {interior && <InteriorEnvironment intensity={LIGHTING.environment} />}
 
@@ -173,7 +178,7 @@ export default function Scene({
         color={ROOM.lamp}
         position={[8, 14, 6]}
         intensity={interior ? LIGHTING.key : 1.2}
-        castShadow
+        castShadow={castShadows}
         /*
          * THE SHADOW CAMERA USED TO MISS MOST OF THE BUILDING. It was an
          * orthographic box +/-10 m around the origin with far at 30, while the

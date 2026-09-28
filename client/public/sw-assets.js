@@ -10,9 +10,10 @@
  *
  * WHAT THIS DOES. Cache Storage survives reloads, so the second visit is
  * served from disk with no network at all. The scope is deliberately narrow:
- * only binary 3D assets and the Draco decoder. Everything else -- HTML, JS,
- * CSS, API calls -- is left completely alone, so this cannot serve stale code
- * or interfere with hot reloading while developing.
+ * only binary 3D assets (GLB and STL), the Draco decoder, and the PNG/WebP
+ * images under /assets. Everything else -- HTML, JS bundles, CSS, API calls --
+ * is left completely alone, so this cannot serve stale code or interfere with
+ * hot reloading while developing.
  *
  * TWO STRATEGIES, because the URLs come in two kinds.
  *
@@ -21,17 +22,19 @@
  *   changes the URL and misses the cache by construction. There is no way for
  *   a stale mesh to be served for a version that asked for something else.
  *
- *   Unversioned (the worker, drone, warehouse and parked-bus props):
- *   stale-while-revalidate. The cached copy is returned immediately -- which
- *   is the whole point -- and a fresh copy is fetched in the background for
- *   the next load. So replacing a prop costs one reload to take effect rather
- *   than never taking effect.
+ *   Unversioned (the worker, drone, warehouse and parked-bus props, the
+ *   IFARLAB STL meshes, the logos): stale-while-revalidate. The cached copy is
+ *   returned immediately -- which is the whole point -- and a fresh copy is
+ *   fetched in the background for the next load. That background fetch goes
+ *   through the HTTP cache, so with the host's ETags an unchanged file comes
+ *   back as a bodiless 304. So replacing a prop costs one reload to take effect
+ *   rather than never taking effect.
  */
 
 const CACHE = 'matisse-assets-v1';
 
 // Only these. Anything not matching goes straight to the network untouched.
-const ASSET_RE = /\/(meshes|assets|draco)\/.*\.(glb|gltf|bin|wasm|js)$/i;
+const ASSET_RE = /\/(meshes|assets|draco)\/.*\.(glb|gltf|bin|wasm|js|stl|png|webp)$/i;
 
 self.addEventListener('install', (event) => {
   // Take over without the usual wait, so the first load after registering
