@@ -87,6 +87,10 @@ export default function RobotCameraFeeds({ ur, kawasaki }) {
   }
 
   useFrame(({ clock }) => {
+    // While a headset is presenting, three renders every gl.render() with the
+    // headset's cameras, whatever camera is passed in -- a feed would be a
+    // second full stereo draw of the hall, then a GPU stall to read it back.
+    if (gl.xr.isPresenting) return;
     const s = state.current;
     const now = clock.getElapsedTime();
     heads.current = trackHeads(scene, now, headCache.current);

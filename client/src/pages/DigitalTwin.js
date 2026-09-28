@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import { XR } from "@react-three/xr";
 import * as THREE from "three";
 import "./DigitalTwin.css";
 import UR10eRobot from "../components/UR10eRobot";
@@ -32,6 +33,17 @@ import OtokarCell from "../components/OtokarCell";
 import { OTOKAR_ROBOT_HOME } from "../components/otokarAxes";
 import { LIGHTING } from "../components/scenePalette";
 import { IFARLAB_OFFSET } from "../components/cellLayout";
+import VRWalk from "../components/VRWalk";
+import VRStatsHud from "../components/VRStatsHud";
+import {
+  IS_QUEST_BROWSER,
+  VR_OPTIONS,
+  enterVR,
+  exitVR,
+  useVRSupported,
+  useXRSessionActive,
+  xrStore,
+} from "../components/xrSession";
 
 const API_BASE = process.env.REACT_APP_API_URL
   ? process.env.REACT_APP_API_URL.replace(/\/api\/auth\/?$/, "/api")
@@ -52,6 +64,9 @@ const FACTORY_CAMERA_BOUNDS = Object.freeze({
   maxZ: 23.75,
 });
 const WALK_EYE_HEIGHT = 1.75;
+// What the orbit camera circles: the two cells' shared horizontal centre. See
+// the OrbitControls below for how it was chosen.
+const ORBIT_TARGET = [-1.3, 1.5, -1.17];
 // Orbit lens: the opening field of view, and how wide zooming out may open it.
 const BASE_FOV = 30;
 const MAX_FOV = 62;
@@ -142,6 +157,7 @@ function clampFactoryCamera(camera) {
 function FactoryCameraController({
   controlsRef,
   walkingMode,
+  xrActive,
   keysRef,
   walkStepRef,
   walkLookRef,
@@ -164,11 +180,11 @@ function FactoryCameraController({
   }, [camera]);
 
   useEffect(() => {
-    walkStepRef.current = walkingMode ? moveCamera : null;
+    walkStepRef.current = walkingMode && !xrActive ? moveCamera : null;
     return () => {
       walkStepRef.current = null;
     };
-  }, [walkingMode, walkStepRef, moveCamera]);
+  }, [walkingMode, xrActive, walkStepRef, moveCamera]);
 
   const lookCamera = useCallback((deltaX, deltaY) => {
     const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, "YXZ");
@@ -187,16 +203,16 @@ function FactoryCameraController({
   }, [camera]);
 
   useEffect(() => {
-    walkLookRef.current = walkingMode ? lookCamera : null;
-    walkZoomRef.current = walkingMode ? zoomCamera : null;
+    walkLookRef.current = walkingMode && !xrActive ? lookCamera : null;
+    walkZoomRef.current = walkingMode && !xrActive ? zoomCamera : null;
     return () => {
       walkLookRef.current = null;
       walkZoomRef.current = null;
     };
-  }, [walkingMode, walkLookRef, walkZoomRef, lookCamera, zoomCamera]);
+  }, [walkingMode, xrActive, walkLookRef, walkZoomRef, lookCamera, zoomCamera]);
 
   useEffect(() => {
-    if (!walkingMode) return;
+    if (!walkingMode || xrActive) return;
 
     const controls = controlsRef.current;
     const direction = new THREE.Vector3();
@@ -216,9 +232,11 @@ function FactoryCameraController({
       WALK_EYE_HEIGHT,
       camera.position.z + direction.z,
     );
-  }, [walkingMode, controlsRef, camera]);
+  }, [walkingMode, xrActive, controlsRef, camera]);
 
   useFrame((_, delta) => {
+    // In a headset the camera is the headset's; VRWalk keeps it in the hall.
+    if (xrActive) return;
     if (!walkingMode) {
       const controls = controlsRef.current;
       if (controls) keepOrbitInside(camera, controls.target);
@@ -271,6 +289,11 @@ export default function DigitalTwin({ setLiveStatus }) {
   // it -- see OTOKAR_ROBOT_HOME.
   const [otokarAxes, setOtokarAxes] = useState(OTOKAR_ROBOT_HOME);
   const [walkingMode, setWalkingMode] = useState(false);
+  const vrSupported = useVRSupported();
+  const inVR = useXRSessionActive();
+  // The headset shading profile: on the Quest browser from the first frame (so
+  // entering VR recompiles nothing), elsewhere only while a session runs.
+  const headsetShading = IS_QUEST_BROWSER || inVR;
 
   const lastTelemetryTsRef = useRef(null);
   const lastSuccessfulEventRef = useRef(0);
@@ -291,6 +314,9 @@ export default function DigitalTwin({ setLiveStatus }) {
     jointsRef: kawJointsRef, toolRef: kawToolRef, driveRef: kawDriveRef, groupRef: agvGroupRef,
   }), []);
   const controlsRef = useRef(null);
+  // The page's own camera. During a session R3F swaps in the headset's, so
+  // VRWalk reads where the desktop view was from this.
+  const desktopCameraRef = useRef(null);
   const walkKeysRef = useRef({});
   const walkStepRef = useRef(null);
   const walkLookRef = useRef(null);
@@ -684,163 +710,178 @@ export default function DigitalTwin({ setLiveStatus }) {
                Nothing stands in the view cone within 4 m, checked against the
                warehouse racking the same way as the earlier framings. */
             camera={{ position: [9.91, 3.6, 39.83], fov: 30, near: 0.05, far: 150 }}
+            onCreated={(state) => {
+              desktopCameraRef.current = state.camera;
+            }}
           >
-            <Suspense fallback={null}>
-              {/* Both cells are now in one close composition; the bare-grid
-                  fog range (18-40 m) would haze the Otokar meshes away, so
-                  push fog out while the cell is on. */}
-              <Scene
-                showGrid={!showFactory}
-                interior={showFactory}
-                fogNear={42}
-                fogFar={95}
-              >
-                {/* The whole workcell hangs off this one group, so
-                    IFARLAB_OFFSET moves all of it together, unchanged in every
-                    internal dimension. It is the only thing to edit to
-                    reposition the cell. */}
-                <group position={IFARLAB_OFFSET}>
-                  {/* UR10e sits on its own 7th-axis carriage (UR10eMount), which
-                      rides the fixed rail rendered in EnvironmentElements
-                      (base_link.stl). railPosition is that 7th axis --
-                      ur10e_base_to_robot_mount from Mongo (metres along the
-                      rail) when live, or the slider in ControlPanel otherwise. */}
-                  <group
-                    ref={ur10eGroupRef}
-                    position={[-0.147, 0.58635, -railPosition]}
-                  >
-                    <UR10eMount />
-                    <UR10eRobot
-                      jointAngles={jointAngles}
-                      gripperOpen={gripperOpen}
-                      animate={animate}
-                      jointsRef={urTask.jointsRef}
-                      toolRef={urTask.toolRef}
-                      driveRef={urTask.driveRef}
-                      gripRef={urTask.gripRef}
-                    />
-                  </group>
-                  <group
-                    ref={agvGroupRef}
-                    position={[-2.301949, 0.17, -agvRailPosition]}
-                    rotation={[0, Math.PI / 2, 0]}
-                  >
-                    {/* AGV (OTA) base -- ota_base.xacro is the true root of the
-                        "mobile_manipulator" spawn; the arm mounts on top of it
-                        via manipulator_base_link + the rs005l joint below. */}
-                    <AGVBase />
+            <XR store={xrStore}>
+              <Suspense fallback={null}>
+                {/* Both cells are now in one close composition; the bare-grid
+                    fog range (18-40 m) would haze the Otokar meshes away, so
+                    push fog out while the cell is on. */}
+                <Scene
+                  showGrid={!showFactory}
+                  interior={showFactory}
+                  fogNear={42}
+                  fogFar={95}
+                  softShadows={!headsetShading || VR_OPTIONS.shadows === "soft"}
+                  castShadows={!headsetShading || VR_OPTIONS.shadows !== "off"}
+                >
+                  {/* The whole workcell hangs off this one group, so
+                      IFARLAB_OFFSET moves all of it together, unchanged in every
+                      internal dimension. It is the only thing to edit to
+                      reposition the cell. */}
+                  <group position={IFARLAB_OFFSET}>
+                    {/* UR10e sits on its own 7th-axis carriage (UR10eMount), which
+                        rides the fixed rail rendered in EnvironmentElements
+                        (base_link.stl). railPosition is that 7th axis --
+                        ur10e_base_to_robot_mount from Mongo (metres along the
+                        rail) when live, or the slider in ControlPanel otherwise. */}
                     <group
-                      position={[0.001, 0.263, 0.26]}
-                      rotation={[0, Math.PI, 0]}
+                      ref={ur10eGroupRef}
+                      position={[-0.147, 0.58635, -railPosition]}
                     >
-                      <KawasakiRobot
-                        jointAngles={kawasakiAngles}
-                        animate={animate}
+                      <UR10eMount />
+                      <UR10eRobot
+                        jointAngles={jointAngles}
                         gripperOpen={gripperOpen}
-                        jointsRef={kawTask.jointsRef}
-                        toolRef={kawTask.toolRef}
-                        driveRef={kawTask.driveRef}
+                        animate={animate}
+                        jointsRef={urTask.jointsRef}
+                        toolRef={urTask.toolRef}
+                        driveRef={urTask.driveRef}
+                        gripRef={urTask.gripRef}
                       />
                     </group>
+                    <group
+                      ref={agvGroupRef}
+                      position={[-2.301949, 0.17, -agvRailPosition]}
+                      rotation={[0, Math.PI / 2, 0]}
+                    >
+                      {/* AGV (OTA) base -- ota_base.xacro is the true root of the
+                          "mobile_manipulator" spawn; the arm mounts on top of it
+                          via manipulator_base_link + the rs005l joint below. */}
+                      <AGVBase />
+                      <group
+                        position={[0.001, 0.263, 0.26]}
+                        rotation={[0, Math.PI, 0]}
+                      >
+                        <KawasakiRobot
+                          jointAngles={kawasakiAngles}
+                          animate={animate}
+                          gripperOpen={gripperOpen}
+                          jointsRef={kawTask.jointsRef}
+                          toolRef={kawTask.toolRef}
+                          driveRef={kawTask.driveRef}
+                        />
+                      </group>
+                    </group>
+                    <EnvironmentElements />
+                    {/* Pick and place, chassis inspection: the cell's jobs,
+                        run whenever the engine is on. */}
+                    <IfarlabTasks active={animate} ur={urTask} kawasaki={kawTask} />
+                    <IfarlabCabinet />
                   </group>
-                  <EnvironmentElements />
-                  {/* Pick and place, chassis inspection: the cell's jobs,
-                      run whenever the engine is on. */}
-                  <IfarlabTasks active={animate} ur={urTask} kawasaki={kawTask} />
-                  <IfarlabCabinet />
-                </group>
-                {/* Each robot's camera view, rendered small for the panel. */}
-                <RobotCameraFeeds ur={urTask} kawasaki={kawTask} />
-                <OtokarCell
-                  show
-                  robotAxes={otokarAxes}
-                  showBus
-                  showRails
-                  lodMode="auto"
-                  animate={animate}
-                  animationSpeed={OTOKAR_DEMO_SPEED}
-                />
-                {/* The cell's work made visible: scan beams, finds, progress. */}
-                <BodyInspection />
-                <Factory show={showFactory} />
-                {showFactory && (
-                  <>
-                    {/* Parked presentation buses; the Otokar inspection bus
-                        remains the separate, dimensioned CAD model above. */}
-                    {PARKED_BUSES.map(({ shuttle, ...bus }) => (shuttle
-                      ? <BusShuttle key={bus.livery} livery={bus.livery} startsInA={bus.position[0] === BAY_A[0]} />
-                      : <Bus key={bus.livery} {...bus} />))}
-                    <FactoryMarkings />
-                    <WallLogos />
-                    <HallMonitor />
-                    <SafetyEquipment />
-                    <ServerCabinets />
-                    <Forklift />
-                    <FloorCleaner />
-                    <GarageDoors />
-                    <Yard />
-                    <Workers />
-                    <Drones />
-                  </>
-                )}
-              </Scene>
-            </Suspense>
-            <OrbitControls
-              ref={controlsRef}
-              enabled={!walkingMode}
-              enableDamping
-              dampingFactor={0.05}
-              enablePan={false}
-              enableZoom={false}
-              enableRotate={false}
-              minDistance={0.5}
-              maxDistance={34}
-              maxPolarAngle={Math.PI / 2 + 0.1}
-              /* Pivot between the two cells so orbiting keeps the inspection
-                 area central; the opening view stays inside maxDistance at
-                 13.8 m, which also leaves real room to pull back -- the
-                 previous framing opened at 23.2 m against a limit of 24, so
-                 the first scroll outwards did almost nothing.
+                  {/* Each robot's camera view, rendered small for the panel. */}
+                  <RobotCameraFeeds ur={urTask} kawasaki={kawTask} />
+                  <OtokarCell
+                    show
+                    robotAxes={otokarAxes}
+                    showBus
+                    showRails
+                    lodMode={VR_OPTIONS.lod}
+                    animate={animate}
+                    animationSpeed={OTOKAR_DEMO_SPEED}
+                  />
+                  {/* The cell's work made visible: scan beams, finds, progress. */}
+                  <BodyInspection />
+                  <Factory show={showFactory} />
+                  {showFactory && (
+                    <>
+                      {/* Parked presentation buses; the Otokar inspection bus
+                          remains the separate, dimensioned CAD model above. */}
+                      {PARKED_BUSES.map(({ shuttle, ...bus }) => (shuttle
+                        ? <BusShuttle key={bus.livery} livery={bus.livery} startsInA={bus.position[0] === BAY_A[0]} />
+                        : <Bus key={bus.livery} {...bus} />))}
+                      <FactoryMarkings />
+                      <WallLogos />
+                      <HallMonitor />
+                      <SafetyEquipment />
+                      <ServerCabinets />
+                      <Forklift />
+                      <FloorCleaner />
+                      <GarageDoors />
+                      <Yard />
+                      <Workers />
+                      <Drones />
+                    </>
+                  )}
+                </Scene>
+              </Suspense>
+              <OrbitControls
+                ref={controlsRef}
+                enabled={!walkingMode && !inVR}
+                enableDamping
+                dampingFactor={0.05}
+                enablePan={false}
+                enableZoom={false}
+                enableRotate={false}
+                minDistance={0.5}
+                maxDistance={34}
+                maxPolarAngle={Math.PI / 2 + 0.1}
+                /* Pivot between the two cells so orbiting keeps the inspection
+                   area central; the opening view stays inside maxDistance at
+                   13.8 m, which also leaves real room to pull back -- the
+                   previous framing opened at 23.2 m against a limit of 24, so
+                   the first scroll outwards did almost nothing.
 
-                 x and z are the two cells' shared horizontal centre. The
-                 height came out of the same search, which pinned it at the
-                 bottom of the range it was given: aiming below the cells' own
-                 centre lifts the tall machines into the frame rather than
-                 cutting them, and from a 9 m eye that is what keeps the
-                 gantries whole. */
-              target={[-1.3, 1.5, -1.17]}
-              /* DEV ONLY: prints the camera pose whenever a drag or zoom
-                 settles, so a framing found by hand can be read off exactly
-                 and pasted into the `camera` prop above rather than guessed
-                 back from a screenshot. Stripped from production builds by
-                 the NODE_ENV check -- CRA inlines it, so the whole handler
-                 folds away. Remove once the default framing is settled. */
-              onEnd={
-                process.env.NODE_ENV === "development"
-                  ? (e) => {
-                      const c = e?.target?.object;
-                      const t = e?.target?.target;
-                      if (!c || !t) return;
-                      const f = (v) => Number(v.toFixed(2));
-                      // eslint-disable-next-line no-console
-                      console.log(
-                        "[camera] position=[%s] target=[%s] distance=%s",
-                        [c.position.x, c.position.y, c.position.z].map(f).join(", "),
-                        [t.x, t.y, t.z].map(f).join(", "),
-                        c.position.distanceTo(t).toFixed(2),
-                      );
-                    }
-                  : undefined
-              }
-            />
-            <FactoryCameraController
-              controlsRef={controlsRef}
-              walkingMode={walkingMode}
-              keysRef={walkKeysRef}
-              walkStepRef={walkStepRef}
-              walkLookRef={walkLookRef}
-              walkZoomRef={walkZoomRef}
-            />
+                   x and z are the two cells' shared horizontal centre. The
+                   height came out of the same search, which pinned it at the
+                   bottom of the range it was given: aiming below the cells' own
+                   centre lifts the tall machines into the frame rather than
+                   cutting them, and from a 9 m eye that is what keeps the
+                   gantries whole. */
+                target={ORBIT_TARGET}
+                /* DEV ONLY: prints the camera pose whenever a drag or zoom
+                   settles, so a framing found by hand can be read off exactly
+                   and pasted into the `camera` prop above rather than guessed
+                   back from a screenshot. Stripped from production builds by
+                   the NODE_ENV check -- CRA inlines it, so the whole handler
+                   folds away. Remove once the default framing is settled. */
+                onEnd={
+                  process.env.NODE_ENV === "development"
+                    ? (e) => {
+                        const c = e?.target?.object;
+                        const t = e?.target?.target;
+                        if (!c || !t) return;
+                        const f = (v) => Number(v.toFixed(2));
+                        // eslint-disable-next-line no-console
+                        console.log(
+                          "[camera] position=[%s] target=[%s] distance=%s",
+                          [c.position.x, c.position.y, c.position.z].map(f).join(", "),
+                          [t.x, t.y, t.z].map(f).join(", "),
+                          c.position.distanceTo(t).toFixed(2),
+                        );
+                      }
+                    : undefined
+                }
+              />
+              <FactoryCameraController
+                controlsRef={controlsRef}
+                walkingMode={walkingMode}
+                xrActive={inVR}
+                keysRef={walkKeysRef}
+                walkStepRef={walkStepRef}
+                walkLookRef={walkLookRef}
+                walkZoomRef={walkZoomRef}
+              />
+              <VRWalk
+                desktopCameraRef={desktopCameraRef}
+                walkingMode={walkingMode}
+                orbitTarget={ORBIT_TARGET}
+                bounds={FACTORY_CAMERA_BOUNDS}
+              />
+              {VR_OPTIONS.stats && <VRStatsHud />}
+            </XR>
           </Canvas>
 
           {/* Manual equivalents of the mouse gestures (rotate / zoom) */}
@@ -858,6 +899,20 @@ export default function DigitalTwin({ setLiveStatus }) {
             <span className="walk-hint">
               {walkingMode ? "WASD + drag to look" : "Explore factory"}
             </span>
+            {/* Only where immersive VR is actually available: a Quest, or
+                localhost with the emulator. Desktop visitors never see it. */}
+            {vrSupported && (
+              <button
+                type="button"
+                className={`walk-toggle vr-toggle${inVR ? " active" : ""}`}
+                onClick={() => (inVR ? exitVR() : enterVR())}
+                aria-pressed={inVR}
+                aria-label={inVR ? "Exit VR" : "Enter VR"}
+                title={inVR ? "Exit VR" : "Walk the hall in a VR headset"}
+              >
+                {inVR ? "Exit VR" : "Enter VR"}
+              </button>
+            )}
             <div className="view-dpad">
               <button
                 type="button"

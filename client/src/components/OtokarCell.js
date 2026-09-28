@@ -117,10 +117,13 @@ function lodForDistance(distance, current) {
 
 function LodController({ enabled, centre, activeLod, setActiveLod }) {
   const camera = useThree((state) => state.camera);
+  const eye = useMemo(() => new THREE.Vector3(), []);
 
   useFrame(() => {
     if (!enabled) return;
-    const next = lodForDistance(camera.position.distanceTo(centre), activeLod);
+    // World position, not .position: in a headset the camera is parented to
+    // the XR origin, so its .position is only the offset within the play space.
+    const next = lodForDistance(camera.getWorldPosition(eye).distanceTo(centre), activeLod);
     if (next !== activeLod) setActiveLod(next);
   });
 
