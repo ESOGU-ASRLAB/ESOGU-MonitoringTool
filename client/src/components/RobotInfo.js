@@ -196,6 +196,7 @@ const PANEL_W_M = 0.8;
 const CANVAS_W = 1024;
 const CANVAS_H = 1280;
 const PANEL_DISTANCE_M = 1.1;
+const PANEL_RIGHT_OF_HEADING = 0.2; // radians, ~11 degrees
 const TONES = { live: '#15803d', demo: '#2060cd', manual: '#64748b' };
 
 // Word-wraps `text` into `maxWidth`; returns the y after the last line.
@@ -350,7 +351,9 @@ export function RobotInfoPanel3D({ robotId, context, onClose }) {
     head.getWorldPosition(placement.head);
     head.getWorldQuaternion(placement.quat);
     placement.euler.setFromQuaternion(placement.quat, 'YXZ');
-    const yaw = placement.euler.y;
+    // A little right of straight ahead, leaving the left for the training
+    // panel (training/TrainingMode.js) so neither covers the other's buttons.
+    const yaw = placement.euler.y - PANEL_RIGHT_OF_HEADING;
     group.position.set(
       placement.head.x - Math.sin(yaw) * PANEL_DISTANCE_M,
       placement.head.y - 0.15,
