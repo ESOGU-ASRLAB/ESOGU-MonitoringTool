@@ -22,11 +22,15 @@
 //                    { t: 'leave', id }
 
 const { WebSocketServer, WebSocket } = require('ws');
+const { clientIp, createConnectionLimiter } = require('./limits');
 
 const PATH = '/api/presence';
 // A free instance serves this; the caps keep one bad client (or a crowd) from
-// costing the SSE telemetry its CPU or the workspace its bandwidth.
+// costing the SSE telemetry its CPU or the workspace its bandwidth. The
+// per-address cap stops one address taking every place (a classroom behind
+// one campus address still fits).
 const MAX_CLIENTS = 40;
+const MAX_CLIENTS_PER_IP = 20;
 const MAX_PAYLOAD_BYTES = 512;
 const MAX_POSES_PER_SECOND = 12;
 const HEARTBEAT_MS = 25000;
@@ -38,8 +42,9 @@ const KINDS = new Set(['desktop', 'vr']);
 
 const round2 = (v) => Math.round(v * 100) / 100;
 
-function attachPresence(server, { allowedOrigins = [] } = {}) {
+function attachPresence(server, { originAllowed = () => true, httpLimiter = null } = {}) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD_BYTES });
+  const connections = createConnectionLimiter({ total: MAX_CLIENTS, perIp: MAX_CLIENTS_PER_IP });
   const peers = new Map(); // id -> { ws, id, label, kind, pose, alive, tokens, refill }
   let nextId = 1;
 
@@ -79,16 +84,26 @@ function attachPresence(server, { allowedOrigins = [] } = {}) {
       socket.destroy();
       return;
     }
-    // Same rule as the HTTP routes: CORS_ORIGIN, when set, lists the pages
-    // allowed to connect.
-    if (allowedOrigins.length > 0 && !allowedOrigins.includes(req.headers.origin)) {
+    // Same rule as the HTTP routes (server.js): only the site's own pages.
+    if (!originAllowed(req.headers.origin)) {
       socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
       return;
     }
-    if (peers.size >= MAX_CLIENTS) {
+    const { ip } = clientIp(req);
+    // An upgrade is a request like any other for the per-address budget, so
+    // a client cannot reconnect in a tight loop.
+    if (httpLimiter && !httpLimiter.take(ip).ok) {
+      socket.end('HTTP/1.1 429 Too Many Requests\r\n\r\n');
+      return;
+    }
+    const slot = connections.open(ip);
+    if (!slot.release) {
       socket.end('HTTP/1.1 503 Service Unavailable\r\n\r\n');
       return;
     }
+    // Released when the raw socket closes: that also covers a handshake ws
+    // rejects, which never reaches the callback.
+    socket.once('close', slot.release);
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws));
   });
 

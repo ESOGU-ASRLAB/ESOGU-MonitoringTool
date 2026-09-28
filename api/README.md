@@ -38,8 +38,27 @@ npm run debug:once   # prints once and exits
 | `DB_NAME` | no | `ifarlabmatisse_db_user` | Database name |
 | `COLLECTION_NAME` | no | `joint_states` | Collection name |
 | `PORT` | no | `3001` | Port `server.js` listens on (Render/most hosts inject this automatically) |
-| `CORS_ORIGIN` | no | *(allow all)* | Comma-separated list of allowed frontend origins, e.g. `https://your-app.vercel.app`. Leave unset for local dev. |
+| `CORS_ORIGIN` | no | *(see below)* | Comma-separated list of the pages allowed to use the API, or `*` for any. Unset: any origin locally; on Render (which sets `RENDER`) only `https://www.asrlab.cloud` and `https://asrlab.cloud`. |
+| `CLIENT_IP_HEADER` | no | — | A header that carries the visitor's address, if the host uses one other than Cloudflare's `CF-Connecting-IP`. Only used for the limits below. |
 | `POLL_INTERVAL_MS` | no | `1000` | `debug.js` only — re-poll interval, minimum 250 |
+
+## Limits
+
+The instance's bandwidth is metered and every stream reads Atlas, so the API caps what anyone can spend (`limits.js`, `server.js`, `presence.js`):
+
+| What | Limit |
+|---|---|
+| MongoDB reads | One query every 250 ms while any stream is open, however many there are; none while nobody is connected |
+| HTTP requests and WebSocket upgrades | 120 a minute per address (answered with `429` and `Retry-After`) |
+| Telemetry streams | 30 open per address, 150 in all (`503`); each is closed after about 30 minutes and the browser reconnects by itself |
+| Presence sockets | 20 per address, 40 in all |
+| Other sites | A stream or socket opened from another origin is refused (`403`) |
+
+The per-address figures leave room for a classroom behind one campus address. The client also closes its stream and presence socket after a minute in a background tab.
+
+`/api/health` reports the open `streams` and `presence` counts and `ipSource`, the header the visitor's address was read from (never the address): on Render it should say `cf-connecting-ip`; `socket` there would mean every visitor looks like the same proxy.
+
+These limits hold back one address, a buggy page or forgotten tabs. A flood from many addresses needs a proxy in front: serving the API from a proxied Cloudflare hostname (e.g. `api.asrlab.cloud`) adds Cloudflare's DDoS protection and rate-limiting rules.
 
 ## Atlas checklist
 
