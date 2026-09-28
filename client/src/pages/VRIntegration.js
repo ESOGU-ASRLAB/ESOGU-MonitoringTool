@@ -6,9 +6,9 @@ import { Anchor, Callout, DocSidebar, SpecTable } from './docKit';
  * What the VR integration is, how to use it and how it is built, in the same
  * layout as the technical guide. The figures here (speeds, angles, distances,
  * rates, limits, parameters) are the ones in VRWalk.js, VRStatsHud.js,
- * xrSession.js, Visitors.js, presence.js, RobotInfo.js, training/TrainingMode.js,
- * training/scenario.js, VRSoundscape.js, vrAudio.js and api/presence.js;
- * change them together.
+ * xrSession.js, Visitors.js, presence.js, RobotInfo.js, training/*.js,
+ * IfarlabTasks.js, VRSoundscape.js, vrAudio.js and api/presence.js; change
+ * them together.
  */
 const SECTIONS = [
   { id: 'overview', title: 'Overview' },
@@ -81,18 +81,19 @@ export default function VRIntegration() {
           hall floor between the Otokar inspection cell and the IFARLAB workcell, at real scale,
           while the gantries run their inspection program and the arms their tasks. Other visitors
           appear as workers where they are looking from, and pointing at a robot opens its details.
-          In the headset the hall also sounds like one, and a guided training takes you through
-          it step by step.
+          In the headset the hall also sounds like one, and two training stations let you work
+          with your hands: hand the UR10e boxes to pick and place, or take one apart and build it
+          again.
         </p>
         <SpecTable rows={[
           ['Headset', 'Meta Quest 3 standalone, or a PC VR headset through Chrome or Edge (Quest Link / Air Link)'],
           ['Technology', <>WebXR in the browser; <code>@react-three/xr</code> on the existing React Three Fiber scene</>],
           ['Install', 'None: the same address as the desktop app'],
-          ['Scale', '1:1; eye height is the wearer\'s own'],
+          ['Scale', '1:1; eye height is the wearer\'s own, raised to standing height for a seated wearer'],
           ['Shared hall', 'Every open page, desktop or headset, is shown to the others as a worker (see Other visitors)'],
           ['Robot details', 'Point and pull the trigger, or click on the desktop, for a robot\'s specifications and live values'],
-          ['Training', 'A guided hall orientation with tasks and questions, in the headset only'],
-          ['Sound', 'Hall ambience, robot servos and feedback sounds, in the headset only'],
+          ['Training', 'Two hands-on stations in front of the IFARLAB cell, in the headset only'],
+          ['Sound', 'Room tone, robot drives, workshop sounds and feedback, in the headset only'],
         ]} />
 
         <Anchor id="entering">Entering VR</Anchor>
@@ -120,9 +121,11 @@ export default function VRIntegration() {
             ['Right thumbstick, forward', 'Aim a teleport: an arc falls from the controller to a ring on the floor; let the stick go to land there. A red arc lands outside the hall and does nothing.'],
             ['Trigger, pointing at a robot', 'Open that robot\'s details panel; the chosen robot is outlined'],
             ['Trigger, pointing at the details panel', 'Close it'],
-            ['Trigger, pointing at a training button', 'Press it'],
-            ['X, left controller', 'Show or hide the training panel'],
-            ['Pinch (hand tracking)', 'Acts as the trigger'],
+            ['Trigger, pointing at a round training button', 'Press it: start, stop or go again'],
+            ['Grip or trigger, hand on a box or part', 'Pick it up; open the hand to put it down'],
+            ['X, left controller', 'Sound off and on'],
+            ['Y, left controller', 'Eyes to standing height, from wherever your head is'],
+            ['Pinch (hand tracking)', 'Acts as the trigger, and picks things up'],
             ['Walking in the room', 'Moves you 1:1 in the hall; the hall walls stop you'],
             ['Meta button', 'Leave VR'],
           ]}
@@ -130,6 +133,11 @@ export default function VRIntegration() {
         <p>
           The trigger only selects and never moves you. A press counts when it is let go within
           1.5 s, so a deliberate, unhurried pull works as well as a quick one.
+        </p>
+        <p>
+          Seated, the hall would be seen from chair height. So a moment after entering, if your
+          eyes are below 1.35 m, the floor is lowered under you until they are at 1.6 m, a
+          standing adult&apos;s; Y sets that height again at any time.
         </p>
 
         <Anchor id="visitors">Other visitors</Anchor>
@@ -173,67 +181,60 @@ export default function VRIntegration() {
           <li><strong>Key specifications</strong> and a short description, with a link to the full entry in the technical guide.</li>
         </ul>
         <SpecTable rows={[
-          ['In the headset', 'A panel opens 1.1 m away, a little to the right of where you face and just below eye height, turned towards you, clear of the training panel on your left. It stays where it opened, so you can walk up to it or away; choosing another robot brings it back in front of you. Point at it and pull the trigger to close.'],
+          ['In the headset', 'A panel opens 1.1 m in front of you, just below eye height, facing you. It stays where it opened, so you can walk up to it or away; choosing another robot brings it back in front of you. Point at it and pull the trigger to close.'],
           ['On the desktop', 'A card in the corner of the 3D view. Close it with its button or the Escape key.'],
         ]} />
 
         <Anchor id="training">Training</Anchor>
         <p>
-          On entering VR a panel on your front left offers <strong>Start training</strong> or
-          <strong> Free walk</strong>. The training, <em>Hall orientation</em>, takes about five
-          minutes: it walks you to both cells, has you find their four robots and checks what you
-          picked up with a few questions. Each step is one task:
+          Training here is done with the hands, not read off cards. Two stations stand in front
+          of the IFARLAB fence; walk up to one and a round start button appears beside it. Press
+          it with the ray and the trigger, or reach out and close your hand on it.
         </p>
         <GridTable
-          head={['Task', 'What you do', 'What shows you where']}
+          head={['Station', 'What you do', 'What happens']}
           rows={[
-            ['Read', 'Read the card and press its button', '-'],
-            ['Go to', 'Walk or teleport onto a ring on the floor', 'A pulsing blue ring, a column of light over it and a turning marker above'],
-            ['Find a robot', 'Point at the named robot and pull the trigger; its details panel opens too', 'An amber arrow bobbing over the robot'],
-            ['Question', 'Press one of the answers', 'A wrong answer turns red and you try again; the right one turns green with a short explanation'],
+            [<strong>Pick &amp; place</strong>, 'Take a box from the small table and set it on the glowing square at the end of the roller infeed, outside the fence. Three boxes, one at a time.', 'The box rolls in through the fence onto the conveyor, and the real cell takes over: the UR10e looks at it with its camera, grips it, carries it down its rail and sets it on the aluminium table.'],
+            [<strong>Assemble the arm</strong>, 'Take a UR10e apart, outermost piece first: tool end, wrist, forearm, upper arm, shoulder, each onto its place on the parts bench. Then build it again, shoulder first.', 'Each piece seats with a click when it is close enough to its place. The rebuilt arm waves.'],
           ]}
         />
-        <ol>
-          <li>Welcome</li>
-          <li>Walk to the IFARLAB workcell</li>
-          <li>Safety: the fence and the light curtain</li>
-          <li>Find the UR10e</li>
-          <li>Question: how much the UR10e carries</li>
-          <li>Find the Kawasaki RS005L</li>
-          <li>Question: what carries the Kawasaki arm</li>
-          <li>Walk to the Otokar inspection cell</li>
-          <li>Find a gantry robot</li>
-          <li>Question: which gantry scans the roof</li>
-          <li>Summary: time taken and questions answered right first time</li>
-        </ol>
+        <p>No words are needed along the way; the station shows what to do:</p>
         <ul>
-          <li><strong>Every finished step</strong> plays a chime, gives both controllers a short buzz and throws up a burst of sparks; the last one plays a fanfare.</li>
-          <li><strong>The panel</strong> stands 1.15 m away, 40° to the left of where you face and below eye height, with a progress bar along the top. It stays put while you look around, and glides back beside you at every new step, or once you walk more than 2.2 m from it or turn more than about 65° away.</li>
-          <li><strong>Skip step</strong> moves on from a go-to or find step; X on the left controller hides the panel and brings it back.</li>
-          <li>At the end, <strong>Start again</strong> repeats the module and <strong>Free walk</strong> puts the panel away.</li>
+          <li><strong>What to take</strong> glows and has an amber arrow bobbing over it; it glows brighter when your hand is close enough to take it.</li>
+          <li><strong>Where it goes</strong> appears as a see-through copy while you carry it: blue while you are far, green when letting go would seat it.</li>
+          <li><strong>Let go in the wrong place</strong> and it floats back to where it was, with a soft pop.</li>
+          <li><strong>Every step done</strong> plays a click or a chime, buzzes the controller and throws up sparks; the end plays a fanfare.</li>
+          <li><strong>Progress</strong> fills the ring around the cross on the station&apos;s button while it runs; pressing the cross stops the training and puts everything back.</li>
         </ul>
+        <SpecTable rows={[
+          ['Picking up', 'Grip or trigger with the hand within about 10 cm of the box or piece; it keeps the hold it was taken with'],
+          ['Seating', 'Letting go within 22 cm of the drop square, or 13 cm of a piece\'s place'],
+          ['The arm', 'The same UR10e as in the cell -- the same meshes and joint chain -- on a pedestal in its working pose'],
+          ['One at a time', 'While one station runs, the other\'s button waits; walking more than 20 m away stops it'],
+        ]} />
         <Callout title="Headset only">
-          The training, its markers and its sounds exist only inside a VR session. Desktop and
-          phone visitors see the hall exactly as before. A module is a list of steps in{' '}
-          <code>training/scenario.js</code>, so a new one needs no new code.
+          The stations, their boxes and parts and their sounds exist only inside a VR session.
+          Desktop and phone visitors see the hall exactly as before, and the cell&apos;s own pick
+          and place carries on as usual whenever no one is training.
         </Callout>
 
         <Anchor id="sound">Sound</Anchor>
         <GridTable
           head={['Sound', 'Where it comes from']}
           rows={[
-            ['Hall ambience', 'A low rumble and ventilation hum all around you'],
-            ['Robots', 'A servo whine from each robot\'s moving part, louder and higher the faster its axes move, from the same values as its details panel; silent while it stands still'],
-            ['The hall', 'Every 3 to 9 s, a metal clank from one of its four far corners'],
-            ['Feedback', 'A click for every button, a chime for a finished step, a low buzz for a wrong answer, a whoosh for a teleport'],
-            ['Haptics', 'The controllers buzz with the chime, a wrong answer and a teleport'],
+            ['Room tone', 'A light air-handling wash all around you, drifting slowly; no hum, nothing deep'],
+            ['Robots', 'A soft hum from each robot\'s moving part, rising a little the faster its axes move, from the same values as its details panel; silent while it stands still'],
+            ['The workshop', 'Every few seconds one of eight quiet sounds -- a valve letting go, a machine\'s two-note chime, a tote set down, rollers running, a status beep, a tool laid down, a trolley passing, a nut runner -- from one of ten spots around the cells and the hall, never the same kind twice running'],
+            ['Feedback', 'A click for a button, a pop when you pick something up, a firm click when it seats, a chime for a step, a fanfare at the end, a whoosh for a teleport'],
+            ['Haptics', 'The controller buzzes when you pick something up, when it seats and with a teleport'],
           ]}
         />
         <p>
-          The robots and clanks are placed in the hall: they are heard from where they are, fade
-          with distance and move as you turn your head. Everything is synthesised in the browser
-          with Web Audio, so no sound files are downloaded. Sound starts with the Enter VR press,
-          since browsers only allow it after a tap or click; outside VR the page is silent.
+          The robots and workshop sounds are placed in the hall: they are heard from where they
+          are, fade with distance and move as you turn your head. X on the left controller turns
+          all of it off and on. Everything is synthesised in the browser with Web Audio, so no
+          sound files are downloaded. Sound starts with the Enter VR press, since browsers only
+          allow it after a tap or click; outside VR the page is silent.
         </p>
 
         <Anchor id="how">How it works</Anchor>
@@ -245,6 +246,8 @@ export default function VRIntegration() {
           <li><strong>Teleport is on the stick, not the trigger.</strong> With both on the trigger, the nearer hit took the press, and a teleport arc landing on the floor a few metres ahead is nearer than most robots: pointing at a robot moved you instead of opening its panel.</li>
           <li><strong>Walls</strong> are checked against the head, so walking physically in the room stops at the cladding too.</li>
           <li><strong>Pointing at robots</strong> hits simple invisible boxes that follow each robot&apos;s moving part, not the robot meshes: testing every controller ray against the machines&apos; millions of triangles on every frame would cost the headset its frame rate.</li>
+          <li><strong>Picking things up</strong> reads each hand&apos;s grip pose from the headset every frame and carries the held object with it; reach is measured to the object&apos;s bounding sphere, so small parts need no precise aim.</li>
+          <li><strong>The pick-and-place station</strong> drives the cell&apos;s own program: while it runs, the UR10e waits at home at the end of each cycle for the next box instead of fetching its own.</li>
           <li><strong>Leaving VR</strong> gives the page back exactly the view it had before.</li>
         </ul>
 
@@ -305,7 +308,7 @@ export default function VRIntegration() {
           <li><strong>Follow view:</strong> desktop viewers watch through a headset visitor&apos;s eyes, or from behind them, for presentations.</li>
           <li><strong>&quot;Look here&quot;:</strong> a desktop viewer marks a machine and the headset user sees the marker.</li>
           <li><strong>Collisions with machines:</strong> today only the hall walls stop you.</li>
-          <li><strong>More training modules:</strong> the Otokar inspection program step by step, an emergency-stop drill.</li>
+          <li><strong>More training stations:</strong> mount a sensor head on an Otokar gantry, change the Kawasaki&apos;s tool, stop the cell with the emergency stop.</li>
         </ul>
       </article>
     </div>
