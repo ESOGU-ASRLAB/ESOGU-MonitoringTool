@@ -6,7 +6,8 @@ import { Anchor, Callout, DocSidebar, SpecTable } from './docKit';
  * What the VR integration is, how to use it and how it is built, in the same
  * layout as the technical guide. The figures here (speeds, angles, distances,
  * rates, limits, parameters) are the ones in VRWalk.js, VRStatsHud.js,
- * xrSession.js, Visitors.js, presence.js, RobotInfo.js and api/presence.js;
+ * xrSession.js, Visitors.js, presence.js, RobotInfo.js, training/TrainingMode.js,
+ * training/scenario.js, VRSoundscape.js, vrAudio.js and api/presence.js;
  * change them together.
  */
 const SECTIONS = [
@@ -15,6 +16,8 @@ const SECTIONS = [
   { id: 'controls', title: 'Controls' },
   { id: 'visitors', title: 'Other visitors' },
   { id: 'robots', title: 'Robot details' },
+  { id: 'training', title: 'Training' },
+  { id: 'sound', title: 'Sound' },
   { id: 'how', title: 'How it works' },
   { id: 'performance', title: 'Headset performance' },
   { id: 'testing', title: 'Testing and release' },
@@ -78,6 +81,8 @@ export default function VRIntegration() {
           hall floor between the Otokar inspection cell and the IFARLAB workcell, at real scale,
           while the gantries run their inspection program and the arms their tasks. Other visitors
           appear as workers where they are looking from, and pointing at a robot opens its details.
+          In the headset the hall also sounds like one, and a guided training takes you through
+          it step by step.
         </p>
         <SpecTable rows={[
           ['Headset', 'Meta Quest 3 standalone, or a PC VR headset through Chrome or Edge (Quest Link / Air Link)'],
@@ -86,6 +91,8 @@ export default function VRIntegration() {
           ['Scale', '1:1; eye height is the wearer\'s own'],
           ['Shared hall', 'Every open page, desktop or headset, is shown to the others as a worker (see Other visitors)'],
           ['Robot details', 'Point and pull the trigger, or click on the desktop, for a robot\'s specifications and live values'],
+          ['Training', 'A guided hall orientation with tasks and questions, in the headset only'],
+          ['Sound', 'Hall ambience, robot servos and feedback sounds, in the headset only'],
         ]} />
 
         <Anchor id="entering">Entering VR</Anchor>
@@ -109,18 +116,20 @@ export default function VRIntegration() {
           head={['Input', 'Action']}
           rows={[
             ['Left thumbstick', 'Walk where your head faces, at 2.5 m/s, whether you look ahead, down or up'],
-            ['Right thumbstick', 'Turn 45° on the spot'],
+            ['Right thumbstick, left or right', 'Turn 45° on the spot'],
+            ['Right thumbstick, forward', 'Aim a teleport: an arc falls from the controller to a ring on the floor; let the stick go to land there. A red arc lands outside the hall and does nothing.'],
             ['Trigger, pointing at a robot', 'Open that robot\'s details panel; the chosen robot is outlined'],
-            ['Trigger, pointing at the panel', 'Close the details panel'],
-            ['Trigger, pointing at the floor', 'Teleport: an arc shows where you will land'],
-            ['Pinch (hand tracking)', 'Teleport without controllers'],
+            ['Trigger, pointing at the details panel', 'Close it'],
+            ['Trigger, pointing at a training button', 'Press it'],
+            ['X, left controller', 'Show or hide the training panel'],
+            ['Pinch (hand tracking)', 'Acts as the trigger'],
             ['Walking in the room', 'Moves you 1:1 in the hall; the hall walls stop you'],
             ['Meta button', 'Leave VR'],
           ]}
         />
         <p>
-          The trigger acts on whatever the pointer reaches first: a robot or the panel in the way
-          takes the press, open floor teleports.
+          The trigger only selects and never moves you. A press counts when it is let go within
+          1.5 s, so a deliberate, unhurried pull works as well as a quick one.
         </p>
 
         <Anchor id="visitors">Other visitors</Anchor>
@@ -164,9 +173,68 @@ export default function VRIntegration() {
           <li><strong>Key specifications</strong> and a short description, with a link to the full entry in the technical guide.</li>
         </ul>
         <SpecTable rows={[
-          ['In the headset', 'A panel opens 1.1 m in front of you, just below eye height, facing you. It stays where it opened, so you can walk up to it or away; choosing another robot brings it back in front of you. Point at it and pull the trigger to close.'],
+          ['In the headset', 'A panel opens 1.1 m away, a little to the right of where you face and just below eye height, turned towards you, clear of the training panel on your left. It stays where it opened, so you can walk up to it or away; choosing another robot brings it back in front of you. Point at it and pull the trigger to close.'],
           ['On the desktop', 'A card in the corner of the 3D view. Close it with its button or the Escape key.'],
         ]} />
+
+        <Anchor id="training">Training</Anchor>
+        <p>
+          On entering VR a panel on your front left offers <strong>Start training</strong> or
+          <strong> Free walk</strong>. The training, <em>Hall orientation</em>, takes about five
+          minutes: it walks you to both cells, has you find their four robots and checks what you
+          picked up with a few questions. Each step is one task:
+        </p>
+        <GridTable
+          head={['Task', 'What you do', 'What shows you where']}
+          rows={[
+            ['Read', 'Read the card and press its button', '-'],
+            ['Go to', 'Walk or teleport onto a ring on the floor', 'A pulsing blue ring, a column of light over it and a turning marker above'],
+            ['Find a robot', 'Point at the named robot and pull the trigger; its details panel opens too', 'An amber arrow bobbing over the robot'],
+            ['Question', 'Press one of the answers', 'A wrong answer turns red and you try again; the right one turns green with a short explanation'],
+          ]}
+        />
+        <ol>
+          <li>Welcome</li>
+          <li>Walk to the IFARLAB workcell</li>
+          <li>Safety: the fence and the light curtain</li>
+          <li>Find the UR10e</li>
+          <li>Question: how much the UR10e carries</li>
+          <li>Find the Kawasaki RS005L</li>
+          <li>Question: what carries the Kawasaki arm</li>
+          <li>Walk to the Otokar inspection cell</li>
+          <li>Find a gantry robot</li>
+          <li>Question: which gantry scans the roof</li>
+          <li>Summary: time taken and questions answered right first time</li>
+        </ol>
+        <ul>
+          <li><strong>Every finished step</strong> plays a chime, gives both controllers a short buzz and throws up a burst of sparks; the last one plays a fanfare.</li>
+          <li><strong>The panel</strong> stands 1.15 m away, 40° to the left of where you face and below eye height, with a progress bar along the top. It stays put while you look around, and glides back beside you at every new step, or once you walk more than 2.2 m from it or turn more than about 65° away.</li>
+          <li><strong>Skip step</strong> moves on from a go-to or find step; X on the left controller hides the panel and brings it back.</li>
+          <li>At the end, <strong>Start again</strong> repeats the module and <strong>Free walk</strong> puts the panel away.</li>
+        </ul>
+        <Callout title="Headset only">
+          The training, its markers and its sounds exist only inside a VR session. Desktop and
+          phone visitors see the hall exactly as before. A module is a list of steps in{' '}
+          <code>training/scenario.js</code>, so a new one needs no new code.
+        </Callout>
+
+        <Anchor id="sound">Sound</Anchor>
+        <GridTable
+          head={['Sound', 'Where it comes from']}
+          rows={[
+            ['Hall ambience', 'A low rumble and ventilation hum all around you'],
+            ['Robots', 'A servo whine from each robot\'s moving part, louder and higher the faster its axes move, from the same values as its details panel; silent while it stands still'],
+            ['The hall', 'Every 3 to 9 s, a metal clank from one of its four far corners'],
+            ['Feedback', 'A click for every button, a chime for a finished step, a low buzz for a wrong answer, a whoosh for a teleport'],
+            ['Haptics', 'The controllers buzz with the chime, a wrong answer and a teleport'],
+          ]}
+        />
+        <p>
+          The robots and clanks are placed in the hall: they are heard from where they are, fade
+          with distance and move as you turn your head. Everything is synthesised in the browser
+          with Web Audio, so no sound files are downloaded. Sound starts with the Enter VR press,
+          since browsers only allow it after a tap or click; outside VR the page is silent.
+        </p>
 
         <Anchor id="how">How it works</Anchor>
         <ul>
@@ -174,6 +242,7 @@ export default function VRIntegration() {
           <li><strong>Walking</strong> follows the head&apos;s heading only. Its tilt is ignored, so looking down at the floor does not slow you down and a tilted head does not bend the path.</li>
           <li><strong>Turning</strong> rotates the origin about the head, so a wearer standing off-centre in the room still turns on the spot.</li>
           <li><strong>Teleport</strong> puts the head, not the origin, on the target point, so it lands where aimed after any number of turns.</li>
+          <li><strong>Teleport is on the stick, not the trigger.</strong> With both on the trigger, the nearer hit took the press, and a teleport arc landing on the floor a few metres ahead is nearer than most robots: pointing at a robot moved you instead of opening its panel.</li>
           <li><strong>Walls</strong> are checked against the head, so walking physically in the room stops at the cladding too.</li>
           <li><strong>Pointing at robots</strong> hits simple invisible boxes that follow each robot&apos;s moving part, not the robot meshes: testing every controller ray against the machines&apos; millions of triangles on every frame would cost the headset its frame rate.</li>
           <li><strong>Leaving VR</strong> gives the page back exactly the view it had before.</li>
@@ -222,6 +291,7 @@ export default function VRIntegration() {
             [<code>?vrscale=0.8</code>, 'Render scale; below 1 trades sharpness for frame rate'],
             [<code>?vrstats=1|0</code>, 'Frame-rate card on or off'],
             [<code>?vremu=1</code>, 'Meta Quest 3 emulator in a desktop browser, to test without a headset'],
+            [<code>?vrclickms=1500</code>, 'Longest trigger press that still counts as a click, in ms (default 1500); raised only for automated emulator runs'],
           ]}
         />
         <p>
@@ -235,6 +305,7 @@ export default function VRIntegration() {
           <li><strong>Follow view:</strong> desktop viewers watch through a headset visitor&apos;s eyes, or from behind them, for presentations.</li>
           <li><strong>&quot;Look here&quot;:</strong> a desktop viewer marks a machine and the headset user sees the marker.</li>
           <li><strong>Collisions with machines:</strong> today only the hall walls stop you.</li>
+          <li><strong>More training modules:</strong> the Otokar inspection program step by step, an emergency-stop drill.</li>
         </ul>
       </article>
     </div>
