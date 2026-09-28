@@ -13,6 +13,7 @@ dns.setServers(['1.1.1.1', '8.8.8.8']);
 const express = require('express');
 const cors = require('cors');
 const { MongoClient } = require('mongodb');
+const { attachPresence } = require('./presence');
 
 const PORT = Number(process.env.PORT || 3001);
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -92,8 +93,11 @@ const allowedOrigins = (process.env.CORS_ORIGIN || '')
 const app = express();
 app.use(cors({ origin: allowedOrigins.length > 0 ? allowedOrigins : true }));
 
+// Set once the HTTP server exists (below); the health route only reads it.
+let presence = null;
+
 app.get('/api/health', async (req, res) => {
-  res.json({ ok: true, mongoConnected: Boolean(collection) });
+  res.json({ ok: true, mongoConnected: Boolean(collection), presence: presence ? presence.count() : 0 });
 });
 
 app.get('/api/telemetry/joint-states/stream', (req, res) => {
@@ -149,12 +153,15 @@ app.get('/api/telemetry/joint-states/stream', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`API listening: http://localhost:${PORT}`);
   ensureConnected().catch(() => {
     console.warn('Could not establish MongoDB connection at startup; will retry on each tick.');
   });
 });
+
+// Who else is in the hall, over a WebSocket on the same port (presence.js).
+presence = attachPresence(server, { allowedOrigins });
 
 process.on('SIGINT', async () => {
   await client?.close().catch(() => {});
