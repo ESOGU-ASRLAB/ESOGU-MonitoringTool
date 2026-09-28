@@ -44,10 +44,9 @@ import {
   useXRSessionActive,
   xrStore,
 } from "../components/xrSession";
-
-const API_BASE = process.env.REACT_APP_API_URL
-  ? process.env.REACT_APP_API_URL.replace(/\/api\/auth\/?$/, "/api")
-  : "http://localhost:3001/api";
+import { API_BASE } from "../components/apiBase";
+import { usePresence } from "../components/presence";
+import Visitors, { PresenceBroadcaster } from "../components/Visitors";
 
 // Where the IFARLAB workcell stands. See components/cellLayout.js for what it
 // does, what it does NOT move, and the check to run after changing it.
@@ -298,6 +297,8 @@ export default function DigitalTwin({ setLiveStatus }) {
   // (the hi tier alone is ~6 M triangles; see xrSession.js) and distance-based
   // switching elsewhere.
   const otokarLod = VR_OPTIONS.lod ?? (headsetShading ? "lo" : "auto");
+  // Everyone else looking at the hall, and this page's own place in it.
+  usePresence(inVR ? "vr" : "desktop");
 
   const lastTelemetryTsRef = useRef(null);
   const lastSuccessfulEventRef = useRef(0);
@@ -798,6 +799,8 @@ export default function DigitalTwin({ setLiveStatus }) {
                   />
                   {/* The cell's work made visible: scan beams, finds, progress. */}
                   <BodyInspection />
+                  {/* Other people on the page, as workers where they stand. */}
+                  <Visitors />
                   <Factory show={showFactory} />
                   {showFactory && (
                     <>
@@ -884,6 +887,7 @@ export default function DigitalTwin({ setLiveStatus }) {
                 orbitTarget={ORBIT_TARGET}
                 bounds={FACTORY_CAMERA_BOUNDS}
               />
+              <PresenceBroadcaster bounds={FACTORY_CAMERA_BOUNDS} />
               {VR_OPTIONS.stats && <VRStatsHud />}
             </XR>
           </Canvas>

@@ -79,7 +79,16 @@ const SPEED = [0.68, 0.9]; // m/s walking
 const stanceTarget = new THREE.Vector3();
 const stancePole = new THREE.Vector3();
 
-function holdPose(group, chains, mode) {
+// The leg and arm bone chains of one cloned figure, for holdPose.
+export function workerChains(clone) {
+  return ['Left', 'Right'].map((side) => ({
+    side,
+    leg: limb(clone, side, 'leg'),
+    arm: limb(clone, side, 'arm'),
+  }));
+}
+
+export function holdPose(group, chains, mode) {
   const pose = POSES[mode];
   group.updateMatrixWorld(true);
   for (const { side, leg, arm } of chains) {
@@ -131,11 +140,7 @@ function WorkerModel({ stations, seed = 1, modes }) {
   const { actions } = useAnimations(animations, groupRef);
   const actionRef = useRef(null);
   const pendantRef = useRef(null);
-  const chains = useMemo(() => ['Left', 'Right'].map((side) => ({
-    side,
-    leg: limb(clone, side, 'leg'),
-    arm: limb(clone, side, 'arm'),
-  })), [clone]);
+  const chains = useMemo(() => workerChains(clone), [clone]);
   const random = useMemo(() => seededRandom(seed), [seed]);
   const plan = useRef(null);
 
