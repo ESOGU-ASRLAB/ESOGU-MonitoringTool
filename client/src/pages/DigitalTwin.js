@@ -311,10 +311,12 @@ export default function DigitalTwin({ liveStatus }) {
   // The headset shading profile: on the Quest browser from the first frame (so
   // entering VR recompiles nothing), elsewhere only while a session runs.
   const headsetShading = IS_QUEST_BROWSER || inVR;
-  // The Otokar tier: whatever the URL asks for, else the lo tier on a headset
-  // (the hi tier alone is ~6 M triangles; see xrSession.js) and distance-based
-  // switching elsewhere.
-  const otokarLod = VR_OPTIONS.lod ?? (headsetShading ? "lo" : "auto");
+  // The Otokar tier: whatever the URL asks for, else the headset's own 'vr'
+  // tier (0.32 M triangles against 0.79 M on lo and 6 M on hi; see
+  // xrSession.js) and distance-based switching elsewhere.
+  const otokarLod = VR_OPTIONS.lod ?? (headsetShading ? "vr" : "auto");
+  // Decoration the headset leaves out unless ?vrscenery=full.
+  const fullScenery = !headsetShading || VR_OPTIONS.scenery === "full";
   // Everyone else looking at the hall, and this page's own place in it.
   usePresence(inVR ? "vr" : "desktop");
   // The robot whose details panel is open, if any (RobotInfo.js).
@@ -799,8 +801,10 @@ export default function DigitalTwin({ liveStatus }) {
                   {showFactory && (
                     <>
                       {/* Parked presentation buses; the Otokar inspection bus
-                          remains the separate, dimensioned CAD model above. */}
-                      {PARKED_BUSES.map(({ shuttle, ...bus }) => (shuttle
+                          remains the separate, dimensioned CAD model above.
+                          Left out in a headset, with the other moving
+                          decoration below (fullScenery). */}
+                      {fullScenery && PARKED_BUSES.map(({ shuttle, ...bus }) => (shuttle
                         ? <BusShuttle key={bus.livery} livery={bus.livery} startsInA={bus.position[0] === BAY_A[0]} />
                         : <Bus key={bus.livery} {...bus} />))}
                       <FactoryMarkings />
@@ -808,12 +812,12 @@ export default function DigitalTwin({ liveStatus }) {
                       <HallMonitor />
                       <SafetyEquipment />
                       <ServerCabinets />
-                      <Forklift />
-                      <FloorCleaner />
+                      {fullScenery && <Forklift />}
+                      {fullScenery && <FloorCleaner />}
                       <GarageDoors />
-                      <Yard />
+                      {fullScenery && <Yard />}
                       <Workers />
-                      <Drones />
+                      {fullScenery && <Drones />}
                     </>
                   )}
                 </Scene>
@@ -881,7 +885,11 @@ export default function DigitalTwin({ liveStatus }) {
                 orbitTarget={ORBIT_TARGET}
                 bounds={FACTORY_CAMERA_BOUNDS}
               />
-              <PresenceBroadcaster bounds={FACTORY_CAMERA_BOUNDS} />
+              <PresenceBroadcaster
+                bounds={FACTORY_CAMERA_BOUNDS}
+                walkingMode={walkingMode}
+                orbitTarget={ORBIT_TARGET}
+              />
               {VR_OPTIONS.stats && <VRStatsHud />}
             </XR>
           </Canvas>

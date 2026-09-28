@@ -13,8 +13,10 @@ import { createXRStore } from '@react-three/xr';
  * Quest browser's address bar:
  *
  *   ?vrshadows=soft|hard|off   shadow quality in VR (default off)
- *   ?lod=auto|lo|hi            Otokar mesh tier, from page load (default lo in a
+ *   ?lod=auto|vr|lo|hi         Otokar mesh tier, from page load (default vr in a
  *                              headset, auto elsewhere)
+ *   ?vrscenery=lite|full       hall decoration in a headset (default lite: no
+ *                              parked buses, forklift, scrubber, drones, yard)
  *   ?vrhz=72|90|120            refresh rate asked of the headset (default 72)
  *   ?vrscale=0.8               framebuffer scale, below 1 trades sharpness for fps
  *   ?vrstats=1|0               fps readout in the headset (on for qa. and localhost)
@@ -54,11 +56,22 @@ export const IS_QUEST_BROWSER = typeof navigator !== 'undefined' && /OculusBrows
  * library's default of the highest rate offered (90/120 Hz on Quest 3), which
  * leaves 8-11 ms a frame where 72 Hz leaves 13.9. Each stays a URL knob so the
  * headset can be tried the other way without a redeploy.
+ *
+ * That was still ~2.9 M triangles per eye, most of it the two cells at CAD
+ * density, and the headset still stuttered. So the headset now also gets:
+ *
+ *   the Otokar 'vr' tier       0.32 M (lo simplified, scripts/otokar/build_vr_tier.mjs)
+ *   the IFARLAB meshes         0.15 M, down from 1.13 M, for every viewer
+ *                              (scripts/ifarlab/simplify_meshes.mjs)
+ *   lite scenery               the parked buses, forklift, scrubber, drones and
+ *                              yard left out: ~0.35 M and ~130 draw calls of
+ *                              decoration nobody walks the hall to see
  */
 export const VR_OPTIONS = Object.freeze({
   shadows: choice('vrshadows', ['soft', 'hard', 'off'], 'off'),
   // null = not set in the URL; DigitalTwin then picks by device.
-  lod: choice('lod', ['auto', 'lo', 'hi'], null),
+  lod: choice('lod', ['auto', 'vr', 'lo', 'hi'], null),
+  scenery: choice('vrscenery', ['lite', 'full'], 'lite'),
   hz: Number(choice('vrhz', ['72', '90', '120'], '72')),
   frameBufferScaling: Number(params.get('vrscale')) || undefined,
   stats: params.has('vrstats') ? params.get('vrstats') === '1' : isTestHost,

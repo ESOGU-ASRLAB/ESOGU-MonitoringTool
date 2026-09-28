@@ -10,13 +10,19 @@ import { getPeer, publishPose, usePeers } from './presence';
  * THE OTHER PEOPLE LOOKING AT THE HALL, AS WORKERS STANDING IN IT.
  *
  * Every other open page (presence.js) is drawn as a worker where its viewer
- * is: a headset wearer where they stand, a desktop walker where they walk, and
- * a desktop orbit view on the floor under its camera -- clamped inside the
- * building, since that camera can sit up by the roof. A blue ring and a name
- * tag tell visitors from the hall's own staff (Workers.js).
+ * is: a headset wearer where they stand, a desktop walker where they walk.
+ * A desktop ORBIT view is a camera up by the end wall, so standing its worker
+ * under the camera put it at the back of the hall, behind anyone who had just
+ * entered VR (who starts 8 m in front of the orbit target, facing it). It is
+ * placed instead where a person would stand to watch what that view shows:
+ * ORBIT_VIEWER_DISTANCE short of the orbit target along the view's heading,
+ * facing it -- in the opening view, 3 m in front of a new headset wearer.
+ * A blue ring and a name tag tell visitors from the hall's own staff
+ * (Workers.js).
  */
 
 const WALL_MARGIN = 0.6;
+const ORBIT_VIEWER_DISTANCE = 5;
 // Poses come at up to 5 Hz; easing towards them at this rate hides the steps.
 const FOLLOW_RATE = 6;
 // A jump this big is a teleport (or a reconnect), not a walk: cut, don't glide.
@@ -39,18 +45,27 @@ const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
  * decomposition, which holds when looking straight down. A camera faces -z and
  * a worker +z, hence the half turn.
  */
-export function PresenceBroadcaster({ bounds }) {
+export function PresenceBroadcaster({ bounds, walkingMode, orbitTarget }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
   useFrame(() => {
     // In a session the XR camera holds the head pose (see RobotInfoPanel3D).
-    const head = gl.xr.isPresenting ? gl.xr.getCamera() : camera;
+    const presenting = gl.xr.isPresenting;
+    const head = presenting ? gl.xr.getCamera() : camera;
     head.getWorldPosition(scratch.pos);
     head.getWorldQuaternion(scratch.quat);
     scratch.euler.setFromQuaternion(scratch.quat, 'YXZ');
-    const x = THREE.MathUtils.clamp(scratch.pos.x, bounds.minX + WALL_MARGIN, bounds.maxX - WALL_MARGIN);
-    const z = THREE.MathUtils.clamp(scratch.pos.z, bounds.minZ + WALL_MARGIN, bounds.maxZ - WALL_MARGIN);
-    publishPose(round2(x), round2(z), round2(wrapAngle(scratch.euler.y + Math.PI)), performance.now());
+    const heading = scratch.euler.y;
+    let x = scratch.pos.x;
+    let z = scratch.pos.z;
+    if (!presenting && !walkingMode) {
+      // The camera looks along (-sin, -cos) of its heading.
+      x = orbitTarget[0] + Math.sin(heading) * ORBIT_VIEWER_DISTANCE;
+      z = orbitTarget[2] + Math.cos(heading) * ORBIT_VIEWER_DISTANCE;
+    }
+    x = THREE.MathUtils.clamp(x, bounds.minX + WALL_MARGIN, bounds.maxX - WALL_MARGIN);
+    z = THREE.MathUtils.clamp(z, bounds.minZ + WALL_MARGIN, bounds.maxZ - WALL_MARGIN);
+    publishPose(round2(x), round2(z), round2(wrapAngle(heading + Math.PI)), performance.now());
   });
   return null;
 }

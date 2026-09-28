@@ -9,11 +9,13 @@ import './RobotInfo.css';
  *
  * THE CLICK TARGETS ARE BOXES, NOT THE ROBOTS. A pointer listener on a robot's
  * group makes every triangle under it a ray target -- per pointer, per frame in
- * a headset, where the controller rays are cast continuously -- and the
- * IFARLAB arms alone are ~1.5 M triangles. So each robot gets an invisible
+ * a headset, where the controller rays are cast continuously -- and the two
+ * cells are hundreds of thousands of triangles. So each robot gets an invisible
  * box that follows its moving part (refreshed 5 times a second from the
- * meshes' cached bounds), and only the boxes listen. Hovering or choosing one
- * outlines it.
+ * meshes' cached bounds), and only the boxes listen. Choosing one outlines it,
+ * and so does hovering with a mouse -- not with a controller ray, which sweeps
+ * across the metres-tall gantry boxes all the time: outlines flashing on and
+ * off with every hand movement read as the headset view flickering.
  *
  * The panel is HTML on the desktop and a painted canvas in the headset, where
  * no DOM is drawn; both redraw 4 times a second from the same snapshot
@@ -31,6 +33,7 @@ const noRaycast = () => null;
 
 function HitBox({ id, resolve, selected, onSelect }) {
   const scene = useThree((state) => state.scene);
+  const gl = useThree((state) => state.gl);
   const meshRef = useRef(null);
   const edgesRef = useRef(null);
   const targetRef = useRef(null);
@@ -76,6 +79,7 @@ function HitBox({ id, resolve, selected, onSelect }) {
         }}
         onPointerOver={(event) => {
           event.stopPropagation();
+          if (gl.xr.isPresenting) return;
           setHovered(true);
           document.body.style.cursor = 'pointer';
         }}
