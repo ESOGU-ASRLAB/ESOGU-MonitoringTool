@@ -22,6 +22,10 @@ import { createXRStore } from '@react-three/xr';
  *   ?vrstats=1|0               fps readout in the headset (on for qa. and localhost)
  *   ?vremu=1                   Meta Quest 3 emulator on any host, for a desktop
  *                              browser with no headset (localhost always has it)
+ *   ?vrclickms=1500            longest trigger press that still counts as a click;
+ *                              raised only for automated emulator runs, where a
+ *                              software-rendered session draws a frame every
+ *                              few seconds and no press can be shorter than that
  */
 const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
 const hostname = typeof window === 'undefined' ? '' : window.location.hostname;
@@ -75,6 +79,7 @@ export const VR_OPTIONS = Object.freeze({
   hz: Number(choice('vrhz', ['72', '90', '120'], '72')),
   frameBufferScaling: Number(params.get('vrscale')) || undefined,
   stats: params.has('vrstats') ? params.get('vrstats') === '1' : isTestHost,
+  clickMs: Number(params.get('vrclickms')) || 1500,
 });
 
 // The supported rate nearest the one asked for (Quest 3 offers 72/80/90/120).
@@ -96,8 +101,21 @@ export const xrStore = createXRStore({
   foveation: 1,
   frameRate: pickFrameRate,
   frameBufferScaling: VR_OPTIONS.frameBufferScaling,
-  controller: { teleportPointer: true },
-  hand: { teleportPointer: true },
+  /*
+   * No teleport pointer: it shared the trigger with the ray pointer, and the
+   * one whose hit is nearer takes the press. The teleport arc bends down to the
+   * floor, so it landed nearer than any robot a few metres off -- in the
+   * emulator, with the ray resting on a robot's hit box, pulling the trigger
+   * moved the wearer 1.34 m instead of opening its panel. The trigger now only
+   * selects; VRWalk teleports on the right stick pushed forward, as Meta's
+   * apps do.
+   *
+   * And a click is any press released within 1.5 s. The pointer library's
+   * default is 300 ms -- a mouse click -- but a trigger is pulled and let go
+   * deliberately, and a press held a little longer simply did nothing.
+   */
+  controller: { teleportPointer: false, rayPointer: { clickThresholdMs: VR_OPTIONS.clickMs } },
+  hand: { teleportPointer: false, rayPointer: { clickThresholdMs: VR_OPTIONS.clickMs } },
 });
 
 // For automated checks on test hosts only: drive the emulator's sticks and

@@ -73,7 +73,16 @@ function HitBox({ id, resolve, selected, onSelect }) {
         visible={false}
         scale={0.0001}
         onClick={(event) => {
-          if ((event.delta ?? 0) > CLICK_SLOP_PX) return;
+          // A mouse click reports how far it dragged; an XR ray's event THROWS
+          // on reading `delta` ("not supported"), which silently broke picking
+          // in the headset. A ray has no drag to discount anyway.
+          let dragged = 0;
+          try {
+            dragged = event.delta ?? 0;
+          } catch {
+            dragged = 0;
+          }
+          if (dragged > CLICK_SLOP_PX) return;
           event.stopPropagation();
           onSelect(id);
         }}

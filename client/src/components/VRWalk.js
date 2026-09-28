@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { TeleportTarget, XROrigin, useXR, useXRControllerLocomotion } from '@react-three/xr';
+import { XROrigin, XRSpace, useXR, useXRControllerLocomotion, useXRInputSourceState } from '@react-three/xr';
 import * as THREE from 'three';
+import { playWhoosh, pulseController } from './vrAudio';
 
 /*
  * WALKING THE HALL IN A HEADSET.
@@ -11,10 +12,10 @@ import * as THREE from 'three';
  * Their own height comes from the headset ('local-floor'), which is why there
  * is no eye height here as there is for the desktop walk.
  *
- *   left stick    walk, in the direction the head faces
- *   right stick   45 degree snap turn (smooth turning makes people sick)
- *   trigger       teleport along the arc onto the floor
- *   pinch         the same with hand tracking
+ *   left stick          walk, in the direction the head faces
+ *   right stick, sides  45 degree snap turn (smooth turning makes people sick)
+ *   right stick, push   aim a teleport arc; let go to land there
+ *   trigger             select (robots, panels) -- never teleports; see xrSession.js
  */
 
 // Real walking pace is ~1.4 m/s; the desktop walk's 7.5 m/s is fine on a
@@ -26,6 +27,15 @@ const SNAP_DEGREES = 45;
 // centred on, on the same side, looking at it.
 const SPAWN_DISTANCE = 8;
 const WALL_MARGIN = 0.6;
+// The teleport arc: thrown at this speed along the controller's ray, falling
+// under gravity until it meets the floor (y = 0). Push the stick past AIM to
+// show it; let it back past RELEASE to go.
+const ARC_SPEED = 8;
+const ARC_GRAVITY = 9.8;
+const ARC_STEP_S = 0.03;
+const ARC_POINTS = 64;
+const STICK_AIM = -0.6;
+const STICK_RELEASE = -0.3;
 
 const up = new THREE.Vector3(0, 1, 0);
 const scratch = {
@@ -145,23 +155,87 @@ export default function VRWalk({ desktopCameraRef, walkingMode, orbitTarget, bou
     origin.position.z += clampInside(scratch.head.z, bounds.minZ, bounds.maxZ) - scratch.head.z;
   });
 
-  const width = bounds.maxX - bounds.minX;
-  const depth = bounds.maxZ - bounds.minZ;
+  /*
+   * TELEPORT ON THE RIGHT STICK. Pushed forward, an arc is thrown from the
+   * right controller's ray under gravity until it meets the floor, with a ring
+   * where it lands; let the stick back and the head lands on the ring. The
+   * arc is ours, not the library's, because the library's teleport pointer
+   * fires on the trigger (see xrSession.js).
+   */
+  const right = useXRInputSourceState('controller', 'right');
+  const rayRef = useRef(null);
+  const aim = useRef({ active: false, valid: false, x: 0, z: 0 });
+  const arc = useMemo(() => {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ARC_POINTS * 3), 3));
+    const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: '#4f8fff' }));
+    line.frustumCulled = false;
+    line.visible = false;
+    return line;
+  }, []);
+  const ringRef = useRef(null);
+
+  useFrame(() => {
+    const ray = rayRef.current;
+    const ring = ringRef.current;
+    const stickY = right?.gamepad?.['xr-standard-thumbstick']?.yAxis ?? 0;
+    const state = aim.current;
+    if (!ray || !ring || !session) return;
+
+    if (stickY < STICK_AIM) state.active = true;
+    if (state.active && stickY > STICK_RELEASE) {
+      state.active = false;
+      if (state.valid) {
+        moveHeadTo(state.x, state.z);
+        playWhoosh();
+        pulseController(session, 'right', 0.5, 40);
+      }
+    }
+    arc.visible = state.active;
+    ring.visible = state.active && state.valid;
+    if (!state.active) return;
+
+    ray.getWorldPosition(scratch.head);
+    ray.getWorldDirection(scratch.dir).negate(); // a ray space points down -z
+    const positions = arc.geometry.getAttribute('position');
+    let count = 0;
+    state.valid = false;
+    for (let i = 0; i < ARC_POINTS; i += 1) {
+      const t = i * ARC_STEP_S;
+      const x = scratch.head.x + scratch.dir.x * ARC_SPEED * t;
+      const y = scratch.head.y + scratch.dir.y * ARC_SPEED * t - 0.5 * ARC_GRAVITY * t * t;
+      const z = scratch.head.z + scratch.dir.z * ARC_SPEED * t;
+      positions.setXYZ(i, x, Math.max(y, 0.02), z);
+      count = i + 1;
+      if (y <= 0) {
+        // Landed; only inside the hall counts.
+        state.valid = x > bounds.minX + WALL_MARGIN && x < bounds.maxX - WALL_MARGIN
+          && z > bounds.minZ + WALL_MARGIN && z < bounds.maxZ - WALL_MARGIN;
+        state.x = x;
+        state.z = z;
+        break;
+      }
+    }
+    positions.needsUpdate = true;
+    arc.geometry.setDrawRange(0, count);
+    arc.material.color.set(state.valid ? '#4f8fff' : '#ef4444');
+    ring.position.set(state.x, 0.03, state.z);
+  });
 
   return (
     <>
-      <XROrigin ref={originRef} />
-      <TeleportTarget onTeleport={(_, event) => moveHeadTo(event.point.x, event.point.z)}>
-        {/* The hall floor as a teleport surface. It draws nothing -- no colour,
-            no depth -- so the real floor under it renders untouched. */}
-        <mesh
-          rotation-x={-Math.PI / 2}
-          position={[(bounds.minX + bounds.maxX) / 2, 0.02, (bounds.minZ + bounds.maxZ) / 2]}
-        >
-          <planeGeometry args={[width, depth]} />
-          <meshBasicMaterial colorWrite={false} depthWrite={false} />
-        </mesh>
-      </TeleportTarget>
+      <XROrigin ref={originRef}>
+        {right && (
+          <XRSpace space={right.inputSource.targetRaySpace}>
+            <group ref={rayRef} />
+          </XRSpace>
+        )}
+      </XROrigin>
+      <primitive object={arc} />
+      <mesh ref={ringRef} rotation-x={-Math.PI / 2} visible={false}>
+        <ringGeometry args={[0.28, 0.36, 40]} />
+        <meshBasicMaterial color="#4f8fff" transparent opacity={0.9} depthWrite={false} />
+      </mesh>
     </>
   );
 }
