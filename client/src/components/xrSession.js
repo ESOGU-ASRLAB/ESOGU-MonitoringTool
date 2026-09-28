@@ -12,8 +12,10 @@ import { createXRStore } from '@react-three/xr';
  * rate on the headset are read from the URL, and a tester types them into the
  * Quest browser's address bar:
  *
- *   ?vrshadows=soft|hard|off   shadow quality in VR (default hard)
- *   ?lod=auto|lo|hi            Otokar mesh tier, from page load (default auto)
+ *   ?vrshadows=soft|hard|off   shadow quality in VR (default off)
+ *   ?lod=auto|lo|hi            Otokar mesh tier, from page load (default lo in a
+ *                              headset, auto elsewhere)
+ *   ?vrhz=72|90|120            refresh rate asked of the headset (default 72)
  *   ?vrscale=0.8               framebuffer scale, below 1 trades sharpness for fps
  *   ?vrstats=1|0               fps readout in the headset (on for qa. and localhost)
  *   ?vremu=1                   Meta Quest 3 emulator on any host, for a desktop
@@ -36,12 +38,40 @@ function choice(name, allowed, fallback) {
  */
 export const IS_QUEST_BROWSER = typeof navigator !== 'undefined' && /OculusBrowser/.test(navigator.userAgent);
 
+/*
+ * THE HEADSET DEFAULTS, AND WHAT THEY WERE MEASURED AGAINST.
+ *
+ * Counted on the hall as it loads (renderer.info), per frame:
+ *
+ *   Otokar cell, lo tier       0.79 M triangles
+ *   Otokar cell, hi tier       6.08 M triangles
+ *   everything else            ~2.1 M triangles
+ *   shadow pass                every shadow caster again: 1.9 M on lo, 8.0 M on hi
+ *
+ * Standing in the cell switches 'auto' to the hi tier, and in a headset the
+ * scene is drawn once per eye, so a walk-up put ~26 M triangles a frame on a
+ * mobile GPU. Hence: the lo tier, no shadow pass, and 72 Hz rather than the
+ * library's default of the highest rate offered (90/120 Hz on Quest 3), which
+ * leaves 8-11 ms a frame where 72 Hz leaves 13.9. Each stays a URL knob so the
+ * headset can be tried the other way without a redeploy.
+ */
 export const VR_OPTIONS = Object.freeze({
-  shadows: choice('vrshadows', ['soft', 'hard', 'off'], 'hard'),
-  lod: choice('lod', ['auto', 'lo', 'hi'], 'auto'),
+  shadows: choice('vrshadows', ['soft', 'hard', 'off'], 'off'),
+  // null = not set in the URL; DigitalTwin then picks by device.
+  lod: choice('lod', ['auto', 'lo', 'hi'], null),
+  hz: Number(choice('vrhz', ['72', '90', '120'], '72')),
   frameBufferScaling: Number(params.get('vrscale')) || undefined,
   stats: params.has('vrstats') ? params.get('vrstats') === '1' : isTestHost,
 });
+
+// The supported rate nearest the one asked for (Quest 3 offers 72/80/90/120).
+function pickFrameRate(supported) {
+  let best = supported[0];
+  for (const rate of supported) {
+    if (Math.abs(rate - VR_OPTIONS.hz) < Math.abs(best - VR_OPTIONS.hz)) best = rate;
+  }
+  return best;
+}
 
 export const xrStore = createXRStore({
   // Quest 3 supports immersive-ar too, and the default offer would pick it: the
@@ -51,6 +81,7 @@ export const xrStore = createXRStore({
   // Full fixed foveation: the edges of each eye render at lower resolution,
   // where the lens blurs them anyway. The single biggest GPU saving on Quest.
   foveation: 1,
+  frameRate: pickFrameRate,
   frameBufferScaling: VR_OPTIONS.frameBufferScaling,
   controller: { teleportPointer: true },
   hand: { teleportPointer: true },

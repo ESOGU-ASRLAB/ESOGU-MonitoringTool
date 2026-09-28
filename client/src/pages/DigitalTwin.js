@@ -294,6 +294,10 @@ export default function DigitalTwin({ setLiveStatus }) {
   // The headset shading profile: on the Quest browser from the first frame (so
   // entering VR recompiles nothing), elsewhere only while a session runs.
   const headsetShading = IS_QUEST_BROWSER || inVR;
+  // The Otokar tier: whatever the URL asks for, else the lo tier on a headset
+  // (the hi tier alone is ~6 M triangles; see xrSession.js) and distance-based
+  // switching elsewhere.
+  const otokarLod = VR_OPTIONS.lod ?? (headsetShading ? "lo" : "auto");
 
   const lastTelemetryTsRef = useRef(null);
   const lastSuccessfulEventRef = useRef(0);
@@ -788,7 +792,7 @@ export default function DigitalTwin({ setLiveStatus }) {
                     robotAxes={otokarAxes}
                     showBus
                     showRails
-                    lodMode={VR_OPTIONS.lod}
+                    lodMode={otokarLod}
                     animate={animate}
                     animationSpeed={OTOKAR_DEMO_SPEED}
                   />

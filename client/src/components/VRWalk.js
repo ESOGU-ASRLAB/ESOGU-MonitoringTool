@@ -32,7 +32,30 @@ const scratch = {
   head: new THREE.Vector3(),
   dir: new THREE.Vector3(),
   offset: new THREE.Vector3(),
+  stick: new THREE.Vector3(),
+  level: new THREE.Vector3(),
+  quat: new THREE.Quaternion(),
+  yawQuat: new THREE.Quaternion(),
+  euler: new THREE.Euler(0, 0, 0, 'YXZ'),
 };
+
+/*
+ * The library turns the stick into a velocity with the head's FULL rotation,
+ * pitch and roll included, and the caller keeps only x and z. So looking down
+ * at the floor shrank the walk to a crawl (forward became mostly "down"), and
+ * a tilted head bent the direction sideways. Undo the head rotation to get the
+ * stick back, then turn it by the head's heading alone. YXZ order keeps that
+ * heading stable even when looking straight down, where a projected forward
+ * vector would collapse to nothing.
+ */
+function levelVelocity(velocity, camera, out) {
+  camera.getWorldQuaternion(scratch.quat);
+  scratch.stick.copy(velocity).applyQuaternion(scratch.quat.invert());
+  camera.getWorldQuaternion(scratch.quat);
+  scratch.euler.setFromQuaternion(scratch.quat, 'YXZ');
+  scratch.yawQuat.setFromAxisAngle(up, scratch.euler.y);
+  return out.set(scratch.stick.x, 0, scratch.stick.z).applyQuaternion(scratch.yawQuat);
+}
 
 function clampInside(value, min, max) {
   return THREE.MathUtils.clamp(value, min + WALL_MARGIN, max - WALL_MARGIN);
@@ -93,8 +116,11 @@ export default function VRWalk({ desktopCameraRef, walkingMode, orbitTarget, bou
     (velocity, rotationY, delta) => {
       const origin = originRef.current;
       if (!origin) return;
-      origin.position.x += velocity.x * delta;
-      origin.position.z += velocity.z * delta;
+      // On a snap-turn frame the library also pre-rotates the velocity, so that
+      // one step is turned by the snap angle: ~3.5 cm at 72 Hz, not worth undoing.
+      const level = levelVelocity(velocity, camera, scratch.level);
+      origin.position.x += level.x * delta;
+      origin.position.z += level.z * delta;
       if (rotationY) {
         // Turn about the head, not the origin: a wearer standing a metre off
         // the middle of their play space would otherwise be swung sideways.
