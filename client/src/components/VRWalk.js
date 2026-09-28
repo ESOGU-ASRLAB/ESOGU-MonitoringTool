@@ -16,6 +16,7 @@ import { playWhoosh, pulseController } from './vrAudio';
  *   right stick, sides  45 degree snap turn (smooth turning makes people sick)
  *   right stick, push   aim a teleport arc; let go to land there
  *   trigger             select (robots, panels) -- never teleports; see xrSession.js
+ *   Y (left)            stand up: eyes to standing height (seated wearers)
  */
 
 // Real walking pace is ~1.4 m/s; the desktop walk's 7.5 m/s is fine on a
@@ -36,6 +37,20 @@ const ARC_STEP_S = 0.03;
 const ARC_POINTS = 64;
 const STICK_AIM = -0.6;
 const STICK_RELEASE = -0.3;
+/*
+ * EYE HEIGHT. 'local-floor' puts the eyes at the wearer's real height, which
+ * is right standing and wrong seated: from a chair the hall is seen from
+ * ~1.2 m, "too close to the floor" as the first headset test put it. A floor
+ * the headset has mislaid does the same. So once tracking has settled, eyes
+ * below SEATED_BELOW are lifted to STANDING_EYE by raising the origin; and Y
+ * on the left controller sets that height again from wherever the head is.
+ */
+const STANDING_EYE = 1.6;
+const SEATED_BELOW = 1.35;
+// Judged once tracking has had both this long and this many frames: the
+// first frames of a session can carry a pose from before tracking settled.
+const SETTLE_S = 0.8;
+const SETTLE_FRAMES = 10;
 
 const up = new THREE.Vector3(0, 1, 0);
 const scratch = {
@@ -153,6 +168,35 @@ export default function VRWalk({ desktopCameraRef, walkingMode, orbitTarget, bou
     camera.getWorldPosition(scratch.head);
     origin.position.x += clampInside(scratch.head.x, bounds.minX, bounds.maxX) - scratch.head.x;
     origin.position.z += clampInside(scratch.head.z, bounds.minZ, bounds.maxZ) - scratch.head.z;
+  });
+
+  // Eye height: lifted once for a seated wearer, and on Y (see STANDING_EYE).
+  const left = useXRInputSourceState('controller', 'left');
+  const height = useRef({ settled: 0, frames: 0, done: false, yDown: false });
+  useEffect(() => {
+    height.current = { settled: 0, frames: 0, done: false, yDown: false };
+  }, [session]);
+  useFrame((_, delta) => {
+    const origin = originRef.current;
+    if (!session || !origin) return;
+    camera.getWorldPosition(scratch.head);
+    const eye = scratch.head.y - origin.position.y; // tracked height above the floor
+    const h = height.current;
+    if (!h.done) {
+      h.settled += delta;
+      h.frames += 1;
+      if (h.settled >= SETTLE_S && h.frames >= SETTLE_FRAMES) {
+        h.done = true;
+        if (eye < SEATED_BELOW) origin.position.y = STANDING_EYE - eye;
+      }
+    }
+    const yDown = left?.gamepad?.['y-button']?.state === 'pressed';
+    if (yDown && !h.yDown) {
+      origin.position.y = STANDING_EYE - eye;
+      playWhoosh();
+      pulseController(session, 'left', 0.5, 40);
+    }
+    h.yDown = yDown;
   });
 
   /*
