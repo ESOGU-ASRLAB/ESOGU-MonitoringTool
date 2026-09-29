@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { playDrop, playFanfare, playGrab, playSnap, playSuccess, pulseController } from '../vrAudio';
 import { IS_TEST_HOST } from '../xrSession';
 import StartBadge from './StartBadge';
+import Guide from './guide';
 import { BobArrow, ghostMaterial, ownMaterials, setGhostNear, setGlow, useBurst } from './effects';
 import { grabCenter, makeGrabbable, releaseAll, updateGrabs } from './grab';
 import { MESH_URLS, PIECES, buildTrainerArm } from './trainerArm';
@@ -19,8 +20,11 @@ import { MESH_URLS, PIECES, buildTrainerArm } from './trainerArm';
  * upper arm and the shoulder, outermost first, the way the arm really comes
  * apart. With the base bare, the order turns round: shoulder first, each
  * piece back onto the arm where its twin shows. The rebuilt arm waves.
- * No text: the glowing piece, the arrow, the twin (blue far, green close)
- * and the sounds lead the way; the ring on the exit button fills as it goes.
+ * Each move is spelled out as it comes (guide.js): take off the tool end,
+ * lay it on the bench, let go -- with arrows from the hand to the piece and
+ * from the piece to its place. The glowing piece, the twin (blue far, green
+ * close) and the sounds back it up; the ring on the exit button fills as it
+ * goes.
  */
 
 const PEDESTAL = { x: 4.0, z: 13.0, h: 0.45, r: 0.2 };
@@ -49,6 +53,8 @@ const STEPS = [
   ...PIECES.map((piece) => ({ piece, to: 'rest' })),
   ...[...PIECES].reverse().map((piece) => ({ piece, to: 'home' })),
 ];
+// What the instructions call each piece.
+const PIECE_NAMES = { tool: 'tool end', wrist: 'wrist', forearm: 'forearm', upperarm: 'upper arm', shoulder: 'shoulder' };
 
 const pedestalMaterial = new THREE.MeshStandardMaterial({ color: '#374151', metalness: 0.4, roughness: 0.6 });
 const benchMaterial = new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.2, roughness: 0.6 });
@@ -154,6 +160,9 @@ export default function AssemblyStation({ hands, busy, onRunning }) {
   };
   const [progress, setProgress] = useState(0);
   const [nearby, setNearby] = useState(false);
+  // Which instruction shows: "<step>:<move>", '' when none.
+  const [guideKey, setGuideKey] = useState('');
+  const guideRef = useRef('');
   const run = useRef({ step: 0, tweens: new Map(), pauseUntil: 0, wave: -1 });
   const items = useRef(null);
   const glows = useMemo(() => Object.fromEntries(PIECES.map((name) => [name, ownMaterials(kit.arm.pieces[name])])), [kit]);
@@ -301,6 +310,8 @@ export default function AssemblyStation({ hands, busy, onRunning }) {
     const running = phaseRef.current === 'running' && r.wave < 0;
     const step = running ? STEPS[r.step] : null;
     const ready = step && performance.now() >= r.pauseUntil;
+    let held = false;
+    let nearTarget = false;
     for (const name of PIECES) {
       const item = items.current?.find((i) => i.object === kit.arm.pieces[name]);
       const current = ready && step.piece === name && !r.tweens.has(name);
@@ -311,10 +322,88 @@ export default function AssemblyStation({ hands, busy, onRunning }) {
         const where = target(step);
         ghost.position.copy(where.position);
         ghost.quaternion.copy(where.quaternion);
-        setGhostNear(ghostMat, grabCenter(item, scratch.c).distanceTo(centerAt(name, where, scratch.t)) < SNAP_M, t);
+        held = true;
+        nearTarget = grabCenter(item, scratch.c).distanceTo(centerAt(name, where, scratch.t)) < SNAP_M;
+        setGhostNear(ghostMat, nearTarget, t);
       }
     }
+
+    // The instruction for the move at hand.
+    let key = '';
+    if (phaseRef.current === 'running') {
+      let move = 'grab';
+      if (r.wave >= 0) move = 'done';
+      else if (!ready) move = 'rebuild';
+      else if (held) move = nearTarget ? 'release' : 'carry';
+      key = `${r.step}:${move}`;
+    }
+    if (key !== guideRef.current) {
+      guideRef.current = key;
+      setGuideKey(key);
+    }
   });
+
+  // Where the instruction floats, and where its arrows run, for each move.
+  const currentItem = () => {
+    const step = STEPS[run.current.step];
+    return step && items.current?.find((i) => i.object === kit.arm.pieces[step.piece]);
+  };
+  const guideAnchor = (out) => {
+    const step = STEPS[run.current.step];
+    const item = currentItem();
+    switch (guideRef.current.split(':')[1]) {
+      case 'grab':
+        if (!item) return false;
+        grabCenter(item, out);
+        out.y += item.radius * 0.6 + 0.35;
+        return true;
+      case 'carry':
+      case 'release':
+        centerAt(step.piece, target(step), out);
+        out.y += 0.4;
+        return true;
+      case 'rebuild': return out.set(PEDESTAL.x, 1.65, PEDESTAL.z);
+      case 'done': return out.set(PEDESTAL.x, 1.95, PEDESTAL.z);
+      default: return false;
+    }
+  };
+  const guidePath = (from, to) => {
+    const step = STEPS[run.current.step];
+    const item = currentItem();
+    if (!item) return false;
+    switch (guideRef.current.split(':')[1]) {
+      case 'grab': {
+        grabCenter(item, to);
+        const hand = hands.filter((h) => h.tracked).sort((a, b) => a.position.distanceTo(to) - b.position.distanceTo(to))[0];
+        if (!hand) return false;
+        from.copy(hand.position);
+        return true;
+      }
+      case 'carry':
+        grabCenter(item, from);
+        centerAt(step.piece, target(step), to);
+        return true;
+      default:
+        return false;
+    }
+  };
+  const [guideStep, guideMove] = guideKey.split(':');
+  const stepNumber = Number(guideStep);
+  const guideStepData = STEPS[stepNumber];
+  const apart = stepNumber < PIECES.length;
+  const pieceName = guideStepData ? PIECE_NAMES[guideStepData.piece] : '';
+  const GUIDES = {
+    grab: apart
+      ? { icon: 'grab', text: `Take off the ${pieceName}`, button: 'Grip or trigger' }
+      : { icon: 'grab', text: `Pick up the ${pieceName}`, button: 'Grip or trigger' },
+    carry: apart
+      ? { icon: 'carry', text: 'Lay it on the bench where its outline shows' }
+      : { icon: 'carry', text: 'Fit it back on the arm where its outline shows' },
+    release: { icon: 'release', text: 'Let go to seat it', button: 'Open your hand' },
+    rebuild: { icon: 'watch', text: 'Stripped to the base. Now build it back up, shoulder first' },
+    done: { icon: 'done', text: 'Rebuilt! Watch it move' },
+  };
+  const counter = apart ? `Take apart · ${stepNumber + 1} of ${PIECES.length}` : `Rebuild · ${Math.min(stepNumber, STEPS.length - 1) - PIECES.length + 1} of ${PIECES.length}`;
 
   const arrowTarget = (out) => {
     const r = run.current;
@@ -334,6 +423,7 @@ export default function AssemblyStation({ hands, busy, onRunning }) {
       {['base', ...PIECES].map((name) => <primitive key={name} object={kit.arm.pieces[name]} />)}
       {PIECES.map((name) => <primitive key={`ghost-${name}`} object={kit.ghosts[name]} />)}
       <BobArrow getTarget={arrowTarget} />
+      {guideKey && <Guide step={counter} {...GUIDES[guideMove]} anchor={guideAnchor} path={guidePath} />}
       <primitive object={burst.points} />
       {nearby && phase === 'idle' && !busy && (
         <StartBadge position={BADGE_AT} icon="start" label="Assemble the arm" hands={hands} onPress={start} />

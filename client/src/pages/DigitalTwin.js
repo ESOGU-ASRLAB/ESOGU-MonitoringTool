@@ -774,7 +774,9 @@ export default function DigitalTwin({ liveStatus }) {
                         />
                       </group>
                     </group>
-                    <EnvironmentElements />
+                    {/* In a headset the training infeed runs through the
+                        fence panel in front of the conveyor, so it opens. */}
+                    <EnvironmentElements infeedOpening={inVR} />
                     {/* Pick and place, chassis inspection: the cell's jobs,
                         run whenever the engine is on. */}
                     <IfarlabTasks active={animate} ur={urTask} kawasaki={kawTask} />

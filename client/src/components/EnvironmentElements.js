@@ -260,15 +260,23 @@ const BARRIER_AT = (x, y, rotated = false) => {
   return [x - rawX, y - rawY, 0];
 };
 
-function Facility() {
+/*
+ * `infeedOpening` leaves out the south fence panel in front of the conveyor
+ * (hall x 6.51..7.76): in a headset the pick-and-place training runs a roller
+ * infeed through there to the belt (training/PickPlaceStation.js), and the
+ * panel stood right across it.
+ */
+function Facility({ infeedOpening }) {
   return (
     <Suspense fallback={null}>
-      <EnvMesh
-        url={`${FACILITY_BASE}/barrier.stl`}
-        material={FACILITY_GRAY}
-        position={spreadOffset(3.716, -0.005)}
-        receiveShadow
-      />
+      {!infeedOpening && (
+        <EnvMesh
+          url={`${FACILITY_BASE}/barrier.stl`}
+          material={FACILITY_GRAY}
+          position={spreadOffset(3.716, -0.005)}
+          receiveShadow
+        />
+      )}
       <EnvMesh
         url={`${FACILITY_BASE}/barrier.stl`}
         material={FACILITY_GRAY}
@@ -351,13 +359,13 @@ function Facility() {
   );
 }
 
-export default function EnvironmentElements({ showEnvironment = true }) {
+export default function EnvironmentElements({ showEnvironment = true, infeedOpening = false }) {
   if (!showEnvironment) return null;
 
   return (
     <group rotation={[-Math.PI / 2, 0, 0]}>
       <Furniture />
-      <Facility />
+      <Facility infeedOpening={infeedOpening} />
     </group>
   );
 }

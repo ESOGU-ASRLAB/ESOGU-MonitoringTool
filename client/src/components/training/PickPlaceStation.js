@@ -7,6 +7,7 @@ import {
   loadSample, playDrop, playFanfare, playGrab, playSample, playSnap, playSuccess, pulseController,
 } from '../vrAudio';
 import StartBadge from './StartBadge';
+import Guide from './guide';
 import { cellTraining } from './cellTraining';
 import { BobArrow, ghostMaterial, ownMaterials, setGhostNear, setGlow, useBurst } from './effects';
 import { grabCenter, makeGrabbable, releaseAll, updateGrabs } from './grab';
@@ -21,12 +22,16 @@ import { grabCenter, makeGrabbable, releaseAll, updateGrabs } from './grab';
  * the infeed and let go: it seats with a click, rolls in through the fence,
  * and the UR10e does the rest -- looks at it, grips it, carries it down its
  * rail and sets it on the table. Then the next box. Three boxes and it is
- * done. No text: the lit box, the arrow, the ghost box where it goes (green
- * when close enough) and the sounds say what to do.
+ * done. Each move is spelled out as it comes (guide.js) -- grab the box,
+ * carry it to the belt, let go, watch the robot -- with arrows from the box
+ * to where it goes; the lit box, the ghost box (green when close enough) and
+ * the sounds back it up.
  *
  * The arm is taken over through cellTraining.js (see IfarlabTasks.js).
  * Positions are in the hall's frame, off the workcell's: its belt runs along
- * x = 6.92 and starts at z 11.4, the fence stands at z 12.0.
+ * x = 6.92 and starts at z 11.4, the fence stands at z 12.0 -- with its panel
+ * in front of the conveyor left out in a headset (EnvironmentElements'
+ * infeedOpening), and a light curtain's two posts either side of the gap.
  */
 
 const [CELL_X, , CELL_Z] = IFARLAB_OFFSET;
@@ -43,9 +48,34 @@ const SUPPLY = [[6.0, 12.62], [6.3, 12.62], [6.15, 12.9]].map(([x, z]) => new TH
 const BADGE_AT = [6.55, 1.5, 13.05];
 // Over the aluminium table, where the arm puts them.
 const TABLE_CENTER = new THREE.Vector3(CELL_X + 0.696, 0.95, CELL_Z - 2.465);
+// Where the arm looks at the box, over the belt.
+const PICK_AT = new THREE.Vector3(BELT_X, 1.25, CELL_Z - 0.25);
+// The fence gap the infeed passes through, and the light curtain's posts.
+const GAP = { from: 6.51, to: 7.76, z: 12.01 };
 const SHOW_WITHIN = 9;
 const ABORT_BEYOND = 20;
 const TWEEN_S = 0.25;
+const BOXES = 3;
+
+const postMaterial = new THREE.MeshStandardMaterial({ color: '#facc15', roughness: 0.5 });
+const lensMaterial = new THREE.MeshStandardMaterial({ color: '#111827', emissive: '#7f1d1d', emissiveIntensity: 0.6 });
+
+function LightCurtain() {
+  return (
+    <group>
+      {[GAP.from + 0.03, GAP.to - 0.03].map((x) => (
+        <group key={x} position={[x, 0, GAP.z]}>
+          <mesh position={[0, 0.7, 0]} material={postMaterial}>
+            <boxGeometry args={[0.05, 1.4, 0.05]} />
+          </mesh>
+          <mesh position={[x < BELT_X ? 0.027 : -0.027, 0.85, 0]} material={lensMaterial}>
+            <boxGeometry args={[0.006, 0.9, 0.03]} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
 
 const frameMaterial = new THREE.MeshStandardMaterial({ color: '#8a939c', metalness: 0.6, roughness: 0.45 });
 const rollerMaterial = new THREE.MeshStandardMaterial({ color: '#c4cad0', metalness: 0.7, roughness: 0.3 });
@@ -108,6 +138,9 @@ export default function PickPlaceStation({ hands, busy, onRunning }) {
   };
   const [progress, setProgress] = useState(0);
   const [nearby, setNearby] = useState(false);
+  // Which instruction shows: "<box>:<move>", '' when none.
+  const [guideKey, setGuideKey] = useState('');
+  const guideRef = useRef('');
   const boxRefs = useRef([]);
   const zoneRef = useRef(null);
   const ghostRef = useRef(null);
@@ -259,14 +292,75 @@ export default function PickPlaceStation({ hands, busy, onRunning }) {
       zoneRef.current.visible = fetching;
       zoneRef.current.material.opacity = 0.5 + 0.35 * Math.sin(t * 4);
     }
+    let nearDrop = false;
     if (ghostRef.current) {
       ghostRef.current.visible = carrying;
       if (carrying) {
         const c = grabCenter(item, scratch.c);
-        setGhostNear(ghost, Math.hypot(c.x - DROP.x, c.z - DROP.z) < DROP_REACH && c.y < BELT_TOP + 0.5, t);
+        nearDrop = Math.hypot(c.x - DROP.x, c.z - DROP.z) < DROP_REACH && c.y < BELT_TOP + 0.5;
+        setGhostNear(ghost, nearDrop, t);
       }
     }
+
+    // The instruction for the move at hand.
+    let key = '';
+    if (phaseRef.current === 'running') {
+      let move = 'watch';
+      if (r.stage === 'fetch') move = item?.held ? (nearDrop ? 'release' : 'carry') : 'grab';
+      key = `${r.index}:${move}`;
+    }
+    if (key !== guideRef.current) {
+      guideRef.current = key;
+      setGuideKey(key);
+    }
   });
+
+  // Where the instruction floats, and where its arrows run, for each move.
+  const move = () => guideRef.current.split(':')[1];
+  const guideAnchor = (out) => {
+    const box = boxRefs.current[run.current.index];
+    switch (move()) {
+      case 'grab': return box ? out.copy(box.position).setY(box.position.y + 0.5) : false;
+      case 'carry':
+      case 'release': return out.set(DROP.x, DROP.y + 0.5, DROP.z);
+      case 'watch': return out.copy(PICK_AT).setY(PICK_AT.y + 0.45);
+      default: return false;
+    }
+  };
+  const guidePath = (from, to) => {
+    const r = run.current;
+    const item = items.current?.[r.index];
+    switch (move()) {
+      case 'grab': {
+        // From the nearer hand to the box.
+        const box = boxRefs.current[r.index];
+        if (!box) return false;
+        const hand = hands.filter((h) => h.tracked).sort((a, b) => a.position.distanceTo(box.position) - b.position.distanceTo(box.position))[0];
+        if (!hand) return false;
+        from.copy(hand.position);
+        to.copy(box.position);
+        return true;
+      }
+      case 'carry':
+        grabCenter(item, from);
+        to.copy(DROP);
+        return true;
+      case 'watch':
+        // Along the infeed and the belt to where the robot takes it.
+        from.set(DROP.x, BELT_TOP + 0.15, DROP.z);
+        to.set(PICK_AT.x, BELT_TOP + 0.15, PICK_AT.z);
+        return true;
+      default:
+        return false;
+    }
+  };
+  const [guideBox, guideMove] = guideKey.split(':');
+  const GUIDES = {
+    grab: { icon: 'grab', text: 'Grab the glowing box', button: 'Grip or trigger' },
+    carry: { icon: 'carry', text: 'Carry it to the blue square on the belt' },
+    release: { icon: 'release', text: 'Let go to put it down', button: 'Open your hand' },
+    watch: { icon: 'watch', text: 'Watch: the belt takes it in and the robot picks it' },
+  };
 
   const arrowTarget = (out) => {
     const r = run.current;
@@ -281,6 +375,7 @@ export default function PickPlaceStation({ hands, busy, onRunning }) {
   return (
     <group>
       <Infeed />
+      <LightCurtain />
       <SupplyTable />
       {SUPPLY.map((spot, i) => (
         <group key={i} ref={(el) => { boxRefs.current[i] = el; }} position={spot}>
@@ -300,6 +395,9 @@ export default function PickPlaceStation({ hands, busy, onRunning }) {
         <boxGeometry args={[BOX.w, BOX.h, BOX.d]} />
       </mesh>
       <BobArrow getTarget={arrowTarget} />
+      {guideKey && (
+        <Guide step={`Box ${Number(guideBox) + 1} of ${BOXES}`} {...GUIDES[guideMove]} anchor={guideAnchor} path={guidePath} />
+      )}
       <primitive object={burst.points} />
       {nearby && phase === 'idle' && !busy && (
         <StartBadge position={BADGE_AT} icon="start" label="Pick & place" hands={hands} onPress={start} />
