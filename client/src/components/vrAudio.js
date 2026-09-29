@@ -1,19 +1,23 @@
 import * as THREE from 'three';
 
 /*
- * SOUND FOR THE HEADSET, SYNTHESISED -- NO AUDIO FILES.
+ * SOUND FOR THE HEADSET.
  *
- * Every sound here is built from oscillators and noise with the Web Audio API:
- * nothing to download on a headset's first visit, and no recording whose
- * licence has to be tracked. It all runs on three's shared AudioContext, the
- * one THREE.AudioListener / PositionalAudio use, so the positional sounds in
- * the hall (VRSoundscape.js) and these one-shots mix in the same graph.
+ * Two kinds, on three's shared AudioContext (the one THREE.AudioListener /
+ * PositionalAudio use), so everything mixes in one graph:
  *
- * The first version had a mains hum, a low rumble and hard metal clanks, and
- * the first headset test found it frightening and tiring: one dark drone and
- * the same bang again and again. So now: a light, airy room tone, a varied
- * set of soft workshop sounds (hall()), a smooth hum from the robots, and
- * nothing sharp or low for long. X on the left controller mutes it all.
+ *   the hall      real recordings -- factory floor, workers, tools, forklift,
+ *                 servos -- CC0 from Freesound, cut and levelled by
+ *                 scripts/audio/build_vr_sounds.mjs into public/assets/audio
+ *                 (~0.9 MB, fetched only when a session starts); loadSamples,
+ *                 playSample, VRSoundscape.js places them
+ *   feedback      short tones synthesised here: clicks, pops, the seat
+ *                 click, chimes, the teleport whoosh
+ *
+ * The hall was synthesised twice before, and both failed on the headset: a
+ * mains hum with hard clanks ("scary"), then soft swells and a robot hum that
+ * rose and fell with every move ("vuuuuv vuuuuv"). Recordings sound like a
+ * factory because they are one. X on the left controller mutes it all.
  *
  * Browsers start an AudioContext suspended until a user gesture. The Enter VR
  * button calls unlockAudio(); so does the first trigger pull in the session.
@@ -81,8 +85,6 @@ export function whiteNoise() {
   }
   return noiseBuffer;
 }
-
-const rand = (min, max) => min + Math.random() * (max - min);
 
 function tone({ freq, type = 'sine', start = 0, duration = 0.15, peak = 1, to = null, attack = 0.01, dest = feedback() }) {
   const ctx = audioContext();
@@ -168,130 +170,75 @@ export function playWhoosh() {
 
 /* ----------------------------- the hall ---------------------------------- */
 
-/*
- * The workshop's own sounds, each into `dest` (a PositionalAudio's input, so
- * it comes from somewhere in the hall). Soft on purpose: a room full of work
- * going on, heard from a respectful distance. Each call varies its pitch and
- * length a little, so no two are the same.
- */
-export const HALL_SOUNDS = {
-  // A pneumatic valve letting go.
-  hiss: (dest) => noise({ duration: rand(0.35, 0.8), peak: 0.22, attack: 0.02, filter: 'highpass', freq: rand(2500, 4000), q: 0.5, dest }),
-  // A machine saying a cycle is done: two soft notes.
-  chime: (dest) => {
-    const base = [587.33, 659.25, 698.46, 783.99][Math.floor(Math.random() * 4)];
-    tone({ freq: base, start: 0, duration: 0.9, peak: 0.16, attack: 0.02, dest });
-    tone({ freq: base * 0.75, start: 0.28, duration: 1.1, peak: 0.14, attack: 0.02, dest });
-  },
-  // A plastic tote set down on a bench.
-  tap: (dest) => {
-    const n = 1 + Math.floor(Math.random() * 2);
-    for (let i = 0; i < n; i += 1) tone({ freq: rand(700, 1100), to: rand(300, 450), start: i * rand(0.12, 0.2), duration: 0.07, peak: 0.25, attack: 0.003, dest });
-  },
-  // Rollers running for a moment: soft rhythmic ticks.
-  roll: (dest) => {
-    const beats = 10 + Math.floor(Math.random() * 12);
-    const step = rand(0.07, 0.11);
-    for (let i = 0; i < beats; i += 1) noise({ start: i * step, duration: 0.05, peak: 0.08 * Math.sin((i / beats) * Math.PI) + 0.01, filter: 'bandpass', freq: rand(900, 1300), q: 3, dest });
-  },
-  // A status beep, far off.
-  beep: (dest) => {
-    const freq = rand(880, 1050);
-    for (let i = 0; i < 3; i += 1) tone({ freq, start: i * 0.22, duration: 0.09, peak: 0.07, attack: 0.005, dest });
-  },
-  // A light metal ping: a tool laid on a steel bench.
-  ping: (dest) => {
-    const freq = rand(1800, 2600);
-    tone({ freq, type: 'triangle', duration: rand(0.5, 0.8), peak: 0.07, attack: 0.002, dest });
-    tone({ freq: freq * 2.76, duration: 0.25, peak: 0.025, attack: 0.002, dest });
-  },
-  // A trolley passing: a soft swell of low-passed noise.
-  cart: (dest) => noise({ duration: rand(1.4, 2.2), peak: 0.12, attack: 0.7, filter: 'lowpass', freq: rand(500, 800), q: 0.7, dest }),
-  // A nut runner: a short whir up, twice.
-  wrench: (dest) => {
-    const n = 1 + Math.floor(Math.random() * 2);
-    for (let i = 0; i < n; i += 1) {
-      noise({ start: i * 0.45, duration: 0.3, peak: 0.07, attack: 0.03, filter: 'bandpass', freq: 600, to: 1500, q: 4, dest });
-    }
-  },
-};
+const SAMPLE_BASE = `${process.env.PUBLIC_URL}/assets/audio`;
+// Each loop file carries this much of its own end before its start and of
+// its start after its end, and plays between the two (build_vr_sounds.mjs).
+export const LOOP_PAD = 0.05;
 
-/**
- * The room tone: noise softened to a light air-handling wash, its brightness
- * drifting slowly so it never sits still. No hum, nothing below ~150 Hz.
- * Returns stop().
- */
-export function startAmbience(volume = 0.05) {
-  const ctx = audioContext();
-  const bed = ctx.createGain();
-  bed.gain.value = 0;
-  bed.gain.setTargetAtTime(volume, ctx.currentTime, 2);
-  bed.connect(out());
+const samples = new Map(); // name -> AudioBuffer, or the promise of one
 
-  const air = ctx.createBufferSource();
-  air.buffer = whiteNoise();
-  air.loop = true;
-  const high = ctx.createBiquadFilter();
-  high.type = 'highpass';
-  high.frequency.value = 150;
-  const low = ctx.createBiquadFilter();
-  low.type = 'lowpass';
-  low.frequency.value = 900;
-  low.Q.value = 0.3;
-  air.connect(high).connect(low).connect(bed);
+/** Fetches and decodes public/assets/audio/<name>.ogg once; resolves null on failure. */
+export function loadSample(name) {
+  if (!samples.has(name)) {
+    const pending = fetch(`${SAMPLE_BASE}/${name}.ogg`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`${name}: ${res.status}`);
+        return res.arrayBuffer();
+      })
+      .then((bytes) => audioContext().decodeAudioData(bytes))
+      .then((buffer) => {
+        samples.set(name, buffer);
+        return buffer;
+      })
+      .catch(() => {
+        samples.delete(name); // a later session may try again
+        return null;
+      });
+    samples.set(name, pending);
+  }
+  return Promise.resolve(samples.get(name));
+}
 
-  // A very slow drift of the wash's brightness.
-  const drift = ctx.createOscillator();
-  drift.frequency.value = 0.04;
-  const depth = ctx.createGain();
-  depth.gain.value = 250;
-  drift.connect(depth).connect(low.frequency);
-
-  air.start();
-  drift.start();
-
-  return () => {
-    bed.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
-    setTimeout(() => {
-      air.stop();
-      drift.stop();
-      bed.disconnect();
-    }, 1500);
-  };
+/** The decoded sample, or null while it loads (or if it failed). */
+export function sample(name) {
+  const entry = samples.get(name);
+  return entry && !(entry instanceof Promise) ? entry : null;
 }
 
 /**
- * A robot's drive, into a PositionalAudio: a smooth, slightly detuned hum
- * through a low-pass, rising a little with speed (setSpeed, 0..1) and silent
- * when the robot stands still.
+ * Plays a loaded sample into `dest` (a PositionalAudio input to place it in
+ * the hall; the unplaced bus by default). A loop starts at a random point and
+ * fades in over `fadeIn` s. Returns { stop, gain } or null if not loaded.
  */
-export function createServoVoice() {
+export function playSample(name, { dest = out(), gain = 1, rate = 1, loop = false, fadeIn = 0 } = {}) {
+  const buffer = sample(name);
+  if (!buffer) return null;
   const ctx = audioContext();
-  const node = ctx.createGain();
-  node.gain.value = 0;
-  const lowpass = ctx.createBiquadFilter();
-  lowpass.type = 'lowpass';
-  lowpass.frequency.value = 700;
-  lowpass.connect(node);
-  const oscillators = [[1, 1], [2.01, 0.35], [3.02, 0.12]].map(([ratio, level]) => {
-    const osc = ctx.createOscillator();
-    osc.frequency.value = 150 * ratio;
-    const g = ctx.createGain();
-    g.gain.value = level;
-    osc.connect(g).connect(lowpass);
-    osc.start();
-    return { osc, ratio };
-  });
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.playbackRate.value = rate;
+  const level = ctx.createGain();
+  level.gain.setValueAtTime(fadeIn > 0 ? 0.0001 : gain, ctx.currentTime);
+  if (fadeIn > 0) level.gain.exponentialRampToValueAtTime(gain, ctx.currentTime + fadeIn);
+  source.connect(level).connect(dest);
+  if (loop) {
+    source.loop = true;
+    source.loopStart = LOOP_PAD;
+    source.loopEnd = buffer.duration - LOOP_PAD;
+    source.start(ctx.currentTime, LOOP_PAD + Math.random() * (buffer.duration - 2 * LOOP_PAD));
+  } else {
+    source.start();
+  }
+  source.onended = () => level.disconnect();
   return {
-    node,
-    setSpeed(speed) {
-      const t = ctx.currentTime;
-      node.gain.setTargetAtTime(0.12 * speed, t, 0.15);
-      oscillators.forEach(({ osc, ratio }) => osc.frequency.setTargetAtTime((140 + 110 * speed) * ratio, t, 0.2));
-    },
+    gain: level.gain,
     stop() {
-      oscillators.forEach(({ osc }) => osc.stop());
-      node.disconnect();
+      try {
+        source.stop();
+      } catch {
+        // already stopped
+      }
+      level.disconnect();
     },
   };
 }

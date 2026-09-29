@@ -3,7 +3,9 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { IFARLAB_OFFSET } from '../cellLayout';
 import { IS_TEST_HOST } from '../xrSession';
-import { playDrop, playFanfare, playGrab, playSnap, playSuccess, pulseController } from '../vrAudio';
+import {
+  loadSample, playDrop, playFanfare, playGrab, playSample, playSnap, playSuccess, pulseController,
+} from '../vrAudio';
 import StartBadge from './StartBadge';
 import { cellTraining } from './cellTraining';
 import { BobArrow, ghostMaterial, ownMaterials, setGhostNear, setGlow, useBurst } from './effects';
@@ -156,9 +158,12 @@ export default function PickPlaceStation({ hands, busy, onRunning }) {
   };
 
   // Leaving the headset mid-training hands the arm back.
-  useEffect(() => () => {
-    cellTraining.active = false;
-    cellTraining.feeds = [];
+  useEffect(() => {
+    loadSample('conveyor-roll');
+    return () => {
+      cellTraining.active = false;
+      cellTraining.feeds = [];
+    };
   }, []);
 
   // Automated emulator runs follow the station; never on production.
@@ -189,6 +194,8 @@ export default function PickPlaceStation({ hands, busy, onRunning }) {
               // On the infeed: the arm's program takes it from here.
               run.current.feed = { y: CELL_Z - DROP.z, taken: false };
               cellTraining.feeds.push(run.current.feed);
+              // The rollers taking it in (a recording, see vrAudio.js).
+              playSample('conveyor-roll', { gain: 0.8 });
               run.current.stage = 'handover';
               setProgress((run.current.index + 0.5) / SUPPLY.length);
             });

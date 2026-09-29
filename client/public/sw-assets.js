@@ -11,7 +11,7 @@
  * WHAT THIS DOES. Cache Storage survives reloads, so the second visit is
  * served from disk with no network at all. The scope is deliberately narrow:
  * only binary 3D assets (GLB and STL), the Draco decoder, and the PNG/WebP
- * images under /assets. Everything else -- HTML, JS bundles, CSS, API calls --
+ * images and the headset's Ogg sound recordings under /assets. Everything else -- HTML, JS bundles, CSS, API calls --
  * is left completely alone, so this cannot serve stale code or interfere with
  * hot reloading while developing.
  *
@@ -34,7 +34,7 @@
 const CACHE = 'matisse-assets-v1';
 
 // Only these. Anything not matching goes straight to the network untouched.
-const ASSET_RE = /\/(meshes|assets|draco)\/.*\.(glb|gltf|bin|wasm|js|stl|png|webp)$/i;
+const ASSET_RE = /\/(meshes|assets|draco)\/.*\.(glb|gltf|bin|wasm|js|stl|png|webp|ogg)$/i;
 
 self.addEventListener('install', (event) => {
   // Take over without the usual wait, so the first load after registering

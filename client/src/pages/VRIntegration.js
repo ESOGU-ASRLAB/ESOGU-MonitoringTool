@@ -93,7 +93,7 @@ export default function VRIntegration() {
           ['Shared hall', 'Every open page, desktop or headset, is shown to the others as a worker (see Other visitors)'],
           ['Robot details', 'Point and pull the trigger, or click on the desktop, for a robot\'s specifications and live values'],
           ['Training', 'Two hands-on stations in front of the IFARLAB cell, in the headset only'],
-          ['Sound', 'Room tone, robot drives, workshop sounds and feedback, in the headset only'],
+          ['Sound', 'Recorded factory sounds -- the floor, workers, tools, forklifts, servos -- and feedback, in the headset only'],
         ]} />
 
         <Anchor id="entering">Entering VR</Anchor>
@@ -222,19 +222,24 @@ export default function VRIntegration() {
         <GridTable
           head={['Sound', 'Where it comes from']}
           rows={[
-            ['Room tone', 'A light air-handling wash all around you, drifting slowly; no hum, nothing deep'],
-            ['Robots', 'A soft hum from each robot\'s moving part, rising a little the faster its axes move, from the same values as its details panel; silent while it stands still'],
-            ['The workshop', 'Every few seconds one of eight quiet sounds -- a valve letting go, a machine\'s two-note chime, a tote set down, rollers running, a status beep, a tool laid down, a trolley passing, a nut runner -- from one of ten spots around the cells and the hall, never the same kind twice running'],
+            ['The factory floor', 'A recording of a working factory floor, all around you, looping without a seam'],
+            ['People', 'Workers talking and handling boxes, from where the hall\'s own workers stand at the Otokar cell'],
+            ['The work', 'Every 3 to 8 s one of eleven recordings -- an air line let go, an impact wrench, a toolbox, a dropped spanner, a repair shop, forklift hydraulics, a forklift reversing -- from a bench or a forklift aisle, never the same clip twice running and each a little different in pitch and level'],
+            ['Robots', 'Now and then, while a robot moves, a short recording of real servos from its moving part, stronger the faster it moves; heard only close to it'],
+            ['The infeed', 'Rollers running as a box you handed over rolls in to the conveyor'],
             ['Feedback', 'A click for a button, a pop when you pick something up, a firm click when it seats, a chime for a step, a fanfare at the end, a whoosh for a teleport'],
             ['Haptics', 'The controller buzzes when you pick something up, when it seats and with a teleport'],
           ]}
         />
         <p>
-          The robots and workshop sounds are placed in the hall: they are heard from where they
-          are, fade with distance and move as you turn your head. X on the left controller turns
-          all of it off and on. Everything is synthesised in the browser with Web Audio, so no
-          sound files are downloaded. Sound starts with the Enter VR press, since browsers only
-          allow it after a tap or click; outside VR the page is silent.
+          The hall&apos;s sounds are real field recordings, all released as Creative Commons 0 on
+          Freesound and credited in <code>public/assets/audio/CREDITS.md</code>;{' '}
+          <code>scripts/audio/build_vr_sounds.mjs</code> cuts, levels and encodes them. About
+          0.9 MB in all, fetched only when a VR session starts and kept in the browser&apos;s cache
+          after that. Placed sounds are heard from where they are, fade with distance and move as
+          you turn your head. X on the left controller turns all of it off and on. Sound starts
+          with the Enter VR press, since browsers only allow it after a tap or click; outside VR
+          the page is silent.
         </p>
 
         <Anchor id="how">How it works</Anchor>
