@@ -187,19 +187,24 @@ export default function VRIntegration() {
 
         <Anchor id="training">Training</Anchor>
         <p>
-          Training here is done with the hands, not read off cards. Two stations stand in front
-          of the IFARLAB fence; walk up to one and a round start button appears beside it. Press
-          it with the ray and the trigger, or reach out and close your hand on it.
+          Training here is done with the hands. Four stations stand along the front of the
+          IFARLAB cell, west to east; walk up to one and a round start button appears beside it.
+          Press it with the ray and the trigger, or reach out and close your hand on it.
         </p>
         <GridTable
           head={['Station', 'What you do', 'What happens']}
           rows={[
-            [<strong>Pick &amp; place</strong>, 'Take a box from the small table and set it on the glowing square at the end of the roller infeed, outside the fence. Three boxes, one at a time.', 'The box rolls in through the fence onto the conveyor, and the real cell takes over: the UR10e looks at it with its camera, grips it, carries it down its rail and sets it on the aluminium table.'],
             [<strong>Assemble the arm</strong>, 'Take a UR10e apart, outermost piece first: tool end, wrist, forearm, upper arm, shoulder, each onto its place on the parts bench. Then build it again, shoulder first.', 'Each piece seats with a click when it is close enough to its place. The rebuilt arm waves.'],
+            [<strong>Pick &amp; place</strong>, 'Take a box from the small table and set it on the glowing square at the end of the roller infeed, outside the fence. Three boxes, one at a time.', 'The box rolls in through a gap in the fence, between a light curtain\'s posts, onto the conveyor, and the real cell takes over: the UR10e looks at it with its camera, grips it, carries it down its rail and sets it on the aluminium table.'],
+            [<strong>Emergency stop</strong>, 'Watch the cell under its stack light. The moment the light turns red and the alarm sounds, hit the red mushroom button -- push it with your hand, or point and pull the trigger. Then grab it to release it, and press the blue reset button.', 'Both arms freeze where they are and the time you took is shown; after the reset the light goes amber, then green, and they carry on. A press before the red light is a false start.'],
+            [<strong>Safety gear</strong>, 'Pick up the helmet, the safety glasses, the ear defenders and the hi-vis vest in turn, and bring each where it is worn: head, eyes, ears, chest.', 'Each goes on with a click as it reaches you. With the ear defenders on, the hall\'s sound is muffled; alarms and feedback stay clear.'],
           ]}
         />
-        <p>No words are needed along the way; the station shows what to do:</p>
+        <p>Each move is spelled out as it comes, and the station shows where:</p>
         <ul>
+          <li><strong>An instruction card</strong> floats over what to act on, turned to you: the step (&quot;Box 2 of 3&quot;, &quot;Take apart · 3 of 5&quot;), an icon for the move -- grab, carry, let go, watch, press, put on -- a few words (&quot;Grab the glowing box&quot;, &quot;Carry it to the blue square on the belt&quot;) and the button to use.</li>
+          <li><strong>Arrows</strong> stream from your hand to what to take, from what you hold to where it goes, and along the belt to where the robot picks the box.</li>
+          <li><strong>An arrow at the edge of your view</strong> points the way when the card is off to one side or behind you.</li>
           <li><strong>What to take</strong> glows and has an amber arrow bobbing over it; it glows brighter when your hand is close enough to take it.</li>
           <li><strong>Where it goes</strong> appears as a see-through copy while you carry it: blue while you are far, green when letting go would seat it.</li>
           <li><strong>Let go in the wrong place</strong> and it floats back to where it was, with a soft pop.</li>
@@ -208,14 +213,16 @@ export default function VRIntegration() {
         </ul>
         <SpecTable rows={[
           ['Picking up', 'Grip or trigger with the hand within about 10 cm of the box or piece; it keeps the hold it was taken with'],
-          ['Seating', 'Letting go within 22 cm of the drop square, or 13 cm of a piece\'s place'],
+          ['Seating', 'Letting go within 22 cm of the drop square, or 13 cm of a piece\'s place; gear goes on within about 20 cm of where it is worn, without letting go'],
+          ['Buttons', 'Pushed by moving a hand into them (within 10 cm), by closing a hand on them, or with the ray and the trigger'],
           ['The arm', 'The same UR10e as in the cell -- the same meshes and joint chain -- on a pedestal in its working pose'],
-          ['One at a time', 'While one station runs, the other\'s button waits; walking more than 20 m away stops it'],
+          ['One at a time', 'While one station runs, the others\' buttons wait; walking more than 20 m away stops it'],
         ]} />
         <Callout title="Headset only">
-          The stations, their boxes and parts and their sounds exist only inside a VR session.
-          Desktop and phone visitors see the hall exactly as before, and the cell&apos;s own pick
-          and place carries on as usual whenever no one is training.
+          The stations, their boxes, parts and gear, and their sounds exist only inside a VR
+          session, and so does the gap in the fence the infeed runs through. Desktop and phone
+          visitors see the hall exactly as before, and the cell&apos;s own pick and place carries on
+          as usual whenever no one is training.
         </Callout>
 
         <Anchor id="sound">Sound</Anchor>
@@ -228,7 +235,9 @@ export default function VRIntegration() {
             ['Robots', 'Now and then, while a robot moves, a short recording of real servos from its moving part, stronger the faster it moves; heard only close to it'],
             ['The infeed', 'Rollers running as a box you handed over rolls in to the conveyor'],
             ['Feedback', 'A click for a button, a pop when you pick something up, a firm click when it seats, a chime for a step, a fanfare at the end, a whoosh for a teleport'],
+            ['Alarm', 'The emergency-stop drill\'s two-tone alarm, and the stop button\'s clunk'],
             ['Haptics', 'The controller buzzes when you pick something up, when it seats and with a teleport'],
+            ['Ear defenders', 'Once the safety-gear training puts them on, the hall\'s recordings are muffled; alarms and feedback are not'],
           ]}
         />
         <p>
@@ -313,7 +322,7 @@ export default function VRIntegration() {
           <li><strong>Follow view:</strong> desktop viewers watch through a headset visitor&apos;s eyes, or from behind them, for presentations.</li>
           <li><strong>&quot;Look here&quot;:</strong> a desktop viewer marks a machine and the headset user sees the marker.</li>
           <li><strong>Collisions with machines:</strong> today only the hall walls stop you.</li>
-          <li><strong>More training stations:</strong> mount a sensor head on an Otokar gantry, change the Kawasaki&apos;s tool, stop the cell with the emergency stop.</li>
+          <li><strong>More training stations:</strong> lockout/tagout before entering the cell (stop, isolate, padlock and tag the main switch); sort damaged boxes off the belt before the robot takes them; stack a pallet to a pattern; mount a sensor head on an Otokar gantry.</li>
         </ul>
       </article>
     </div>
