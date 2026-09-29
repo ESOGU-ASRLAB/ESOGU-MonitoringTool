@@ -38,7 +38,20 @@ function emit() {
 let socket = null;
 let wanted = false;
 let kind = 'desktop';
+// The name this visitor gave (VisitorName.js), '' for none; the server makes
+// it their label, or keeps "Visitor N".
+let name = '';
 let attempts = 0;
+
+function sendHello() {
+  if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ t: 'hello', kind, name }));
+}
+
+/** The name others see over this visitor's worker ('' for "Visitor N"). */
+export function setPresenceName(value) {
+  name = value || '';
+  sendHello();
+}
 let retryTimer = null;
 let lastSent = null;
 let lastSentAt = 0;
@@ -80,6 +93,9 @@ function handleMessage(data) {
     case 'leave':
       if (peers.delete(msg.id)) emit();
       break;
+    case 'you':
+      if (self) self.label = msg.label;
+      break;
     default:
   }
 }
@@ -97,7 +113,7 @@ function connect() {
   ws.onopen = () => {
     attempts = 0;
     lastSent = null;
-    ws.send(JSON.stringify({ t: 'hello', kind }));
+    ws.send(JSON.stringify({ t: 'hello', kind, name }));
   };
   ws.onmessage = (event) => handleMessage(event.data);
   ws.onclose = () => {
@@ -185,6 +201,6 @@ export function usePresence(currentKind) {
 
   useEffect(() => {
     kind = currentKind;
-    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ t: 'hello', kind }));
+    sendHello();
   }, [currentKind]);
 }

@@ -47,6 +47,7 @@ import {
 import { latestJointStates, subscribeJointStates } from "../components/telemetryStream";
 import { usePresence } from "../components/presence";
 import Visitors, { PresenceBroadcaster } from "../components/Visitors";
+import VisitorName from "../components/VisitorName";
 import TrainingStations from "../components/training/TrainingStations";
 import VRSoundscape from "../components/VRSoundscape";
 import { unlockAudio } from "../components/vrAudio";
@@ -921,6 +922,9 @@ export default function DigitalTwin({ liveStatus }) {
             <span className="walk-hint">
               {walkingMode ? "WASD + drag to look" : "Explore factory"}
             </span>
+            {/* The name others in the hall see over this visitor's worker;
+                asked once on the first visit. */}
+            <VisitorName />
             {/* Only where immersive VR is actually available: a Quest, or
                 localhost with the emulator. Desktop visitors never see it. */}
             {vrSupported && (

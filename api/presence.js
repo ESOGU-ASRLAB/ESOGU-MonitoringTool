@@ -5,19 +5,21 @@
 // Every open page -- a desktop browser or a headset -- holds one WebSocket at
 // /api/presence. It says which kind it is, then reports where its viewer
 // stands (x and z on the floor, in metres, and a heading) whenever that
-// changes. The server hands each page a short label ("Visitor 3"), relays
-// poses to everyone else, and says when people come and go. The scene draws
-// every other visitor as a worker at their pose.
+// changes. The server hands each page a short label -- the name its visitor
+// typed in, or "Visitor 3" -- relays poses to everyone else, and says when
+// people come and go. The scene draws every other visitor as a worker at
+// their pose, with the label over it.
 //
-// Nothing is stored and nothing identifies a person: a restart only means
-// everyone reconnects and gets a label again.
+// Nothing is stored: a name lives only as long as its connection, and a
+// restart only means everyone reconnects and says who they are again.
 //
 // Messages are small JSON objects with a one-word type `t`:
 //
-//   page -> server   { t: 'hello', kind: 'desktop' | 'vr' }   (again on change)
+//   page -> server   { t: 'hello', kind: 'desktop' | 'vr', name? } (again on change)
 //                    { t: 'pose', x, z, yaw }
 //   server -> page   { t: 'welcome', id, label, peers: [{ id, label, kind, pose }] }
 //                    { t: 'peer', id, label, kind }            (joined / changed)
+//                    { t: 'you', label }                       (own label changed)
 //                    { t: 'pose', id, x, z, yaw }
 //                    { t: 'leave', id }
 
@@ -39,8 +41,25 @@ const MAX_BUFFERED_BYTES = 64 * 1024;
 // Generous box around the hall: anything outside is a bug or a forgery.
 const LIMIT_M = 60;
 const KINDS = new Set(['desktop', 'vr']);
+const NAME_MAX = 24;
+// A name may change this often, so nobody can flash labels at everyone.
+const NAME_CHANGES_PER_MINUTE = 6;
 
 const round2 = (v) => Math.round(v * 100) / 100;
+
+/*
+ * A visitor's name as others will see it: letters in any script, digits,
+ * spaces and . ' - _ only, whitespace collapsed, at most NAME_MAX
+ * characters; '' when nothing is left. It is drawn onto a texture, never
+ * into HTML, but a label everyone sees should still be plain text.
+ */
+function cleanName(value) {
+  if (typeof value !== 'string') return '';
+  return [...value.normalize('NFC').replace(/[^\p{L}\p{M}\p{N} .'\-_]/gu, '').replace(/\s+/g, ' ').trim()]
+    .slice(0, NAME_MAX)
+    .join('')
+    .trim();
+}
 
 function attachPresence(server, { originAllowed = () => true, httpLimiter = null } = {}) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD_BYTES });
@@ -118,6 +137,7 @@ function attachPresence(server, { originAllowed = () => true, httpLimiter = null
       pose: null,
       alive: true,
       tokens: MAX_POSES_PER_SECOND,
+      renames: [],
       refill: Date.now(),
     };
     nextId += 1;
@@ -146,9 +166,25 @@ function attachPresence(server, { originAllowed = () => true, httpLimiter = null
       if (!msg || typeof msg !== 'object') return;
 
       if (msg.t === 'hello') {
-        if (!KINDS.has(msg.kind) || msg.kind === peer.kind) return;
-        peer.kind = msg.kind;
+        let changed = false;
+        if (KINDS.has(msg.kind) && msg.kind !== peer.kind) {
+          peer.kind = msg.kind;
+          changed = true;
+        }
+        if (msg.name !== undefined) {
+          const label = cleanName(msg.name) || `Visitor ${peer.number}`;
+          const now = Date.now();
+          peer.renames = peer.renames.filter((at) => now - at < 60000);
+          if (label !== peer.label && peer.renames.length < NAME_CHANGES_PER_MINUTE) {
+            peer.renames.push(now);
+            peer.label = label;
+            changed = true;
+          }
+        }
+        if (!changed) return;
         broadcast(peer.id, { t: 'peer', id: peer.id, label: peer.label, kind: peer.kind });
+        // The page's own label, as the others now see it.
+        send(ws, { t: 'you', label: peer.label });
         return;
       }
 

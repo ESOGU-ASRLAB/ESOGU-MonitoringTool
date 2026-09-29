@@ -1,0 +1,118 @@
+/* The name chip under the view controls, and the dialog that asks for it. */
+
+.visitor-name-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* The view controls are a narrow column. */
+  max-width: 112px;
+  padding: 4px 10px;
+  border: 1px solid #d5deea;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.visitor-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visitor-name-chip:hover {
+  border-color: #2060cd;
+  color: #2060cd;
+}
+
+.visitor-name-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2060cd;
+}
+
+.visitor-name-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.visitor-name-card {
+  width: min(400px, 100%);
+  padding: 24px;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+}
+
+.visitor-name-card h2 {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 20px;
+}
+
+.visitor-name-card p {
+  margin: 0 0 16px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.visitor-name-card input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.visitor-name-card input:focus {
+  outline: 2px solid rgba(32, 96, 205, 0.35);
+  border-color: #2060cd;
+}
+
+.visitor-name-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.visitor-name-actions button {
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.visitor-name-skip {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+}
+
+.visitor-name-join {
+  border: 1px solid #2060cd;
+  background: #2060cd;
+  color: #ffffff;
+}
+
+.visitor-name-join:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

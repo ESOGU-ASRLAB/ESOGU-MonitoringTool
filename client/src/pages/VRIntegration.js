@@ -149,14 +149,15 @@ export default function VRIntegration() {
         <GridTable
           head={['Visitor', 'Where they appear', 'Tag']}
           rows={[
-            ['In a headset', 'Where they stand, facing where they look', <><code>Visitor 2 · VR</code></>],
-            ['On a desktop, walk mode', 'Where they walk', <code>Visitor 3</code>],
+            ['In a headset', 'Where they stand, facing where they look', <><code>Ayşe · VR</code></>],
+            ['On a desktop, walk mode', 'Where they walk', <code>Mehmet</code>],
             ['On a desktop, orbit view', '5 m in front of what their view is centred on, facing it: in the opening view, just ahead of where a headset wearer starts', <code>Visitor 4</code>],
           ]}
         />
         <ul>
           <li><strong>Movement</strong> is eased between updates: the worker walks while its visitor moves, with a stride matched to the speed, and stands still when they stop.</li>
-          <li><strong>Names</strong> are handed out by the server when a page connects (<code>Visitor 1</code>, <code>Visitor 2</code>, ...); a number is reused once its visitor has left. Nothing about the person is asked for or stored.</li>
+          <li><strong>Names:</strong> on the first visit to the twin a small dialog asks for yours; it is what the others see over your worker. Skip it and you are <code>Visitor 1</code>, <code>Visitor 2</code> ... (a number is reused once its visitor has left). The name is remembered on your device, and the chip under the view controls shows it and changes it. It is asked for on the page, before Enter VR: there is no keyboard worth using inside the headset.</li>
+          <li><strong>What a name may be:</strong> up to 24 letters (any script), digits, spaces and <code>. &apos; - _</code>; anything else is dropped, on the page and again on the server. It is only relayed while you are connected, never stored, and may change at most six times a minute.</li>
           <li><strong>Leaving</strong> removes the worker at once; a page that disappears without closing (a headset put to sleep, a laptop lid shut) is removed within about a minute.</li>
           <li>You never see yourself, only the others.</li>
         </ul>

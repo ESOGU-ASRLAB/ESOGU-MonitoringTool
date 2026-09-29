@@ -70,12 +70,25 @@ export function PresenceBroadcaster({ bounds, walkingMode, orbitTarget }) {
   return null;
 }
 
-function makeNameTag(text) {
+// Visitors name themselves now (VisitorName.js, up to 24 characters), so a
+// long name is set smaller, and cut with an ellipsis only if it still does
+// not fit.
+const TAG_TEXT_MAX = 440;
+
+function makeNameTag(label) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 128;
   const ctx = canvas.getContext('2d');
-  ctx.font = '600 50px "Segoe UI", Arial, sans-serif';
+  let size = 50;
+  const font = () => `600 ${size}px "Segoe UI", Arial, sans-serif`;
+  ctx.font = font();
+  while (ctx.measureText(label).width > TAG_TEXT_MAX && size > 32) {
+    size -= 2;
+    ctx.font = font();
+  }
+  let text = label;
+  while (ctx.measureText(text).width > TAG_TEXT_MAX && text.length > 4) text = `${text.slice(0, -2)}…`;
   const width = Math.min(500, ctx.measureText(text).width + 64);
   ctx.fillStyle = 'rgba(32, 96, 205, 0.92)';
   ctx.beginPath();
