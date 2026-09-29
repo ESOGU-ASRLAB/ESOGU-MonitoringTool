@@ -1,23 +1,26 @@
-import React, { useEffect, useState } from 'react';
-import { setPresenceName } from './presence';
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { setPresenceName, usePeers } from './presence';
 import './VisitorName.css';
 
 /*
- * WHO YOU ARE IN THE HALL.
+ * NAMES FOR THE PEOPLE IN VR, AND WHO IS IN THERE.
  *
- * Everyone on the page stands in the hall as a worker with a name tag
- * (Visitors.js); the tag read "Visitor 3" until people could say who they
- * are. On the first visit to the twin a small dialog asks for a name -- Skip
- * keeps "Visitor N" -- and it is remembered on this device, sent to the
- * presence server with each connection (presence.js) and never stored
- * there. The chip under the view controls shows it and reopens the dialog.
+ *   VREntryDialog   Enter VR asks for the wearer's name first -- on the page,
+ *                   with the headset browser's own keyboard, since there is
+ *                   none worth using inside VR. Remembered on the device and
+ *                   offered again next time; left empty, the wearer is
+ *                   "Visitor N". Web visitors are not asked: they stay
+ *                   "Visitor N", and DigitalTwin clears the name on leaving VR.
+ *   VRRoster        on the web page, the people in VR right now, each with a
+ *                   blinking green light, live from presence: a name appears
+ *                   the moment its wearer enters and goes when they leave.
  *
- * A headset has no keyboard worth using inside VR, so this is asked on the
- * page, before Enter VR.
+ * Names go to the presence server with each hello (presence.js), which
+ * cleans them the same way and never stores them.
  */
 
-const NAME_KEY = 'matisse-visitor-name';
-const ASKED_KEY = 'matisse-visitor-asked';
+const NAME_KEY = 'matisse-vr-name';
 export const NAME_MAX = 24;
 
 // The same rule as the server (api/presence.js): letters in any script,
@@ -29,103 +32,102 @@ export function cleanName(value) {
     .trim();
 }
 
-function read(key) {
+function readName() {
   try {
-    return window.localStorage.getItem(key);
+    return cleanName(window.localStorage.getItem(NAME_KEY));
   } catch {
-    return null;
+    return '';
   }
 }
 
-function write(key, value) {
+function writeName(value) {
   try {
-    window.localStorage.setItem(key, value);
+    window.localStorage.setItem(NAME_KEY, value);
   } catch {
     // Private mode or storage off: the name lasts this visit only.
   }
 }
 
-export default function VisitorName() {
-  const [name, setName] = useState(() => cleanName(read(NAME_KEY)));
-  const [open, setOpen] = useState(() => read(ASKED_KEY) !== '1');
-  const [draft, setDraft] = useState(name);
+/**
+ * Asks for the wearer's name, then calls onEnter() -- from the button's own
+ * click, so the browser still counts it as the gesture WebXR needs.
+ */
+export function VREntryDialog({ onEnter, onCancel }) {
+  const [draft, setDraft] = useState(readName);
 
-  useEffect(() => {
+  const enter = () => {
+    const name = cleanName(draft);
+    writeName(name);
     setPresenceName(name);
-  }, [name]);
-
-  const save = (value) => {
-    const clean = cleanName(value);
-    setName(clean);
-    write(NAME_KEY, clean);
-    write(ASKED_KEY, '1');
-    setOpen(false);
+    onEnter();
   };
 
-  // Escape closes without changing anything.
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (event) => {
-      if (event.key === 'Escape') {
-        write(ASKED_KEY, '1');
-        setOpen(false);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
-
-  const valid = cleanName(draft).length > 0;
-
-  return (
-    <>
-      <button
-        type="button"
-        className="visitor-name-chip"
-        onClick={() => {
-          setDraft(name);
-          setOpen(true);
+  // Rendered into <body>: the Enter VR button sits in the view controls,
+  // whose backdrop-filter would otherwise hold a fixed overlay inside them.
+  return createPortal((
+    <div
+      className="visitor-name-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="vr-name-title"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onCancel();
+      }}
+    >
+      <form
+        className="visitor-name-card"
+        onSubmit={(event) => {
+          event.preventDefault();
+          enter();
         }}
-        title="The name others in the hall see over your worker"
       >
-        <span className="visitor-name-dot" aria-hidden="true" />
-        <span className="visitor-name-text">{name || 'Set your name'}</span>
-      </button>
-      {open && (
-        <div className="visitor-name-backdrop" role="dialog" aria-modal="true" aria-labelledby="visitor-name-title">
-          <form
-            className="visitor-name-card"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (valid) save(draft);
-            }}
-          >
-            <h2 id="visitor-name-title">What&apos;s your name?</h2>
-            <p>
-              Others in the hall, on the web or in a headset, see it over your worker. It is only
-              sent while you are here and never stored.
-            </p>
-            <input
-              autoFocus
-              type="text"
-              value={draft}
-              maxLength={NAME_MAX}
-              placeholder="Your name"
-              aria-label="Your name"
-              autoComplete="nickname"
-              onChange={(event) => setDraft(event.target.value)}
-            />
-            <div className="visitor-name-actions">
-              <button type="button" className="visitor-name-skip" onClick={() => save(name)}>
-                {name ? 'Cancel' : 'Skip'}
-              </button>
-              <button type="submit" className="visitor-name-join" disabled={!valid}>
-                {name ? 'Save' : 'Join the hall'}
-              </button>
-            </div>
-          </form>
+        <h2 id="vr-name-title">Your name in VR</h2>
+        <p>
+          Others in the hall see it over your worker, and the web page lists who is in VR.
+          Leave it empty to stay &quot;Visitor&quot;. It is never stored on the server.
+        </p>
+        <input
+          autoFocus
+          type="text"
+          value={draft}
+          maxLength={NAME_MAX}
+          placeholder="Your name"
+          aria-label="Your name in VR"
+          autoComplete="nickname"
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <div className="visitor-name-actions">
+          <button type="button" className="visitor-name-skip" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="submit" className="visitor-name-join">
+            Enter VR
+          </button>
         </div>
-      )}
-    </>
+      </form>
+    </div>
+  ), document.body);
+}
+
+/** Who is in VR right now, each with a blinking green light; nothing when nobody is. */
+export function VRRoster() {
+  const peers = usePeers();
+  const inVR = peers.filter((peer) => peer.kind === 'vr');
+  if (inVR.length === 0) return null;
+  return (
+    <div className="vr-roster" aria-live="polite">
+      <div className="vr-roster-head">
+        In VR now
+        <span className="vr-roster-count">{inVR.length}</span>
+      </div>
+      <ul>
+        {inVR.map((peer) => (
+          <li key={peer.id}>
+            <span className="vr-roster-dot" aria-hidden="true" />
+            <span className="vr-roster-name">{peer.label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

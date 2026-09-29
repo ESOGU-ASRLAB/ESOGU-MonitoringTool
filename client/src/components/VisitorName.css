@@ -1,42 +1,4 @@
-/* The name chip under the view controls, and the dialog that asks for it. */
-
-.visitor-name-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  /* The view controls are a narrow column. */
-  max-width: 112px;
-  padding: 4px 10px;
-  border: 1px solid #d5deea;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #0f172a;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.3;
-  cursor: pointer;
-}
-
-.visitor-name-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.visitor-name-chip:hover {
-  border-color: #2060cd;
-  color: #2060cd;
-}
-
-.visitor-name-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #2060cd;
-}
+/* The name asked on Enter VR, and the live list of who is in VR. */
 
 .visitor-name-backdrop {
   position: fixed;
@@ -112,7 +74,89 @@
   color: #ffffff;
 }
 
-.visitor-name-join:disabled {
-  opacity: 0.45;
-  cursor: default;
+/* In VR now: bottom-left of the 3D view (the robot card takes the right). */
+.vr-roster {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 11;
+  min-width: 150px;
+  max-width: 240px;
+  padding: 10px 12px;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 24px -12px rgba(15, 23, 42, 0.35);
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.vr-roster-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.vr-roster-count {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d;
+  text-align: center;
+}
+
+.vr-roster ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vr-roster li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-weight: 600;
+}
+
+.vr-roster-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vr-roster-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: vr-roster-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes vr-roster-blink {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+  }
+  50% {
+    opacity: 0.35;
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vr-roster-dot {
+    animation: none;
+  }
 }

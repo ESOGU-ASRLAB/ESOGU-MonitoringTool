@@ -45,9 +45,9 @@ import {
   xrStore,
 } from "../components/xrSession";
 import { latestJointStates, subscribeJointStates } from "../components/telemetryStream";
-import { usePresence } from "../components/presence";
+import { setPresenceName, usePresence } from "../components/presence";
 import Visitors, { PresenceBroadcaster } from "../components/Visitors";
-import VisitorName from "../components/VisitorName";
+import { VREntryDialog, VRRoster } from "../components/VisitorName";
 import TrainingStations from "../components/training/TrainingStations";
 import VRSoundscape from "../components/VRSoundscape";
 import { unlockAudio } from "../components/vrAudio";
@@ -323,6 +323,12 @@ export default function DigitalTwin({ liveStatus }) {
   const fullScenery = !headsetShading || VR_OPTIONS.scenery === "full";
   // Everyone else looking at the hall, and this page's own place in it.
   usePresence(inVR ? "vr" : "desktop");
+  // Enter VR first asks the wearer's name (VisitorName.js); only people in VR
+  // go by a name, so it is dropped again on leaving.
+  const [askVRName, setAskVRName] = useState(false);
+  useEffect(() => {
+    if (!inVR) setPresenceName("");
+  }, [inVR]);
   // The robot whose details panel is open, if any (RobotInfo.js).
   const [infoRobot, setInfoRobot] = useState(null);
   const closeInfo = useCallback(() => setInfoRobot(null), []);
@@ -906,6 +912,20 @@ export default function DigitalTwin({ liveStatus }) {
           {!inVR && infoRobot && (
             <RobotInfoCard robotId={infoRobot} context={infoContext} onClose={closeInfo} />
           )}
+          {/* Who is in VR right now, live, for the people on the web. */}
+          <VRRoster />
+          {askVRName && (
+            <VREntryDialog
+              onEnter={() => {
+                setAskVRName(false);
+                // The dialog's click is the gesture browsers want before
+                // playing sound, and WebXR before starting a session.
+                unlockAudio();
+                enterVR();
+              }}
+              onCancel={() => setAskVRName(false)}
+            />
+          )}
 
           {/* Manual equivalents of the mouse gestures (rotate / zoom) */}
           <div className="view-controls" aria-label="3D view controls">
@@ -922,9 +942,6 @@ export default function DigitalTwin({ liveStatus }) {
             <span className="walk-hint">
               {walkingMode ? "WASD + drag to look" : "Explore factory"}
             </span>
-            {/* The name others in the hall see over this visitor's worker;
-                asked once on the first visit. */}
-            <VisitorName />
             {/* Only where immersive VR is actually available: a Quest, or
                 localhost with the emulator. Desktop visitors never see it. */}
             {vrSupported && (
@@ -932,10 +949,8 @@ export default function DigitalTwin({ liveStatus }) {
                 type="button"
                 className={`walk-toggle vr-toggle${inVR ? " active" : ""}`}
                 onClick={() => {
-                  // A click is the gesture browsers want before playing sound.
-                  unlockAudio();
                   if (inVR) exitVR();
-                  else enterVR();
+                  else setAskVRName(true);
                 }}
                 aria-pressed={inVR}
                 aria-label={inVR ? "Exit VR" : "Enter VR"}
