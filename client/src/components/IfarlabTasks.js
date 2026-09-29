@@ -239,9 +239,21 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
     state.urHold = false;
   }
 
-  useFrame(({ clock }, delta) => {
+  useFrame(({ clock }) => {
     const state = run.current;
     if (!root.current) return;
+    /*
+     * Time moves by the wall clock, not by useFrame's delta. The delta is
+     * clock.getDelta() at the frame's start, and every getElapsedTime() any
+     * other component calls during the frame resets the same clock, so the
+     * deltas add up to less than the time that passed: run on them, the
+     * UR10e's 21 s cycle took over 100 s on a software-rendered test page,
+     * and visibly longer on a desktop. elapsedTime is read here as a
+     * property, which moves nothing.
+     */
+    const now = clock.elapsedTime;
+    const dt = state.lastNow == null ? 0 : Math.max(0, now - state.lastNow);
+    state.lastNow = now;
     // A headset training may run the UR10e even with the engine off.
     const on = active || cellTraining.active;
     if (!on) {
@@ -262,14 +274,13 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
     // beams go out, and no clock moves -- the Kawasaki's runs off t0, so t0
     // moves with the time spent stopped.
     if (cellTraining.frozen) {
-      if (state.started) state.t0 += delta;
+      if (state.started) state.t0 += dt;
       if (urBeam.current) urBeam.current.visible = false;
       if (kawBeam.current) kawBeam.current.visible = false;
       if (kawSpot.current) kawSpot.current.visible = false;
       return;
     }
 
-    const now = clock.getElapsedTime();
     const { target, aim } = scratch;
 
     if (!state.started) {
@@ -286,7 +297,7 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
     // ---------------------------------------------------------- UR10e
     // Its own clock, so a training can hold it at home between boxes.
     if (state.urT == null) beginUrCycle(state, null);
-    if (!state.urHold) state.urT += delta;
+    if (!state.urHold) state.urT += dt;
     if (state.urHold || state.urT >= UR_CYCLE) {
       if (cellTraining.active) {
         if (state.trainingRun !== cellTraining.run) {
