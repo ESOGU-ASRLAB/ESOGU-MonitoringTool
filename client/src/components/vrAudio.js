@@ -63,6 +63,62 @@ export function onMuteChange(listener) {
   return () => muteListeners.delete(listener);
 }
 
+/*
+ * Ear defenders (the safety-gear training) muffle the hall -- its recordings,
+ * placed or not -- but never the feedback or an alarm, which a real wearer
+ * still hears. Unplaced hall sound runs through hall() and its low-pass; the
+ * placed sounds are muffled by VRSoundscape through the listener's filter
+ * (muffleFilter), on onMuffleChange.
+ */
+let hallBus = null;
+let hallFilter = null;
+let muffled = false;
+const muffleListeners = new Set();
+const MUFFLE_HZ = 650;
+const MUFFLE_GAIN = 0.55;
+
+function hall() {
+  if (!hallBus) {
+    const ctx = audioContext();
+    hallFilter = ctx.createBiquadFilter();
+    hallFilter.type = 'lowpass';
+    hallFilter.frequency.value = muffled ? MUFFLE_HZ : 20000;
+    hallBus = ctx.createGain();
+    hallBus.gain.value = muffled ? MUFFLE_GAIN : 1;
+    hallBus.connect(hallFilter).connect(out());
+  }
+  return hallBus;
+}
+
+export function isMuffled() {
+  return muffled;
+}
+
+export function setMuffled(value) {
+  if (muffled === value) return;
+  muffled = value;
+  if (hallBus) {
+    const t = audioContext().currentTime;
+    hallFilter.frequency.setTargetAtTime(muffled ? MUFFLE_HZ : 20000, t, 0.08);
+    hallBus.gain.setTargetAtTime(muffled ? MUFFLE_GAIN : 1, t, 0.08);
+  }
+  muffleListeners.forEach((listener) => listener(muffled));
+}
+
+/** Calls listener(muffled) on every change; returns an unsubscribe. */
+export function onMuffleChange(listener) {
+  muffleListeners.add(listener);
+  return () => muffleListeners.delete(listener);
+}
+
+/** A fresh low-pass for a listener to hang in its path while muffled. */
+export function muffleFilter() {
+  const filter = audioContext().createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = MUFFLE_HZ;
+  return filter;
+}
+
 // Feedback sounds at one level, under the room.
 let feedbackBus = null;
 function feedback() {
@@ -168,6 +224,35 @@ export function playWhoosh() {
   noise({ duration: 0.3, peak: 0.35, attack: 0.05, freq: 300, to: 2400, q: 1.2 });
 }
 
+/** A mushroom stop button latching down: a heavy clunk. */
+export function playClunk() {
+  noise({ duration: 0.09, peak: 0.6, filter: 'lowpass', freq: 900, q: 0.7 });
+  tone({ freq: 110, to: 70, duration: 0.18, peak: 0.7 });
+}
+
+/**
+ * The cell's alarm: a two-tone call, 0.4 s each, until stop() -- on the
+ * feedback bus, so ear defenders do not hide it. Returns { stop }.
+ */
+export function startAlarm() {
+  let on = true;
+  let high = true;
+  let timer = null;
+  const beat = () => {
+    if (!on) return;
+    tone({ freq: high ? 960 : 770, type: 'triangle', duration: 0.38, peak: 0.55, attack: 0.02 });
+    high = !high;
+    timer = setTimeout(beat, 400);
+  };
+  beat();
+  return {
+    stop() {
+      on = false;
+      clearTimeout(timer);
+    },
+  };
+}
+
 /* ----------------------------- the hall ---------------------------------- */
 
 const SAMPLE_BASE = `${process.env.PUBLIC_URL}/assets/audio`;
@@ -210,7 +295,7 @@ export function sample(name) {
  * the hall; the unplaced bus by default). A loop starts at a random point and
  * fades in over `fadeIn` s. Returns { stop, gain } or null if not loaded.
  */
-export function playSample(name, { dest = out(), gain = 1, rate = 1, loop = false, fadeIn = 0 } = {}) {
+export function playSample(name, { dest = hall(), gain = 1, rate = 1, loop = false, fadeIn = 0 } = {}) {
   const buffer = sample(name);
   if (!buffer) return null;
   const ctx = audioContext();

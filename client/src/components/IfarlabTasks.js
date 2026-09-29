@@ -37,7 +37,9 @@ import { cellTraining } from './training/cellTraining';
  * take the UR10e over through training/cellTraining.js: it clears the table,
  * waits at home at the end of each cycle, and starts the next one only when
  * the wearer has put a box on the infeed -- that box rides in along the
- * infeed and the belt, and the arm picks it and sets it down as usual.
+ * infeed and the belt, and the arm picks it and sets it down as usual. Its
+ * emergency-stop drill (training/EmergencyStopStation.js) freezes both arms
+ * the same way (cellTraining.frozen).
  */
 const DEG = 180 / Math.PI;
 const smooth = (u) => u * u * (3 - 2 * u);
@@ -250,6 +252,17 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
         ur.gripRef.current = null;
         state.started = false;
       }
+      if (urBeam.current) urBeam.current.visible = false;
+      if (kawBeam.current) kawBeam.current.visible = false;
+      if (kawSpot.current) kawSpot.current.visible = false;
+      return;
+    }
+
+    // Emergency stop (the headset's drill): everything holds its pose, the
+    // beams go out, and no clock moves -- the Kawasaki's runs off t0, so t0
+    // moves with the time spent stopped.
+    if (cellTraining.frozen) {
+      if (state.started) state.t0 += delta;
       if (urBeam.current) urBeam.current.visible = false;
       if (kawBeam.current) kawBeam.current.visible = false;
       if (kawSpot.current) kawSpot.current.visible = false;

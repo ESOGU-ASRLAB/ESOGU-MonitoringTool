@@ -12,6 +12,9 @@
  *            where on the infeed it starts, in the workcell frame (metres)
  *   placed   boxes the arm has set on the table since the page opened
  *   waiting  the arm is at home, waiting for a box
+ *   frozen   the emergency stop is in (EmergencyStopStation.js): both arms
+ *            hold where they are, their programs' clocks stand still, and
+ *            they carry on from there once it is reset
  */
 export const cellTraining = {
   active: false,
@@ -19,4 +22,5 @@ export const cellTraining = {
   feeds: [],
   placed: 0,
   waiting: false,
+  frozen: false,
 };

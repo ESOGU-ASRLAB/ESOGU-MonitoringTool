@@ -4,7 +4,8 @@ import { useXRInputSourceState } from '@react-three/xr';
 import * as THREE from 'three';
 import { readTelemetry } from './robotTelemetry';
 import {
-  audioContext, isMuted, loadSample, onMuteChange, playClick, playSample, sample, setMuted, unlockAudio,
+  audioContext, isMuffled, isMuted, loadSample, muffleFilter, onMuffleChange, onMuteChange, playClick, playSample,
+  sample, setMuted, unlockAudio,
 } from './vrAudio';
 import { IS_TEST_HOST } from './xrSession';
 
@@ -103,6 +104,10 @@ export default function VRSoundscape({ targets }) {
     camera.add(listener);
     listener.setMasterVolume(isMuted() ? 0 : 1);
     const offMute = onMuteChange((muted) => listener.setMasterVolume(muted ? 0 : 1));
+    // Ear defenders on (safety-gear training): the placed sounds muffled too.
+    const muffle = (on) => (on ? listener.setFilter(muffleFilter()) : listener.removeFilter());
+    muffle(isMuffled());
+    const offMuffle = onMuffleChange(muffle);
 
     let alive = true;
     const playing = [];
@@ -147,6 +152,7 @@ export default function VRSoundscape({ targets }) {
       session?.removeEventListener('selectstart', unlockAudio);
       clearTimeout(timer);
       offMute();
+      offMuffle();
       playing.forEach((p) => p.stop());
       [...Object.values(spots).flat(), ...people].forEach(({ emitter, input }) => {
         scene.remove(emitter);
