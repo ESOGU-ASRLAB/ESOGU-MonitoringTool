@@ -15,7 +15,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "postbuild": "node -e \"const fs=require('fs');for(const p of ['docs','vr']){fs.mkdirSync('build/'+p,{recursive:true});fs.copyFileSync('build/index.html','build/'+p+'/index.html')}fs.copyFileSync('build/index.html','build/404.html')\"",
+    "postbuild": "node -e \"const fs=require('fs');for(const p of ['docs','vr']){fs.mkdirSync('build/'+p,{recursive:true});fs.copyFileSync('build/index.html','build/'+p+'/index.html')}fs.copyFileSync('build/index.html','build/404.html');fs.rmSync('build/new_usecase/windowdoor.stl',{force:true})\"",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
