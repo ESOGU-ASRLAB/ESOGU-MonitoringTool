@@ -4,7 +4,7 @@ import { useAnimations, useGLTF } from '@react-three/drei';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils';
 import { POLYMER } from './scenePalette';
 import * as THREE from 'three';
-import { WORKER_URL, settleMaterials } from './Worker';
+import { WORKER_URL, settleMaterials, walkPose, workerChains } from './Worker';
 import { limb, solveTwoBone } from './limbIK';
 
 /*
@@ -111,6 +111,7 @@ function CleanerModel() {
   }, [scene]);
   const groupRef = useRef(null);
   const { actions } = useAnimations(animations, groupRef);
+  const chains = useMemo(() => workerChains(operator), [operator]);
   const arms = useMemo(
     () => GRIP.map((grip) => ({ ...grip, bones: limb(operator, grip.side, 'arm') })),
     [operator],
@@ -148,6 +149,10 @@ function CleanerModel() {
     }
     group.position.set(RUN_X, 0, z);
     group.rotation.y = yaw;
+    const returning = t >= leg + TURN_TIME;
+    const distance = returning ? run + RUN_TO_Z - z : z - RUN_FROM_Z;
+    const remaining = returning ? z - RUN_FROM_Z : RUN_TO_Z - z;
+    walkPose(group, chains, Math.max(0, distance), Math.max(0, remaining));
 
     // After the mixer has posed this frame: hands onto the grip.
     group.updateMatrixWorld(true);

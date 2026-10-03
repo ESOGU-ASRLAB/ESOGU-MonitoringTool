@@ -81,9 +81,8 @@ export default function VRIntegration() {
           hall floor between the Otokar inspection cell and the IFARLAB workcell, at real scale,
           while the gantries run their inspection program and the arms their tasks. Other visitors
           appear as workers where they are looking from, and pointing at a robot opens its details.
-          In the headset the hall also sounds like one, and two training stations let you work
-          with your hands: hand the UR10e boxes to pick and place, or take one apart and build it
-          again.
+          In the headset the hall also sounds like one. Five training stations let you work
+          with your hands, including a screw driving exercise on the north cell&apos;s work table.
         </p>
         <SpecTable rows={[
           ['Headset', 'Meta Quest 3 standalone, or a PC VR headset through Chrome or Edge (Quest Link / Air Link)'],
@@ -92,7 +91,7 @@ export default function VRIntegration() {
           ['Scale', '1:1; eye height is the wearer\'s own, raised to standing height for a seated wearer'],
           ['Shared hall', 'Every open page, desktop or headset, is shown to the others as a worker (see Other visitors)'],
           ['Robot details', 'Point and pull the trigger, or click on the desktop, for a robot\'s specifications and live values'],
-          ['Training', 'Two hands-on stations in front of the IFARLAB cell, in the headset only'],
+          ['Training', 'Four hands-on stations in front of the IFARLAB cell and screw driving at the north cell, in the headset only'],
           ['Sound', 'Recorded factory sounds -- the floor, workers, tools, forklifts, servos -- and feedback, in the headset only'],
         ]} />
 
@@ -190,7 +189,7 @@ export default function VRIntegration() {
         <Anchor id="training">Training</Anchor>
         <p>
           Training here is done with the hands. Four stations stand along the front of the
-          IFARLAB cell, west to east; walk up to one and a round start button appears beside it.
+          IFARLAB cell, west to east. A fifth is beside the north cell&apos;s work table. Walk up to one and a round start button appears beside it.
           Press it with the ray and the trigger, or reach out and close your hand on it.
         </p>
         <GridTable
@@ -200,6 +199,7 @@ export default function VRIntegration() {
             [<strong>Pick &amp; place</strong>, 'Take a box from the small table and set it on the glowing square at the end of the roller infeed, outside the fence. Three boxes, one at a time.', 'The box rolls in through a gap in the fence, between a light curtain\'s posts, onto the conveyor, and the real cell takes over: the UR10e looks at it with its camera, grips it, carries it down its rail and sets it on the aluminium table.'],
             [<strong>Emergency stop</strong>, 'Watch the cell under its stack light. The moment the light turns red and the alarm sounds, hit the red mushroom button -- push it with your hand, or point and pull the trigger. Then grab it to release it, and press the blue reset button.', 'Both arms freeze where they are and the time you took is shown; after the reset the light goes amber, then green, and they carry on. A press before the red light is a false start.'],
             [<strong>Safety gear</strong>, 'Pick up the helmet, the safety glasses, the ear defenders and the hi-vis vest in turn, and bring each where it is worn: head, eyes, ears, chest.', 'Each goes on with a click as it reaches you. With the ear defenders on, the hall\'s sound is muffled; alarms and feedback stay clear.'],
+            [<strong>Screw driving</strong>, 'At the north cell, place each of four screws in the glowing hole on the work table. Pick up the handheld driver, point its tip down at the screw and hold the trigger or pinch until it is tight.', 'The north UR10e parks while you use the table. Each screw turns into the plate with sound and controller feedback; finishing all four completes the exercise.'],
           ]}
         />
         <p>Each move is spelled out as it comes, and the station shows where:</p>

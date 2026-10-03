@@ -25,9 +25,11 @@ const MESH_BASE = process.env.PUBLIC_URL + '/meshes/rs005l';
 // Kawasaki machine enamel. This was the worst offender in the scene at
 // metalness 0.72 -- a painted white arm rendered as three-quarters chrome.
 const WHITE_BODY = { ...PAINT.shell };
+const NORTH_BODY = { color: '#d9dde0', metalness: 0.05, roughness: 0.42 };
 
 // Vurgu: Parlak, belirgin kırmızı
 const BLUE_ACCENT = { ...ACCENT.brandBlue };
+const NORTH_ACCENT = { color: '#aeb7bd', metalness: 0.08, roughness: 0.38 };
 
 // Eklemler: Koyu renkli, yansıtıcı anotlanmış metal
 const DARK_JOINT = { ...PAINT.dark };
@@ -74,7 +76,11 @@ export default function KawasakiRobot({
   jointsRef,
   toolRef,
   driveRef,
+  reportTelemetry = true,
+  variant = 'default',
 }) {
+  const body = variant === 'north' ? NORTH_BODY : WHITE_BODY;
+  const accent = variant === 'north' ? NORTH_ACCENT : BLUE_ACCENT;
   const jointRefs = useRef([]);
   if (jointsRef) jointsRef.current = jointRefs.current;
   const timeRef = useRef(0);
@@ -118,7 +124,7 @@ export default function KawasakiRobot({
     // `angles` is in radians here, whichever branch produced it; the readout
     // is in degrees, like the sliders.
     for (let i = 0; i < 6; i += 1) liveRef.current[i] = (angles[i] * 180) / Math.PI;
-    publishTelemetry('kawasaki', liveRef.current);
+    if (reportTelemetry) publishTelemetry('kawasaki', liveRef.current);
   });
 
   return (
@@ -127,22 +133,22 @@ export default function KawasakiRobot({
       <Suspense fallback={null}>
         {/* BASE (J0) */}
         <group>
-          <STLMesh url={`${MESH_BASE}/RS005L_J0.STL`} material={WHITE_BODY} />
+          <STLMesh url={`${MESH_BASE}/RS005L_J0.STL`} material={body} />
 
           {/* JOINT 1: xyz(0, 0, 0.295) axis(0,0,-1) */}
           <group position={[0, 0, 0.295]}>
             <group ref={(el) => (jointRefs.current[0] = el)}>
-              <STLMesh url={`${MESH_BASE}/RS005L_J1.STL`} material={BLUE_ACCENT} />
+              <STLMesh url={`${MESH_BASE}/RS005L_J1.STL`} material={accent} />
 
               {/* JOINT 2: xyz(0, 0.105, 0) rpy(0, -π/2, 0) axis(0,0,1) */}
               <group position={[0, 0.105, 0]} rotation={[0, -Math.PI / 2, 0]}>
                 <group ref={(el) => (jointRefs.current[1] = el)}>
-                  <STLMesh url={`${MESH_BASE}/RS005L_J2.STL`} material={WHITE_BODY} />
+                  <STLMesh url={`${MESH_BASE}/RS005L_J2.STL`} material={body} />
 
                   {/* JOINT 3: xyz(0.380, 0, 0) axis(0,0,-1) */}
                   <group position={[0.380, 0, 0]}>
                     <group ref={(el) => (jointRefs.current[2] = el)}>
-                      <STLMesh url={`${MESH_BASE}/RS005L_J3.STL`} material={BLUE_ACCENT} />
+                      <STLMesh url={`${MESH_BASE}/RS005L_J3.STL`} material={accent} />
 
                       {/* JOINT 4: xyz(0.15, -0.08, 0) rpy(0, π/2, 0) axis(0,0,1) */}
                       <group position={[0.15, -0.08, 0]} rotation={[0, Math.PI / 2, 0]}>
@@ -152,7 +158,7 @@ export default function KawasakiRobot({
                           {/* JOINT 5: xyz(0, 0, 0.26) rpy(0, -π/2, 0) axis(0,0,-1) */}
                           <group position={[0, 0, 0.26]} rotation={[0, -Math.PI / 2, 0]}>
                             <group ref={(el) => (jointRefs.current[4] = el)}>
-                              <STLMesh url={`${MESH_BASE}/RS005L_J5.STL`} material={WHITE_BODY} />
+                              <STLMesh url={`${MESH_BASE}/RS005L_J5.STL`} material={body} />
 
                               {/* JOINT 6: xyz(0.078, 0, 0) rpy(0, π/2, 0) axis(0,0,1) */}
                               <group position={[0.078, 0, 0]} rotation={[0, Math.PI / 2, 0]}>

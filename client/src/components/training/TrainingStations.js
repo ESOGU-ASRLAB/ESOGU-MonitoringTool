@@ -3,6 +3,7 @@ import AssemblyStation from './AssemblyStation';
 import EmergencyStopStation from './EmergencyStopStation';
 import PickPlaceStation from './PickPlaceStation';
 import SafetyGearStation from './SafetyGearStation';
+import ScrewDrivingStation from './ScrewDrivingStation';
 import { useXRHands } from './xrHands';
 import { IS_TEST_HOST } from '../xrSession';
 
@@ -21,6 +22,8 @@ import { IS_TEST_HOST } from '../xrSession';
  *                      release and reset it (EmergencyStopStation.js)
  *   Safety gear        put on helmet, glasses, ear defenders and vest
  *                      (SafetyGearStation.js)
+ * The north cell has a fifth station for placing and driving four screws
+ * on its work table (ScrewDrivingStation.js).
  *
  * Every move is spelled out as it comes, with arrows (guide.js). One station
  * runs at a time; the others' buttons wait.
@@ -31,6 +34,7 @@ export default function TrainingStations() {
   const onRunning = useCallback((id) => (on) => setRunning((current) => (on ? id : current === id ? null : current)), []);
   const handlers = React.useMemo(() => ({
     assembly: onRunning('assembly'), pick: onRunning('pick'), estop: onRunning('estop'), gear: onRunning('gear'),
+    screw: onRunning('screw'),
   }), [onRunning]);
   const busy = (id) => running !== null && running !== id;
   // Automated emulator runs read the hands; never on production.
@@ -41,6 +45,7 @@ export default function TrainingStations() {
       <PickPlaceStation hands={hands} busy={busy('pick')} onRunning={handlers.pick} />
       <EmergencyStopStation hands={hands} busy={busy('estop')} onRunning={handlers.estop} />
       <SafetyGearStation hands={hands} busy={busy('gear')} onRunning={handlers.gear} />
+      <ScrewDrivingStation hands={hands} busy={busy('screw')} onRunning={handlers.screw} />
       <Suspense fallback={null}>
         <AssemblyStation hands={hands} busy={busy('assembly')} onRunning={handlers.assembly} />
       </Suspense>

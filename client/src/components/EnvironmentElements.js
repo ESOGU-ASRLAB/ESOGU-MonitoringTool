@@ -197,7 +197,7 @@ function ConveyorMesh() {
   return <mesh geometry={geometry} material={materials} scale={MM_TO_M} receiveShadow />;
 }
 
-function Furniture() {
+function Furniture({ showChassis }) {
   return (
     <Suspense fallback={null}>
       <EnvMesh
@@ -214,7 +214,7 @@ function Furniture() {
       {/* Turned end for end about its own vertical centre line
           (x -1.113, y 1.235), so its open side faces the Kawasaki and the arm
           reaches in through the gaps instead of meeting the side panels. */}
-      <ChassisMesh position={[-2.226, 2.47, 0]} rotation={[0, 0, Math.PI]} />
+      {showChassis && <ChassisMesh position={[-2.226, 2.47, 0]} rotation={[0, 0, Math.PI]} />}
     </Suspense>
   );
 }
@@ -266,7 +266,7 @@ const BARRIER_AT = (x, y, rotated = false) => {
  * infeed through there to the belt (training/PickPlaceStation.js), and the
  * panel stood right across it.
  */
-function Facility({ infeedOpening }) {
+function Facility({ infeedOpening, workTableOpening }) {
   return (
     <Suspense fallback={null}>
       {!infeedOpening && (
@@ -338,13 +338,15 @@ function Facility({ infeedOpening }) {
         position={BARRIER_AT(1.117, 3.594)}
         receiveShadow
       />
-      <EnvMesh
-        url={`${FACILITY_BASE}/barrier.stl`}
-        material={FACILITY_GRAY}
-        position={BARRIER_AT(1.7, 2.525, true)}
-        rotation={[0, 0, Math.PI / 2]}
-        receiveShadow
-      />
+      {!workTableOpening && (
+        <EnvMesh
+          url={`${FACILITY_BASE}/barrier.stl`}
+          material={FACILITY_GRAY}
+          position={BARRIER_AT(1.7, 2.525, true)}
+          rotation={[0, 0, Math.PI / 2]}
+          receiveShadow
+        />
+      )}
 
       {/* Fence added in front of the conveyor */}
       <EnvMesh
@@ -359,13 +361,13 @@ function Facility({ infeedOpening }) {
   );
 }
 
-export default function EnvironmentElements({ showEnvironment = true, infeedOpening = false }) {
+export default function EnvironmentElements({ showEnvironment = true, infeedOpening = false, workTableOpening = false, showChassis = true }) {
   if (!showEnvironment) return null;
 
   return (
     <group rotation={[-Math.PI / 2, 0, 0]}>
-      <Furniture />
-      <Facility infeedOpening={infeedOpening} />
+      <Furniture showChassis={showChassis} />
+      <Facility infeedOpening={infeedOpening} workTableOpening={workTableOpening} />
     </group>
   );
 }

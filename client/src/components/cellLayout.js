@@ -34,3 +34,7 @@
  * offset that clearance is 2.98 m.
  */
 export const IFARLAB_OFFSET = Object.freeze([6.18, 0, 11]);
+
+// Same x alignment, 7 m farther into the hall (-z/north in the opening view).
+// The measured fence bounds leave 2.23 m of clear space between the cells.
+export const IFARLAB_COPY_OFFSET = Object.freeze([IFARLAB_OFFSET[0], IFARLAB_OFFSET[1], IFARLAB_OFFSET[2] - 7]);

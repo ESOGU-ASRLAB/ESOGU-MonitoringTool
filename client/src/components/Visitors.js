@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useAnimations, useGLTF } from '@react-three/drei';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils';
 import * as THREE from 'three';
-import { WORKER_URL, holdPose, settleMaterials, workerChains } from './Worker';
+import { WORKER_URL, holdPose, settleMaterials, walkPose, workerChains } from './Worker';
 import { getPeer, publishPose, usePeers } from './presence';
 
 /*
@@ -113,7 +113,7 @@ function VisitorModel({ id, label, kind }) {
   const groupRef = useRef(null);
   const { actions } = useAnimations(animations, groupRef);
   const actionRef = useRef(null);
-  const motion = useRef({ placed: false, speed: 0 });
+  const motion = useRef({ placed: false, speed: 0, distance: 0 });
 
   const tagText = kind === 'vr' ? `${label} · VR` : label;
   const tag = useMemo(() => makeNameTag(tagText), [tagText]);
@@ -148,6 +148,7 @@ function VisitorModel({ id, label, kind }) {
       group.position.x += dx * k;
       group.position.z += dz * k;
       const step = distance * k;
+      m.distance += step;
       m.speed += ((delta > 0 ? step / delta : 0) - m.speed) * Math.min(1, delta * 5);
       // Walking, she faces where she is going; standing, where the viewer looks.
       const facing = m.speed > WALK_SPEED_M_S && distance > 0.05 ? Math.atan2(dx, dz) : pose.yaw;
@@ -160,6 +161,7 @@ function VisitorModel({ id, label, kind }) {
         action.paused = false;
         action.timeScale = THREE.MathUtils.clamp(m.speed / CLIP_SPEED_M_S, 0.6, 2.5);
       }
+      walkPose(group, chains, m.distance);
     } else {
       if (action) action.paused = true;
       holdPose(group, chains, 'observe');

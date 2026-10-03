@@ -22,12 +22,14 @@ const MESH_BASE = process.env.PUBLIC_URL + '/meshes/ur10e';
 // alloy: it took the room's colour instead of its own and lost its form the
 // moment it left a highlight.
 const SILVER = { ...PAINT.shell };
+const NORTH_SHELL = { color: '#d9dde0', metalness: 0.05, roughness: 0.43 };
 
 // Eklemler/Motorlar: Koyu renkli döküm metal
 const DARK_METAL = { ...PAINT.dark };
 
 // Vurgu kapakları: Anotlanmış mavi alüminyum veya sert plastik
 const BLUE_ACCENT = { ...ACCENT.brandBlue };
+const NORTH_ACCENT = { color: '#aeb7bd', metalness: 0.08, roughness: 0.42 };
 
 // Tutucu uç: İşlenmiş karbon çeliği veya mat koyu metal
 // The gripper body is anodised alloy -- genuinely bare, so genuinely metallic.
@@ -85,13 +87,57 @@ function CoordinateFrame({ size = 0.1 }) {
   );
 }
 
+function ScrewdriverTool({ spinRef, screwLoadedRef, toolRef }) {
+  const bit = useRef(null);
+  const carriedScrew = useRef(null);
+  useFrame((_, delta) => {
+    if (bit.current && spinRef?.current) bit.current.rotation.x += delta * 24;
+    if (carriedScrew.current) carriedScrew.current.visible = Boolean(screwLoadedRef?.current);
+  });
+  return (
+    <group position={[0, 0.1, -0.01]}>
+      <mesh rotation={[0, 0, -Math.PI / 2]} position={[0.065, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.042, 0.042, 0.085, 24]} />
+        <meshStandardMaterial color="#303b46" metalness={0.48} roughness={0.38} />
+      </mesh>
+      <mesh rotation={[0, 0, -Math.PI / 2]} position={[0.125, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.032, 0.034, 0.06, 24]} />
+        <meshStandardMaterial color="#1676a5" metalness={0.42} roughness={0.32} />
+      </mesh>
+      <mesh rotation={[0, 0, -Math.PI / 2]} position={[0.167, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.013, 0.024, 0.035, 16]} />
+        <meshStandardMaterial color="#a9b6c0" metalness={0.8} roughness={0.23} />
+      </mesh>
+      <group ref={bit} position={[0.205, 0, 0]}>
+        <mesh rotation={[0, 0, -Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[0.006, 0.006, 0.075, 12]} />
+          <meshStandardMaterial color="#bac5ce" metalness={0.85} roughness={0.2} />
+        </mesh>
+        <mesh position={[0, 0.006, 0]}>
+          <boxGeometry args={[0.065, 0.002, 0.002]} />
+          <meshStandardMaterial color="#38444d" metalness={0.7} roughness={0.3} />
+        </mesh>
+        <mesh position={[0.039, 0, 0]} rotation={[0, 0, -Math.PI / 2]} castShadow>
+          <coneGeometry args={[0.007, 0.015, 8]} />
+          <meshStandardMaterial color="#d7e1e7" metalness={0.9} roughness={0.18} />
+        </mesh>
+      </group>
+      <mesh ref={carriedScrew} position={[0.25, 0, 0]} rotation={[0, 0, -Math.PI / 2]} visible={false}>
+        <cylinderGeometry args={[0.01, 0.006, 0.022, 12]} />
+        <meshStandardMaterial color="#b6c0c8" metalness={0.8} roughness={0.25} />
+      </mesh>
+      <group ref={toolRef} position={[0.25, 0, 0]} />
+    </group>
+  );
+}
+
 /*
  * Driven from outside (IfarlabTasks.js), the arm takes its pose and grip from
  * refs instead of props, so a task can move it every frame without React:
  *
  *   jointsRef  receives the six joint groups, for the task's IK to work on
- *   toolRef    receives a node at the gripper's fingertip centre; the tool
- *              points along its local +x (the fingers open across local z)
+ *   toolRef    receives the active tool tip (gripper or screwdriver); both
+ *              tools point along local +x
  *   driveRef   when its .current is an array of six angles in degrees, the arm
  *              follows it and the demo sway is skipped
  *   gripRef    when set, its .current (0 closed .. 1 open) drives the fingers
@@ -106,7 +152,14 @@ export default function UR10eRobot({
   toolRef,
   driveRef,
   gripRef,
+  reportTelemetry = true,
+  toolMode = 'gripper',
+  screwdriverSpinRef,
+  screwLoadedRef,
+  variant = 'default',
 }) {
+  const shell = variant === 'north' ? NORTH_SHELL : SILVER;
+  const accent = variant === 'north' ? NORTH_ACCENT : BLUE_ACCENT;
   const jointRefs = useRef([]);
   const upperFinger = useRef(null);
   const lowerFinger = useRef(null);
@@ -170,7 +223,7 @@ export default function UR10eRobot({
       if (jointRefs.current[5]) jointRefs.current[5].rotation.y = toRad(jointAngles[5]);
       for (let i = 0; i < 6; i += 1) liveRef.current[i] = jointAngles[i];
     }
-    publishTelemetry('ur10e', liveRef.current);
+    if (reportTelemetry) publishTelemetry('ur10e', liveRef.current);
   });
 
   /*
@@ -194,7 +247,7 @@ export default function UR10eRobot({
             <STLMesh
               url={`${MESH_BASE}/base.stl`}
               position={[0.105561, -0.1918, -0.6445]}
-              material={SILVER}
+              material={shell}
             />
 
             {/* ===== JOINT 1: shoulder_pan_joint (axis Z) ===== */}
@@ -203,7 +256,7 @@ export default function UR10eRobot({
                 <STLMesh
                   url={`${MESH_BASE}/shoulder.stl`}
                   position={[0.105565, -0.1918, -0.74405]}
-                  material={BLUE_ACCENT}
+                  material={accent}
                 />
                 {showFrames && <CoordinateFrame size={0.12} />}
 
@@ -213,7 +266,7 @@ export default function UR10eRobot({
                     <STLMesh
                       url={`${MESH_BASE}/upperarm.stl`}
                       position={[0.105565, -0.2778, -0.83405]}
-                      material={SILVER}
+                      material={shell}
                     />
                     {showFrames && <CoordinateFrame size={0.1} />}
 
@@ -223,7 +276,7 @@ export default function UR10eRobot({
                         <STLMesh
                           url={`${MESH_BASE}/forearm.stl`}
                           position={[-0.506534, -0.299691, -0.833449]}
-                          material={BLUE_ACCENT}
+                          material={accent}
                         />
                         {showFrames && <CoordinateFrame size={0.08} />}
 
@@ -233,7 +286,7 @@ export default function UR10eRobot({
                             <STLMesh
                               url={`${MESH_BASE}/wrist1.stl`}
                               position={[-1.078132, -0.301691, -0.833449]}
-                              material={SILVER}
+                              material={shell}
                             />
                             {showFrames && <CoordinateFrame size={0.07} />}
 
@@ -243,7 +296,7 @@ export default function UR10eRobot({
                                 <STLMesh
                                   url={`${MESH_BASE}/wrist2.stl`}
                                   position={[-1.078132, -0.355691, -0.77175]}
-                                  material={BLUE_ACCENT}
+                                  material={accent}
                                 />
                                 {showFrames && <CoordinateFrame size={0.06} />}
 
@@ -253,7 +306,7 @@ export default function UR10eRobot({
                                     <STLMesh
                                       url={`${MESH_BASE}/wrist3.stl`}
                                       position={[-1.078132, -0.417389, -0.71775]}
-                                      material={SILVER}
+                                      material={shell}
                                     />
                                     {showFrames && <CoordinateFrame size={0.05} />}
 
@@ -278,10 +331,13 @@ export default function UR10eRobot({
                                           <STLMesh
                                             url={`${MESH_BASE}/sick_camera_mo.stl`}
                                             position={[-1.02433, -0.5466, -0.730752]}
-                                            material={BLUE_ACCENT}
+                                            material={accent}
                                           />
                                         </group>
 
+                                        {toolMode === 'screwdriver' ? (
+                                          <ScrewdriverTool spinRef={screwdriverSpinRef} screwLoadedRef={screwLoadedRef} toolRef={toolRef} />
+                                        ) : (<>
                                         {/* Gripper (fixed body + opening fingers, mounted on flange) */}
                                         <STLMesh
                                           url={`${MESH_BASE}/gripper_body_1.stl`}
@@ -306,6 +362,7 @@ export default function UR10eRobot({
                                         {/* Fingertip centre, measured off the finger meshes
                                             (x 0.095..0.162, y 0.068..0.131 in this frame). */}
                                         <group ref={toolRef} position={[0.16, 0.1, -0.01]} />
+                                        </>)}
                                       </group>
 
                                       {/* Cable channel flange (fixed from tool0) */}

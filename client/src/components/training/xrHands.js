@@ -33,6 +33,9 @@ export function useXRHands() {
     closed: false,
     pressed: false,
     released: false,
+    trigger: false,
+    triggerPressed: false,
+    grip: false,
     holding: null,
     pinch: false,
   })), []);
@@ -60,6 +63,7 @@ export function useXRHands() {
     for (const hand of hands) {
       hand.pressed = false;
       hand.released = false;
+      hand.triggerPressed = false;
       hand.seen = false;
     }
     const session = gl.xr.getSession();
@@ -77,9 +81,12 @@ export function useXRHands() {
         hand.matrix.fromArray(pose.transform.matrix).premultiply(origin.matrixWorld);
         hand.matrix.decompose(hand.position, hand.quaternion, scratchScale);
         const buttons = source.gamepad?.buttons || [];
-        const closed = source.hand
-          ? hand.pinch
-          : (buttons[1]?.value ?? 0) > CLOSED_AT || (buttons[0]?.value ?? 0) > CLOSED_AT;
+        const trigger = source.hand ? hand.pinch : (buttons[0]?.value ?? 0) > CLOSED_AT;
+        const grip = source.hand ? hand.pinch : (buttons[1]?.value ?? 0) > CLOSED_AT;
+        const closed = trigger || grip;
+        hand.triggerPressed = trigger && !hand.trigger;
+        hand.trigger = trigger;
+        hand.grip = grip;
         hand.pressed = closed && !hand.closed;
         hand.released = !closed && hand.closed;
         hand.closed = closed;
@@ -90,6 +97,10 @@ export function useXRHands() {
       if (!hand.seen && hand.closed) {
         hand.closed = false;
         hand.released = true;
+      }
+      if (!hand.seen) {
+        hand.trigger = false;
+        hand.grip = false;
       }
       hand.tracked = hand.seen;
     }

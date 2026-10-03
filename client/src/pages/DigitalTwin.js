@@ -12,6 +12,7 @@ import IfarlabTasks from "../components/IfarlabTasks";
 import ServerCabinets, { IfarlabCabinet } from "../components/ServerCabinets";
 import RobotCameraFeeds from "../components/RobotCameraFeeds";
 import EnvironmentElements from "../components/EnvironmentElements";
+import IfarlabCellCopy from "../components/IfarlabCellCopy";
 import Factory from "../components/Factory";
 import Bus from "../components/Bus";
 import Workers from "../components/Workers";
@@ -336,6 +337,8 @@ export default function DigitalTwin({ liveStatus }) {
 
   const ur10eGroupRef = useRef(null);
   const agvGroupRef = useRef(null);
+  const assistantToolRef = useRef(null);
+  const assistantActiveRef = useRef(false);
   // Refs the IFARLAB tasks drive the two arms through (IfarlabTasks.js).
   const urJointsRef = useRef(null);
   const urToolRef = useRef(null);
@@ -715,7 +718,7 @@ export default function DigitalTwin({ liveStatus }) {
 
                Nothing stands in the view cone within 4 m, checked against the
                warehouse racking the same way as the earlier framings. */
-            camera={{ position: [9.91, 3.6, 39.83], fov: 30, near: 0.05, far: 150 }}
+            camera={{ position: [15.0, 6.0, 39.83], fov: 30, near: 0.05, far: 150 }}
             onCreated={(state) => {
               desktopCameraRef.current = state.camera;
             }}
@@ -789,6 +792,7 @@ export default function DigitalTwin({ liveStatus }) {
                     <IfarlabTasks active={animate} ur={urTask} kawasaki={kawTask} />
                     <IfarlabCabinet />
                   </group>
+                  <IfarlabCellCopy active={animate} inVR={inVR} assistantToolRef={assistantToolRef} assistantActiveRef={assistantActiveRef} />
                   {/* Each robot's camera view, rendered small for the panel. */}
                   <RobotCameraFeeds ur={urTask} kawasaki={kawTask} />
                   <OtokarCell
@@ -828,7 +832,7 @@ export default function DigitalTwin({ liveStatus }) {
                       {fullScenery && <FloorCleaner />}
                       <GarageDoors />
                       {fullScenery && <Yard />}
-                      <Workers />
+                      <Workers assistantToolRef={assistantToolRef} assistantActiveRef={assistantActiveRef} />
                       {fullScenery && <Drones />}
                     </>
                   )}
@@ -857,7 +861,7 @@ export default function DigitalTwin({ liveStatus }) {
                    centre lifts the tall machines into the frame rather than
                    cutting them, and from a 9 m eye that is what keeps the
                    gantries whole. */
-                target={ORBIT_TARGET}
+                target={[-1.3, 1.8, -1.17]}
                 /* DEV ONLY: prints the camera pose whenever a drag or zoom
                    settles, so a framing found by hand can be read off exactly
                    and pasted into the `camera` prop above rather than guessed

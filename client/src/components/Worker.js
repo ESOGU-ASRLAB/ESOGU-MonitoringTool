@@ -104,6 +104,29 @@ export function holdPose(group, chains, mode) {
   }
 }
 
+// Place each foot from distance travelled, so the stance foot moves backwards
+// at the same rate as the body moves forwards. This also works when a route
+// eases into and out of a station instead of moving at the clip's fixed speed.
+export function walkPose(group, chains, distance, remaining = Infinity) {
+  const fade = Math.min(1, distance / 0.18, remaining / 0.18);
+  group.updateMatrixWorld(true);
+  for (const { side, leg } of chains) {
+    if (leg.some((bone) => !bone)) continue;
+    const step = (distance + (side === 'Left' ? 0 : 0.32)) % 0.64;
+    const swing = step >= 0.32;
+    const swingT = swing ? (step - 0.32) / 0.32 : 0;
+    const forward = swing ? -0.16 + 0.32 * swingT : 0.16 - step;
+    const foot = FEET[side];
+    group.localToWorld(stanceTarget.set(
+      foot[0],
+      foot[1] + (swing ? 0.1 * Math.sin(Math.PI * swingT) * fade : 0),
+      foot[2] + forward * fade,
+    ));
+    group.localToWorld(stancePole.set(...KNEES[side]));
+    solveTwoBone(...leg, stanceTarget, stancePole);
+  }
+}
+
 // Deterministic per worker, so a reload replays the same (varied) day.
 function seededRandom(seed) {
   let state = seed | 0;
@@ -129,7 +152,7 @@ function pickMode(random, only) {
 
 const faceTowards = (from, to) => Math.atan2(to[0] - from[0], to[1] - from[1]);
 
-function WorkerModel({ stations, seed = 1, modes }) {
+function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveRef }) {
   const { scene, animations } = useGLTF(WORKER_URL);
   // SkeletonUtils rebinds bones per walker while geometry and textures remain shared.
   const clone = useMemo(() => {
@@ -143,6 +166,7 @@ function WorkerModel({ stations, seed = 1, modes }) {
   const chains = useMemo(() => workerChains(clone), [clone]);
   const random = useMemo(() => seededRandom(seed), [seed]);
   const plan = useRef(null);
+  const assist = useMemo(() => ({ target: new THREE.Vector3(), hand: new THREE.Vector3(), lateral: new THREE.Vector3(), pole: new THREE.Vector3() }), []);
 
   useEffect(() => {
     const action = actions['Armature|mixamo.com|Layer0'] || Object.values(actions)[0];
@@ -158,6 +182,29 @@ function WorkerModel({ stations, seed = 1, modes }) {
     const group = groupRef.current;
     if (!group || !stations.length) return;
     const now = clock.getElapsedTime();
+
+    if (assistActiveRef?.current && assistTargetRef?.current) {
+      assistTargetRef.current.getWorldPosition(assist.target);
+      // Stand inside the new cell beside the work table, with both hands on the
+      // UR tool housing while the robot seats each screw.
+      group.position.set(assist.target.x + 0.5, 0, assist.target.z + 0.08);
+      group.rotation.y = faceTowards([group.position.x, group.position.z], [assist.target.x, assist.target.z]);
+      if (actionRef.current) actionRef.current.paused = true;
+      if (pendantRef.current) pendantRef.current.visible = false;
+      holdPose(group, chains, 'observe');
+      assist.lateral.set(1, 0, 0).applyQuaternion(group.quaternion);
+      for (const { side, arm } of chains) {
+        if (arm.some((bone) => !bone)) continue;
+        const sign = side === 'Left' ? 1 : -1;
+        assist.hand.copy(assist.target);
+        assist.hand.x += 0.11;
+        assist.hand.y += 0.11;
+        assist.hand.addScaledVector(assist.lateral, sign * 0.065);
+        group.localToWorld(assist.pole.set(sign * 0.45, 1.05, -0.25));
+        solveTwoBone(...arm, assist.hand, assist.pole);
+      }
+      return;
+    }
 
     // Start at a random station, part-way through a spell there.
     if (!plan.current) {
@@ -184,11 +231,13 @@ function WorkerModel({ stations, seed = 1, modes }) {
     if (p.phase === 'walk') {
       const from = stations[p.at].at;
       const to = stations[p.next].at;
+      const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
       const u = (1 - Math.cos(Math.PI * Math.min((now - p.start) / p.time, 1))) / 2;
       group.position.set(from[0] + (to[0] - from[0]) * u, 0, from[1] + (to[1] - from[1]) * u);
       group.rotation.y = faceTowards(from, to);
       if (actionRef.current) actionRef.current.paused = false;
       if (pendantRef.current) pendantRef.current.visible = false;
+      walkPose(group, chains, length * u, length * (1 - u));
       return;
     }
 
@@ -206,8 +255,8 @@ function WorkerModel({ stations, seed = 1, modes }) {
   return (
     <group ref={groupRef}>
       <primitive object={clone} />
-      {/* The UR teach pendant, held in both hands with its screen towards her. */}
-      <group ref={pendantRef} position={[0, 1.03, 0.32]} rotation={[-0.7, 0, 0]} visible={false}>
+      {/* Turn the screen outwards and slightly up so visitors can read it. */}
+      <group ref={pendantRef} position={[0, 1.03, 0.32]} rotation={[-0.4, Math.PI, 0]} visible={false}>
         <TeachPendant />
       </group>
     </group>

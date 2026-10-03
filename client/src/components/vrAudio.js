@@ -203,6 +203,12 @@ export function playSnap() {
   tone({ freq: 880, type: 'triangle', start: 0.03, duration: 0.18, peak: 0.25 });
 }
 
+/** Brief motor whirr while a handheld screwdriver is driving a fastener. */
+export function playScrewDrive() {
+  noise({ duration: 0.18, peak: 0.2, filter: 'bandpass', freq: 1100, q: 1.8 });
+  tone({ freq: 155, type: 'sawtooth', duration: 0.18, peak: 0.12 });
+}
+
 /** A step done: a light rising arpeggio, marimba-like. */
 export function playSuccess() {
   [523.25, 659.25, 783.99].forEach((freq, i) => tone({ freq, type: 'triangle', start: i * 0.08, duration: 0.3, peak: 0.45 }));
