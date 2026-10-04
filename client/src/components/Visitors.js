@@ -16,13 +16,15 @@ import { getPeer, publishPose, usePeers } from './presence';
  * entered VR (who starts 8 m in front of the orbit target, facing it). It is
  * placed instead where a person would stand to watch what that view shows:
  * ORBIT_VIEWER_DISTANCE short of the orbit target along the view's heading,
- * facing it -- in the opening view, 3 m in front of a new headset wearer.
+ * facing it -- in the opening view, where its camera stands in the front
+ * aisle, just behind a new headset wearer (who starts 8 m short). Any nearer
+ * and that line of sight puts the figure inside the door-fitting cell.
  * A blue ring and a name tag tell visitors from the hall's own staff
  * (Workers.js).
  */
 
 const WALL_MARGIN = 0.6;
-const ORBIT_VIEWER_DISTANCE = 5;
+const ORBIT_VIEWER_DISTANCE = 10;
 // Poses come at up to 5 Hz; easing towards them at this rate hides the steps.
 const FOLLOW_RATE = 6;
 // A jump this big is a teleport (or a reconnect), not a walk: cut, don't glide.

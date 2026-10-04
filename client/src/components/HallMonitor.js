@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { METAL } from './scenePalette';
+import { useRealism } from './realismContext';
 import { EXTINGUISHER_COUNT } from './SafetyEquipment';
 import { inspection, ifarlab } from './inspectionState';
 
@@ -275,6 +276,7 @@ export default function HallMonitor() {
 }
 
 function VideoWall({ page, centre }) {
+  const realistic = useRealism();
   const { canvas, texture } = useMemo(() => {
     const c = document.createElement('canvas');
     c.width = PX_W * RENDER_SCALE;
@@ -320,15 +322,23 @@ function VideoWall({ page, centre }) {
       {/* The panel itself. */}
       <mesh position={[0, 0, DEPTH / 2 + 0.008]}>
         <planeGeometry args={[SCREEN.width, SCREEN.height]} />
-        {/* An emitting panel: no fog and no tone mapping, or the hall's haze
-            greys it out from the far end of the building. */}
-        <meshBasicMaterial map={texture} toneMapped={false} fog={false} />
+        {/* Realistic: a display as it is -- near-black glass with an
+            anti-glare coat, the picture coming only from the light it emits,
+            and the hall's lamps catching softly on its surface. It is not lit
+            like a poster: a dark part of the picture stays dark under the
+            lamps. Classic keeps the original unlit screen (headset frame rate). */}
+        {realistic
+          ? <meshPhysicalMaterial color="#060708" metalness={0} roughness={0.24} clearcoat={0.35} clearcoatRoughness={0.12} emissive="#ffffff" emissiveMap={texture} emissiveIntensity={1.8} fog={false} />
+          : <meshBasicMaterial map={texture} toneMapped={false} fog={false} />}
       </mesh>
-      {/* Cover glass: a faint gloss catching the hall's lights. */}
-      <mesh position={[0, 0, DEPTH / 2 + 0.012]}>
-        <planeGeometry args={[SCREEN.width, SCREEN.height]} />
-        <meshStandardMaterial color="#ffffff" transparent opacity={0.025} roughness={0.05} metalness={0.9} depthWrite={false} fog={false} />
-      </mesh>
+      {/* Classic: cover glass, a faint gloss catching the hall's lights. The
+          realistic panel carries its own coat. */}
+      {!realistic && (
+        <mesh position={[0, 0, DEPTH / 2 + 0.012]}>
+          <planeGeometry args={[SCREEN.width, SCREEN.height]} />
+          <meshStandardMaterial color="#ffffff" transparent opacity={0.025} roughness={0.05} metalness={0.9} depthWrite={false} fog={false} />
+        </mesh>
+      )}
       {/* Maker's badge and standby lamp on the lower bezel. */}
       <mesh position={[0, -outerH / 2 + BEZEL / 2, DEPTH / 2 + 0.009]}>
         <planeGeometry args={[0.18, 0.012]} />

@@ -20,6 +20,8 @@ const toolDir = new THREE.Vector3();
 const toolQuat = new THREE.Quaternion();
 const probePos = new THREE.Vector3();
 const probeDir = new THREE.Vector3();
+const toolUp = new THREE.Vector3();
+const probeUp = new THREE.Vector3();
 
 function readTool(tool, localAxis, pos, dir) {
   tool.getWorldPosition(pos);
@@ -50,28 +52,39 @@ function solveLinear(A, b) {
  * One solve: move the chain so `tool` sits on `target` (world) with its
  * `localAxis` along `aim` (world, unit). `root` is the chain's first joint,
  * whose parent must already have an up-to-date world matrix.
+ *
+ * That leaves the tool free to roll about `localAxis`, and along some paths
+ * the wrist drifts round that freedom and then flips. Given `upAxis` (a
+ * second tool axis) and `up` (world, unit, square to `aim`), the roll is held
+ * too, and the solve is fully determined.
  */
 export function solveIK({
   joints, tool, localAxis, target, aim, iterations = 10, damping = 0.06, aimWeight = 0.35, maxStep = 0.25,
+  upAxis = null, up = null, upWeight = 0.25,
 }) {
   const root = joints[0].object;
   root.updateMatrixWorld(true);
   const n = joints.length;
+  const holdRoll = Boolean(upAxis && up);
+  const rows = holdRoll ? 9 : 6;
   for (let it = 0; it < iterations; it += 1) {
     readTool(tool, localAxis, toolPos, toolDir);
+    if (holdRoll) toolUp.copy(upAxis).applyQuaternion(toolQuat);
     const error = [
       target.x - toolPos.x, target.y - toolPos.y, target.z - toolPos.z,
       (aim.x - toolDir.x) * aimWeight, (aim.y - toolDir.y) * aimWeight, (aim.z - toolDir.z) * aimWeight,
     ];
+    if (holdRoll) error.push((up.x - toolUp.x) * upWeight, (up.y - toolUp.y) * upWeight, (up.z - toolUp.z) * upWeight);
     if (Math.hypot(...error) < 1e-4) break;
 
     // Jacobian, one column per joint, by finite difference on the real chain.
-    const J = [[], [], [], [], [], []];
+    const J = Array.from({ length: rows }, () => []);
     for (let j = 0; j < n; j += 1) {
       const { object, axis } = joints[j];
       object.rotation[axis] += EPS;
       object.updateMatrixWorld(true);
       readTool(tool, localAxis, probePos, probeDir);
+      if (holdRoll) probeUp.copy(upAxis).applyQuaternion(toolQuat);
       object.rotation[axis] -= EPS;
       object.updateMatrixWorld(true);
       J[0][j] = (probePos.x - toolPos.x) / EPS;
@@ -80,15 +93,20 @@ export function solveIK({
       J[3][j] = ((probeDir.x - toolDir.x) / EPS) * aimWeight;
       J[4][j] = ((probeDir.y - toolDir.y) / EPS) * aimWeight;
       J[5][j] = ((probeDir.z - toolDir.z) / EPS) * aimWeight;
+      if (holdRoll) {
+        J[6][j] = ((probeUp.x - toolUp.x) / EPS) * upWeight;
+        J[7][j] = ((probeUp.y - toolUp.y) / EPS) * upWeight;
+        J[8][j] = ((probeUp.z - toolUp.z) / EPS) * upWeight;
+      }
     }
 
     // dq = J^T (J J^T + damping^2 I)^-1 e
     const JJt = J.map((ri) => J.map((rk) => ri.reduce((sum, v, c) => sum + v * rk[c], 0)));
-    for (let d = 0; d < 6; d += 1) JJt[d][d] += damping * damping;
+    for (let d = 0; d < rows; d += 1) JJt[d][d] += damping * damping;
     const y = solveLinear(JJt, error);
     for (let j = 0; j < n; j += 1) {
       let dq = 0;
-      for (let r = 0; r < 6; r += 1) dq += J[r][j] * y[r];
+      for (let r = 0; r < rows; r += 1) dq += J[r][j] * y[r];
       dq = THREE.MathUtils.clamp(dq, -maxStep, maxStep);
       const joint = joints[j];
       joint.object.rotation[joint.axis] = THREE.MathUtils.clamp(joint.object.rotation[joint.axis] + dq, joint.min, joint.max);

@@ -38,3 +38,15 @@ export const IFARLAB_OFFSET = Object.freeze([6.18, 0, 11]);
 // Same x alignment, 7 m farther into the hall (-z/north in the opening view).
 // The measured fence bounds leave 2.23 m of clear space between the cells.
 export const IFARLAB_COPY_OFFSET = Object.freeze([IFARLAB_OFFSET[0], IFARLAB_OFFSET[1], IFARLAB_OFFSET[2] - 7]);
+
+// The dual-robot inspection cell is 6.6 m east of the copy.
+// The measured fence bounds leave clear aisles between the cells.
+export const IFARLAB_INSPECTION_OFFSET = Object.freeze([
+  IFARLAB_COPY_OFFSET[0] + 6.6, IFARLAB_COPY_OFFSET[1], IFARLAB_COPY_OFFSET[2],
+]);
+
+// Door fastening sits directly south of inspection, parallel to the original
+// cell: the east row shares inspection's x, the south row the original's z.
+export const IFARLAB_DOOR_OFFSET = Object.freeze([
+  IFARLAB_INSPECTION_OFFSET[0], IFARLAB_INSPECTION_OFFSET[1], IFARLAB_OFFSET[2],
+]);

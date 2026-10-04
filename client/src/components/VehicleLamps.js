@@ -18,6 +18,7 @@ import * as THREE from 'three';
  * whole hall's lighting rig, and at viewing distance the glow is what reads.
  */
 const COLORS = { head: '#fff6df', tail: '#ff2a1f', reverse: '#ffffff' };
+const OFF_COLORS = { head: '#aeb9ba', tail: '#742a28', reverse: '#859397' };
 const LEVELS = {
   forward: { head: 1, tail: 0.45, reverse: 0 },
   reverse: { head: 0.15, tail: 1, reverse: 1 },
@@ -51,13 +52,13 @@ function glow() {
  */
 export default function VehicleLamps({ lamps, modeRef }) {
   const materials = useMemo(() => Object.fromEntries(Object.entries(COLORS).map(([kind, color]) => [kind, {
-    lens: new THREE.MeshBasicMaterial({ color: '#2a2a2a', toneMapped: false }),
+    lens: new THREE.MeshBasicMaterial({ color: OFF_COLORS[kind], toneMapped: false }),
     glow: new THREE.SpriteMaterial({
       map: glow(), color, transparent: true, opacity: 0, depthWrite: false,
       blending: THREE.AdditiveBlending, toneMapped: false,
     }),
     on: new THREE.Color(color),
-    off: new THREE.Color('#2a2a2a'),
+    off: new THREE.Color(OFF_COLORS[kind]),
     level: 0,
   }])), []);
   const levelsRef = useRef(materials);

@@ -10,3 +10,7 @@ source files with:
 ```sh
 node scripts/ifarlab/optimize_new_usecase.mjs
 ```
+
+The production build drops the two source door STLs (`postbuild` in
+`client/package.json`): the app never requests them, and `windowdoor.stl`
+alone is over Cloudflare Pages' 25 MiB per-file limit.

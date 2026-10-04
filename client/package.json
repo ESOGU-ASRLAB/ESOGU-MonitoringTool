@@ -6,7 +6,9 @@
   "dependencies": {
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.10",
+    "@react-three/postprocessing": "^2.19.1",
     "@react-three/xr": "^6.6.30",
+    "postprocessing": "^6.39.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-scripts": "5.0.1",
@@ -15,7 +17,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "postbuild": "node -e \"const fs=require('fs');for(const p of ['docs','vr']){fs.mkdirSync('build/'+p,{recursive:true});fs.copyFileSync('build/index.html','build/'+p+'/index.html')}fs.copyFileSync('build/index.html','build/404.html');fs.rmSync('build/new_usecase/windowdoor.stl',{force:true})\"",
+    "postbuild": "node -e \"const fs=require('fs');for(const p of ['docs','vr']){fs.mkdirSync('build/'+p,{recursive:true});fs.copyFileSync('build/index.html','build/'+p+'/index.html')}fs.copyFileSync('build/index.html','build/404.html');for(const f of ['windowdoor.stl','windowlessdoor.stl'])fs.rmSync('build/new_usecase/'+f,{force:true})\"",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

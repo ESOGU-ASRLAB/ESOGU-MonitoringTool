@@ -1,86 +1,237 @@
 import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
-import { solveIK } from './robotIK';
-import { SCREW_POINTS, SCREW_FEEDER, SCREW_SUPPLY } from './windowUsecaseLayout';
+import { PART_SPOT, SCREW_POINTS, TABLE_TOP } from './windowUsecaseLayout';
 import { screwTraining } from './training/screwTraining';
+import {
+  CARRY, DOWN, FEEDER, InspectionBeam, ScrewFeeder, ScrewHead, SINK, UR_AXIS, UR_JOINTS,
+  driveArm, handleReach, subSteps, keyTimes, lerp, onRail, UR_RAIL, makeScratch, presentScrew, operatorAssists, sample, screwCycle, screwInHole, setOpacity, stepPoint, stepRail,
+  sweepDoorFaces,
+} from './fasteningShared';
 
-const DEG = 180 / Math.PI;
-const lerp = (a, b, t) => a + (b - a) * t;
-const ease = (t) => t * t * (3 - 2 * t);
-const UR_JOINTS = [
-  { axis: 'z', min: -2 * Math.PI, max: 2 * Math.PI, toDeg: (r) => r * DEG },
-  { axis: 'y', min: -Math.PI, max: 0.3, toDeg: (r) => r * DEG },
-  { axis: 'y', min: -2.9, max: 2.9, toDeg: (r) => r * DEG },
-  { axis: 'y', min: -2 * Math.PI, max: 2 * Math.PI, toDeg: (r) => r * DEG },
-  { axis: 'z', min: -2 * Math.PI, max: 2 * Math.PI, toDeg: (r) => -r * DEG },
-  { axis: 'y', min: -2 * Math.PI, max: 2 * Math.PI, toDeg: (r) => r * DEG },
-];
-const KAW_SIGNS = [-1, 1, -1, 1, -1, 1];
-const KAW_JOINTS = KAW_SIGNS.map((sign, i) => ({
-  axis: 'z', min: [-2.9, -1.8, -2.7, -3.1, -2.5, -3.1][i],
-  max: [2.9, 2.4, 2.7, 3.1, 2.5, 3.1][i], toDeg: (r) => sign * r * DEG,
-}));
 // The source table is x .336..1.056, y 1.965..2.965, top 0.855 m.
 const SCREWS = SCREW_POINTS;
-const FEEDER = SCREW_FEEDER;
-const UR_CYCLE = 7.5;
-const INSPECTION = [[0.48, 1.18], [0.95, 0.9], [1.65, 1.22], [2.12, 0.92]];
-const UR_AXIS = new THREE.Vector3(1, 0, 0);
-const KAW_AXIS = new THREE.Vector3(0, 0, 1);
-const DOWN = new THREE.Vector3(0, -1, 0);
-const INTO_DOOR = new THREE.Vector3(1, 0, 0);
+// The part rides the belt (top 0.845 m, clear between the side rails over
+// x .58..0.90) from the infeed end to the pick point the original cell uses.
+const BELT_TOP = 0.845;
+const PART = { w: 0.28, h: 0.034, d: 0.3 };
+const BELT_FROM = -0.3;
+const BELT_TIME = 2.0;
+const FADE_IN = 0.5;
+const PICK = [0.742, 0.25];
+// The bit rests on the part's top face while it holds the part.
+const PICK_TOP = BELT_TOP + PART.h;
+const PLACE_TOP = TABLE_TOP + PART.h;
+// A seated screw's head centre, and where the bit meets it.
+const SEAT = PLACE_TOP + 0.006;
+const TIP = (head) => head + 0.006;
+/*
+ * Finished parts go into a tote at the table's far end (y 2.625..2.955),
+ * clear of the part's own place (y 2.30..2.60). The far end of the table is
+ * past the end of the arm's rail, so the carriage stops at the rail's end and
+ * the arm reaches the rest of the way (onRail).
+ */
+const TOTE = { x: 0.695, y: 2.79, w: 0.36, d: 0.33, h: 0.09, wall: 0.012 };
+const TOTE_TOP = TABLE_TOP + TOTE.wall + PART.h;
+const TOTE_RAIL = UR_RAIL.max;
+const PART_RAIL = onRail(PART_SPOT[1]);
 
-function sample(keys, elapsed) {
-  let start = 0;
-  for (let i = 1; i < keys.length; i += 1) {
-    const end = start + keys[i].duration;
-    if (elapsed < end) return { from: keys[i - 1], to: keys[i], u: ease((elapsed - start) / keys[i].duration), index: i };
-    start = end;
-  }
-  return { from: keys[keys.length - 1], to: keys[keys.length - 1], u: 1, index: keys.length - 1 };
-}
+/*
+ * Between two parts, from the feeder (where the last screw left the arm) back
+ * to the feeder (where the first screw starts): the finished part into the
+ * tote, the next one off the belt and onto the table.
+ */
+const TRANSFER = [
+  { duration: 0, rail: FEEDER[1], point: [FEEDER[0], FEEDER[1], CARRY] },
+  { duration: 1.0, rail: PART_RAIL, point: [PART_SPOT[0], PART_SPOT[1], CARRY] },
+  { duration: 0.7, rail: PART_RAIL, point: [PART_SPOT[0], PART_SPOT[1], PLACE_TOP] },
+  { duration: 0.4, rail: PART_RAIL, point: [PART_SPOT[0], PART_SPOT[1], PLACE_TOP] },
+  { duration: 0.6, rail: PART_RAIL, point: [PART_SPOT[0], PART_SPOT[1], CARRY] },
+  { duration: 0.9, rail: TOTE_RAIL, point: [TOTE.x, TOTE.y, CARRY] },
+  { duration: 0.6, rail: TOTE_RAIL, point: [TOTE.x, TOTE.y, TOTE_TOP] },
+  { duration: 0.3, rail: TOTE_RAIL, point: [TOTE.x, TOTE.y, TOTE_TOP] },
+  { duration: 0.5, rail: TOTE_RAIL, point: [TOTE.x, TOTE.y, CARRY] },
+  { duration: 3.4, rail: PICK[1], point: [PICK[0], PICK[1], CARRY] },
+  { duration: 0.8, rail: PICK[1], point: [PICK[0], PICK[1], PICK_TOP] },
+  { duration: 0.4, rail: PICK[1], point: [PICK[0], PICK[1], PICK_TOP] },
+  { duration: 0.8, rail: PICK[1], point: [PICK[0], PICK[1], CARRY] },
+  { duration: 2.8, rail: PART_RAIL, point: [PART_SPOT[0], PART_SPOT[1], CARRY] },
+  { duration: 0.8, rail: PART_RAIL, point: [PART_SPOT[0], PART_SPOT[1], PLACE_TOP] },
+  { duration: 0.4, rail: PART_RAIL, point: [PART_SPOT[0], PART_SPOT[1], PLACE_TOP] },
+  { duration: 0.6, rail: PART_RAIL, point: [PART_SPOT[0], PART_SPOT[1], CARRY] },
+  { duration: 1.0, rail: FEEDER[1], point: [FEEDER[0], FEEDER[1], CARRY] },
+];
+const TRANSFER_AT = keyTimes(TRANSFER);
+const TRANSFER_TIME = TRANSFER_AT[TRANSFER_AT.length - 1];
+// Key indices: the finished part gripped and let go in the tote, the next one
+// gripped on the belt and let go on the table. The next part starts down the
+// belt the moment the finished one is in the tote.
+const UNLOAD_GRIP = 3;
+const UNLOAD_RELEASE = 7;
+const GRIP = 11;
+const RELEASE = 15;
+const NEXT_PART_AT = TRANSFER_AT[UNLOAD_RELEASE];
 
-function Screw({ at, meshRef }) {
+const SCREW_PLANS = SCREWS.map(([sx, sy]) => screwCycle({
+  approach: [sx, sy, CARRY], contact: [sx, sy, TIP(SEAT + SINK)], seated: [sx, sy, TIP(SEAT)],
+}));
+const { times: SCREW_TIMES } = SCREW_PLANS[0];
+const FASTENING_CYCLE = SCREW_TIMES.cycle * SCREWS.length;
+// Screw heads relative to the part's centre.
+const HEAD_LOCAL = SEAT - (TABLE_TOP + PART.h / 2);
+const screwLocal = ([sx, sy], proud = 0) => [sx - PART_SPOT[0], HEAD_LOCAL + proud, PART_SPOT[1] - sy];
+
+function Part({ partRef, screwRefs, spinRefs }) {
   return (
-    <group position={[at[0], 0.896, -at[1]]}>
-      <mesh position={[0, -0.003, 0]}>
-        <cylinderGeometry args={[0.018, 0.018, 0.002, 16]} />
-        <meshStandardMaterial color="#26323b" metalness={0.55} roughness={0.5} />
+    <group ref={partRef}>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[PART.w, PART.h, PART.d]} />
+        <meshStandardMaterial color="#8daab8" metalness={0.64} roughness={0.35} transparent />
       </mesh>
-      <group ref={meshRef} visible={false}>
-        <mesh castShadow>
-          <cylinderGeometry args={[0.012, 0.012, 0.012, 12]} />
-          <meshStandardMaterial color="#b9c4cb" metalness={0.8} roughness={0.25} />
-        </mesh>
-        <mesh position={[0, 0.007, 0]}>
-          <boxGeometry args={[0.013, 0.002, 0.002]} />
-          <meshStandardMaterial color="#313e47" metalness={0.7} roughness={0.3} />
-        </mesh>
-      </group>
+      {SCREWS.map((at, i) => {
+        const [x, , z] = screwLocal(at);
+        return (
+          <React.Fragment key={i}>
+            <mesh position={[x, PART.h / 2 + 0.001, z]}>
+              <cylinderGeometry args={[0.018, 0.018, 0.002, 16]} />
+              <meshStandardMaterial color="#26323b" metalness={0.55} roughness={0.5} transparent />
+            </mesh>
+            {screwRefs && (
+              <ScrewHead
+                objectRef={(node) => { screwRefs.current[i] = node; }}
+                spinRef={(node) => { spinRefs.current[i] = node; }}
+                position={screwLocal(at)}
+                transparent
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
     </group>
   );
 }
 
-// An independent program for the north cell. The original pick/place and
-// chassis inspection continue to use their own task engine and telemetry.
-export default function WindowUsecaseTasks({ active, ur, kawasaki, spinRef, screwLoadedRef, assistantActiveRef }) {
+// An independent program for the north cell: a part arrives on the conveyor,
+// the UR10e sets it on the work table and fastens it with four screws, then
+// puts it in the tote as the next one comes in. The original pick/place and
+// chassis inspection keep their own task engine.
+export default function WindowUsecaseTasks({ active, operator = true, ur, kawasaki, spinRef, screwLoadedRef, productHeldRef, assistantHandleRef, assistantActiveRef }) {
   const root = useRef(null);
   const beam = useRef(null);
+  const partRef = useRef(null);
+  const toteFull = useRef(null);
+  const presented = useRef(null);
+  const assistHandle = useRef(null);
   const screwRefs = useRef([]);
-  const feederRefs = useRef([]);
+  const spinRefs = useRef([]);
   const run = useRef({ last: null, elapsed: 0, urElapsed: 0, wasActive: false });
-  const scratch = useMemo(() => ({
-    target: new THREE.Vector3(), aim: new THREE.Vector3(), from: new THREE.Vector3(), to: new THREE.Vector3(),
-    mid: new THREE.Vector3(), direction: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0),
-  }), []);
+  const scratch = useMemo(makeScratch, []);
 
   const world = (out, x, y, height) => root.current.localToWorld(out.set(x, height, -y));
-  const drive = (arm, joints, target, aim, axis) => {
-    const objects = arm.jointsRef.current;
-    if (!objects || objects.length < 6 || objects.some((o) => !o) || !arm.toolRef.current) return;
-    solveIK({ joints: joints.map((j, i) => ({ ...j, object: objects[i] })), tool: arm.toolRef.current, localAxis: axis, target, aim });
-    arm.driveRef.current = joints.map((j, i) => j.toDeg(objects[i].rotation[j.axis]));
+  const placePart = (x, y, top) => partRef.current?.position.set(x, top - PART.h / 2, -y);
+  const showScrews = (show) => screwRefs.current.forEach((screw) => {
+    if (!screw) return;
+    screw.visible = show;
+    screw.position.y = HEAD_LOCAL;
+  });
+  const idleTool = () => {
+    spinRef.current = false;
+    screwLoadedRef.current = false;
+    productHeldRef.current = false;
+    assistantActiveRef.current = false;
+    if (assistHandle.current) assistHandle.current.visible = false;
+  };
+  // The wearer fastens the part in place while the UR10e parks.
+  const handOverToTraining = () => {
+    if (ur.groupRef.current) ur.groupRef.current.position.z = -0.25;
+    placePart(PART_SPOT[0], PART_SPOT[1], PLACE_TOP);
+    setOpacity(partRef.current, 1);
+    showScrews(false);
+    if (presented.current) presented.current.visible = false;
+  };
+  const holdPart = () => {
+    if (!ur.toolRef.current) return;
+    ur.toolRef.current.getWorldPosition(scratch.from);
+    root.current.worldToLocal(scratch.from);
+    partRef.current?.position.set(scratch.from.x, scratch.from.y - PART.h / 2, scratch.from.z);
+  };
+
+  // One step of the program, `h` seconds on (see subSteps).
+  const advance = (h) => {
+    const state = run.current;
+    state.elapsed += h;
+    if (screwTraining.active) {
+      state.urElapsed = 0;
+      ur.driveRef.current = null;
+      idleTool();
+      handOverToTraining();
+    } else {
+      state.urElapsed += h;
+      const cycleTime = state.urElapsed % (TRANSFER_TIME + FASTENING_CYCLE);
+      if (cycleTime < TRANSFER_TIME) {
+        const step = sample(TRANSFER, cycleTime);
+        if (ur.groupRef.current) ur.groupRef.current.position.z = -lerp(step.from.rail, step.to.rail, step.u);
+        ur.groupRef.current?.updateMatrixWorld(true);
+        world(scratch.target, ...stepPoint(step));
+        driveArm(ur, UR_JOINTS, scratch.target, DOWN, UR_AXIS);
+        idleTool();
+        const i = step.index;
+        productHeldRef.current = (i >= UNLOAD_GRIP && i <= UNLOAD_RELEASE) || (i >= GRIP && i <= RELEASE);
+        let opacity = 1;
+        if (i < UNLOAD_GRIP) placePart(PART_SPOT[0], PART_SPOT[1], PLACE_TOP);
+        else if (i <= UNLOAD_RELEASE || (i >= GRIP && i <= RELEASE)) holdPart();
+        else if (i < GRIP) {
+          // The finished part lies in the tote now; the same part comes back as
+          // the next one, faded in at the infeed end of the belt.
+          const ride = cycleTime - NEXT_PART_AT;
+          placePart(PICK[0], lerp(BELT_FROM, PICK[1], Math.min(ride / BELT_TIME, 1)), PICK_TOP);
+          opacity = Math.min(ride / FADE_IN, 1);
+          if (toteFull.current) toteFull.current.visible = true;
+        } else placePart(PART_SPOT[0], PART_SPOT[1], PLACE_TOP);
+        setOpacity(partRef.current, opacity);
+        showScrews(i <= UNLOAD_RELEASE);
+        presentScrew(presented.current, null, SCREW_TIMES);
+      } else {
+        // Each screw from the feeder, driven into the part on the table. The
+        // rail follows the feeder and hole positions.
+        const screwTime = cycleTime - TRANSFER_TIME;
+        const current = Math.floor(screwTime / SCREW_TIMES.cycle);
+        const phase = screwTime % SCREW_TIMES.cycle;
+        const step = sample(SCREW_PLANS[current].keys, phase);
+        const point = stepPoint(step);
+        if (ur.groupRef.current) ur.groupRef.current.position.z = -stepRail(step);
+        ur.groupRef.current?.updateMatrixWorld(true);
+        world(scratch.target, ...point);
+        driveArm(ur, UR_JOINTS, scratch.target, DOWN, UR_AXIS);
+        spinRef.current = phase >= SCREW_TIMES.contact && phase < SCREW_TIMES.seated;
+        screwLoadedRef.current = phase >= SCREW_TIMES.picked && phase < SCREW_TIMES.contact;
+        productHeldRef.current = false;
+        // The operator steadies the driver by its side handle from going down
+        // onto the hole until it lifts clear.
+        const assisting = operatorAssists(step) && Boolean(ur.toolRef.current);
+        assistantActiveRef.current = assisting;
+        if (assistHandle.current) {
+          setOpacity(assistHandle.current, operator ? handleReach(step) : 0);
+          if (assisting) {
+            ur.toolRef.current.getWorldPosition(scratch.from);
+            assistHandle.current.position.copy(root.current.worldToLocal(scratch.from));
+            assistHandle.current.position.y += 0.15;
+          }
+        }
+        placePart(PART_SPOT[0], PART_SPOT[1], PLACE_TOP);
+        setOpacity(partRef.current, 1);
+        screwRefs.current.forEach((screw, i) => {
+          if (!screw) return;
+          const hole = screwInHole(i, current, phase, SCREW_TIMES);
+          screw.visible = Boolean(hole);
+          if (!hole) return;
+          screw.position.y = HEAD_LOCAL + hole.proud;
+          if (spinRefs.current[i]) spinRefs.current[i].rotation.y = -hole.turn;
+        });
+        presentScrew(presented.current, phase, SCREW_TIMES);
+      }
+    }
+
+    sweepDoorFaces({ elapsed: state.elapsed, kawasaki, world, root, beam, scratch });
   };
 
   useFrame(({ clock }) => {
@@ -95,132 +246,65 @@ export default function WindowUsecaseTasks({ active, ur, kawasaki, spinRef, scre
         kawasaki.driveRef.current = null;
         state.wasActive = false;
       }
-      spinRef.current = false;
-      screwLoadedRef.current = false;
-      assistantActiveRef.current = false;
+      idleTool();
       if (beam.current) beam.current.visible = false;
-      if (screwTraining.active) {
-        if (ur.groupRef.current) ur.groupRef.current.position.z = -0.25;
-        screwRefs.current.forEach((mesh) => { if (mesh) mesh.visible = false; });
-        feederRefs.current.forEach((mesh) => { if (mesh) mesh.visible = false; });
-      }
+      if (screwTraining.active) handOverToTraining();
       return;
     }
-    if (!state.wasActive) {
+    const fresh = !state.wasActive;
+    if (fresh) {
       state.elapsed = 0;
       state.wasActive = true;
-    } else state.elapsed += dt;
-
-    if (screwTraining.active) {
-      state.urElapsed = 0;
-      ur.driveRef.current = null;
-      if (ur.groupRef.current) ur.groupRef.current.position.z = -0.25;
-      spinRef.current = false;
-      screwLoadedRef.current = false;
-      assistantActiveRef.current = false;
-      screwRefs.current.forEach((mesh) => { if (mesh) mesh.visible = false; });
-      feederRefs.current.forEach((mesh) => { if (mesh) mesh.visible = false; });
-    } else {
-    state.urElapsed += dt;
-    // Collect each screw from the small feeder tray, then fasten a plate held
-    // on the black work table. The rail follows the handoff and hole positions.
-    const screwIndex = Math.floor(state.urElapsed / UR_CYCLE) % SCREWS.length;
-    const screwTime = state.urElapsed % UR_CYCLE;
-    const [sx, sy] = SCREWS[screwIndex];
-    const urKeys = [
-      { duration: 0, point: [FEEDER[0], FEEDER[1], 1.17] },
-      { duration: 0.8, point: [FEEDER[0], FEEDER[1], 1.02] },
-      { duration: 0.7, point: [FEEDER[0], FEEDER[1], 0.915] },
-      { duration: 0.4, point: [FEEDER[0], FEEDER[1], 0.915] },
-      { duration: 0.6, point: [FEEDER[0], FEEDER[1], 1.17] },
-      { duration: 1.1, point: [sx, sy, 1.17] },
-      { duration: 0.8, point: [sx, sy, 0.91] },
-      { duration: 1.2, point: [sx, sy, 0.91] },
-      { duration: 0.8, point: [sx, sy, 1.17] },
-      { duration: 1.1, point: [FEEDER[0], FEEDER[1], 1.17] },
-    ];
-    const urStep = sample(urKeys, screwTime);
-    const urPoint = urStep.from.point.map((value, i) => lerp(value, urStep.to.point[i], urStep.u));
-    if (ur.groupRef.current) ur.groupRef.current.position.z = -urPoint[1];
-    ur.groupRef.current?.updateMatrixWorld(true);
-    world(scratch.target, ...urPoint);
-    drive(ur, UR_JOINTS, scratch.target, DOWN, UR_AXIS);
-    spinRef.current = urStep.index === 7;
-    screwLoadedRef.current = screwTime >= 1.9 && screwTime < 5.6;
-    assistantActiveRef.current = Boolean(ur.toolRef.current);
-    screwRefs.current.forEach((mesh, i) => {
-      if (mesh) mesh.visible = i < screwIndex || (i === screwIndex && screwTime >= 5.6);
-    });
-    feederRefs.current.forEach((mesh, i) => {
-      if (mesh) mesh.visible = i > screwIndex || (i === screwIndex && screwTime < 1.9);
-    });
     }
-
-    // The AGV stops at each door region and sweeps the camera toward the -x
-    // face, which is the side nearest its rail. No tool passes through a door.
-    const bay = Math.floor(state.elapsed / 7.4) % INSPECTION.length;
-    const t = state.elapsed % 7.4;
-    const [dy, dz] = INSPECTION[bay];
-    const kawKeys = [
-      { duration: 0, point: [-1.86, dy, 1.05] },
-      { duration: 1.4, point: [-1.86, dy, 1.05] },
-      { duration: 1.5, point: [-1.69, dy, dz - 0.16] },
-      { duration: 2.6, point: [-1.69, dy, dz + 0.16] },
-      { duration: 1.2, point: [-1.86, dy, 1.05] },
-      { duration: 0.7, point: [-1.86, dy, 1.05] },
-    ];
-    const kawStep = sample(kawKeys, t);
-    const point = kawStep.from.point.map((value, i) => lerp(value, kawStep.to.point[i], kawStep.u));
-    if (kawasaki.groupRef.current) kawasaki.groupRef.current.position.z = -dy;
-    kawasaki.groupRef.current?.updateMatrixWorld(true);
-    world(scratch.target, ...point);
-    drive(kawasaki, KAW_JOINTS, scratch.target, INTO_DOOR, KAW_AXIS);
-    if (beam.current) {
-      beam.current.visible = kawStep.index === 3 && Boolean(kawasaki.toolRef.current);
-      if (beam.current.visible) {
-        kawasaki.toolRef.current.getWorldPosition(scratch.from);
-        world(scratch.to, -1.22, dy, point[2]);
-        root.current.worldToLocal(scratch.from);
-        root.current.worldToLocal(scratch.to);
-        scratch.direction.subVectors(scratch.to, scratch.from);
-        beam.current.position.copy(scratch.mid.addVectors(scratch.from, scratch.to).multiplyScalar(0.5));
-        beam.current.scale.set(0.014, scratch.direction.length(), 0.014);
-        beam.current.quaternion.setFromUnitVectors(scratch.up, scratch.direction.normalize());
-      }
-    }
+    subSteps(fresh ? 0 : dt, advance);
   }, -1);
 
   return (
     <group ref={root}>
-      {/* Clamped metal plate, fully inside the black work table's top. */}
-      <mesh position={[0.695, 0.869, -2.45]} castShadow receiveShadow>
-        <boxGeometry args={[0.44, 0.028, 0.58]} />
-        <meshStandardMaterial color="#8daab8" metalness={0.64} roughness={0.35} />
-      </mesh>
-      {[0.41, 0.98].map((x) => (
-        <mesh key={x} position={[x, 0.873, -2.45]} castShadow>
+      {/* The part: a plate with four holes, carried in on the conveyor. Its
+          screws are its own children, so they leave with it. */}
+      <Part partRef={partRef} screwRefs={screwRefs} spinRefs={spinRefs} />
+      {/* Fixture clamps either side of where the part is set down. */}
+      {[0.52, 0.87].map((x) => (
+        <mesh key={x} position={[x, 0.873, -PART_SPOT[1]]} castShadow>
           <boxGeometry args={[0.07, 0.035, 0.11]} />
           <meshStandardMaterial color="#384a57" metalness={0.72} roughness={0.32} />
         </mesh>
       ))}
-      {SCREWS.map((at, i) => <Screw key={i} at={at} meshRef={(node) => { screwRefs.current[i] = node; }} />)}
-      {/* Screw feeder tray at the near edge of the same table. */}
-      <mesh position={[0.44, 0.868, -2.055]} castShadow receiveShadow>
-        <boxGeometry args={[0.18, 0.026, 0.16]} />
-        <meshStandardMaterial color="#263943" metalness={0.55} roughness={0.42} />
-      </mesh>
-      {SCREW_SUPPLY.map(([x, y], i) => (
-        <group key={i} ref={(node) => { feederRefs.current[i] = node; }} position={[x, 0.892, -y]}>
-          <mesh castShadow>
-            <cylinderGeometry args={[0.011, 0.011, 0.015, 12]} />
-            <meshStandardMaterial color="#bac5cb" metalness={0.82} roughness={0.23} />
-          </mesh>
+      {/* The tote for finished parts; once one is in, one is always seen. */}
+      <group position={[TOTE.x, TABLE_TOP, -TOTE.y]}>
+        <mesh position={[0, TOTE.wall / 2, 0]} receiveShadow>
+          <boxGeometry args={[TOTE.w, TOTE.wall, TOTE.d]} />
+          <meshStandardMaterial color="#2d4a63" metalness={0} roughness={0.7} />
+        </mesh>
+        {[[0, (TOTE.d - TOTE.wall) / 2, TOTE.w, TOTE.wall], [0, -(TOTE.d - TOTE.wall) / 2, TOTE.w, TOTE.wall],
+          [(TOTE.w - TOTE.wall) / 2, 0, TOTE.wall, TOTE.d], [-(TOTE.w - TOTE.wall) / 2, 0, TOTE.wall, TOTE.d]].map(([x, z, w, d]) => (
+            <mesh key={`${x}:${z}`} position={[x, TOTE.h / 2, z]} castShadow receiveShadow>
+              <boxGeometry args={[w, TOTE.h, d]} />
+              <meshStandardMaterial color="#2d4a63" metalness={0} roughness={0.7} />
+            </mesh>
+        ))}
+        <group ref={toteFull} position={[0, TOTE.wall + PART.h / 2, 0]} visible={false}>
+          <Part />
+          {SCREWS.map((at, i) => <ScrewHead key={i} position={screwLocal(at)} visible />)}
         </group>
-      ))}
-      <mesh ref={beam} visible={false}>
-        <cylinderGeometry args={[1, 1, 1, 12, 1, true]} />
-        <meshBasicMaterial color="#48d8ed" transparent opacity={0.3} depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
-      </mesh>
+      </group>
+      {/* A side handle on the driver, out towards the operator beside the
+          table, so the operator steadies the tool without reaching over the
+          part. */}
+      <group ref={assistHandle} visible={false}>
+        <mesh position={[0.25, 0, 0]} castShadow>
+          <boxGeometry args={[0.5, 0.024, 0.024]} />
+          <meshStandardMaterial color="#46535b" metalness={0.55} roughness={0.38} transparent />
+        </mesh>
+        <mesh position={[0.5, 0, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.017, 0.017, 0.19, 12]} />
+          <meshStandardMaterial color="#263640" metalness={0.35} roughness={0.56} transparent />
+        </mesh>
+        <group ref={assistantHandleRef} position={[0.5, 0, 0]} />
+      </group>
+      <ScrewFeeder presentedRef={presented} />
+      <InspectionBeam beamRef={beam} />
     </group>
   );
 }

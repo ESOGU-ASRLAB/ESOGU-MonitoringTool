@@ -1,9 +1,10 @@
-import React, { Suspense, useMemo, useRef } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
 import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
-import { BUS_LIVERY, POLYMER } from './scenePalette';
+import { BUS_LIVERY } from './scenePalette';
 import VehicleLamps from './VehicleLamps';
+import { useRealism } from './realismContext';
 
 // Parked presentation buses, separate from the Otokar inspection-body CAD.
 // The old bus asset is Y-up and in centimetres, hence its 0.01 scale.
@@ -12,9 +13,8 @@ import VehicleLamps from './VehicleLamps';
  * FLAT SHADING, AND THE DIAGONAL "SHADOW" IT FIXES.
  *
  * The parked buses carried a dark wedge sweeping diagonally across the lower
- * body, which looked like a shadow and was not one -- the mesh has
- * castShadow={false}, so it cannot shadow itself, and nothing else stands
- * where that wedge falls.
+ * body, which looked like a shadow and was not one. The current realistic
+ * mode casts floor shadows, while the body itself does not receive them.
  *
  * It was a shading artefact, and one introduced here: this asset carries
  * POSITION and nothing else -- no NORMAL -- so GLTFLoader falls back to
@@ -54,7 +54,7 @@ const LIVERIES = Object.freeze({
  * skirt, and the source carries no material IDs to separate them, so this one
  * black covers the lot -- which is what it should be anyway.
  */
-const TYRE = new THREE.MeshStandardMaterial({ ...POLYMER.rubber, flatShading: true });
+const TYRE = new THREE.MeshStandardMaterial({ color: '#191d20', metalness: 0, roughness: 0.95, flatShading: true });
 
 /*
  * GLAZING: DARK, GLOSSY AND OPAQUE.
@@ -77,6 +77,14 @@ const GLASS = new THREE.MeshStandardMaterial({
   metalness: 0.0,
   roughness: 0.08,
   flatShading: true,
+});
+// Realistic glazing: tinted, with soft reflections. The panes are big flat
+// facets (flatShading), so a near-mirror coat drew each row of ceiling lamps
+// across the rear window as hard white bars; real bus glass, seen across a
+// hall, shows them only as a dull sheen.
+const GLASS_REAL = new THREE.MeshPhysicalMaterial({
+  color: '#1c272e', metalness: 0, roughness: 0.36,
+  clearcoat: 0.22, clearcoatRoughness: 0.38, envMapIntensity: 0.5, flatShading: true,
 });
 
 const geometryCache = new WeakMap();
@@ -279,17 +287,22 @@ function preparedBusGeometry(scene) {
   return prepared;
 }
 
-function busMaterials(paint) {
+function busMaterials(paint, realistic) {
   // Painted panels are dielectric; keeping metalness low preserves the livery
   // colour under the warehouse lighting. One paint over flank and roof, the
   // chassis skirt a step off it, black rubber below, tinted glazing.
-  const shell = new THREE.MeshStandardMaterial({
-    color: paint.body, metalness: 0.05, roughness: 0.3, flatShading: true,
-  });
+  const shell = realistic
+    ? new THREE.MeshPhysicalMaterial({
+      color: paint.body, metalness: 0.04, roughness: 0.36,
+      clearcoat: 0.42, clearcoatRoughness: 0.22, flatShading: true,
+    })
+    : new THREE.MeshStandardMaterial({
+      color: paint.body, metalness: 0.05, roughness: 0.3, flatShading: true,
+    });
   const skirt = new THREE.MeshStandardMaterial({
-    color: paint.chassis, metalness: 0.05, roughness: 0.6, flatShading: true,
+    color: paint.chassis, metalness: 0.08, roughness: realistic ? 0.72 : 0.6, flatShading: true,
   });
-  return [TYRE, shell, skirt, GLASS, shell];
+  return [TYRE, shell, skirt, realistic ? GLASS_REAL : GLASS, shell];
 }
 
 /*
@@ -361,6 +374,8 @@ const BUS_LAMPS = [
  * `lampRef` holds 'forward', 'reverse' or 'off' for the lamps (VehicleLamps.js).
  */
 function BusModel({ position, rotation = Math.PI / 2, livery = 'forest', rollRef, lampRef }) {
+  const realistic = useRealism();
+  const parkedLampRef = useRef('off');
   const { scene } = useGLTF(BUS_URL);
   const logo = useLoader(THREE.ImageLoader, OTOKAR_LOGO_URL);
   const prepared = useMemo(() => preparedBusGeometry(scene), [scene]);
@@ -374,7 +389,11 @@ function BusModel({ position, rotation = Math.PI / 2, livery = 'forest', rollRef
     for (const wheel of wheelRefs.current) if (wheel) wheel.rotation.z = angle;
   });
   const paint = LIVERIES[livery] || LIVERIES.forest;
-  const materials = useMemo(() => busMaterials(paint), [paint]);
+  const materials = useMemo(() => busMaterials(paint, realistic), [paint, realistic]);
+  useEffect(() => () => {
+    materials[1].dispose();
+    materials[2].dispose();
+  }, [materials]);
   const plate = useMemo(() => plateTexture(logo), [logo]);
 
   if (!geometry) return null;
@@ -387,8 +406,8 @@ function BusModel({ position, rotation = Math.PI / 2, livery = 'forest', rollRef
         geometry={geometry}
         material={materials}
         scale={BUS_SCALE}
-        castShadow={false}
-        receiveShadow
+        castShadow={realistic}
+        receiveShadow={!realistic}
       >
         {prepared.wheels.map((wheel, i) => (
           <mesh
@@ -397,11 +416,18 @@ function BusModel({ position, rotation = Math.PI / 2, livery = 'forest', rollRef
             geometry={wheel.geometry}
             material={WHEEL_MATERIALS}
             position={wheel.position}
-            receiveShadow
+            castShadow={realistic}
+            receiveShadow={!realistic}
           />
         ))}
       </mesh>
-      {lampRef && <VehicleLamps lamps={BUS_LAMPS} modeRef={lampRef} />}
+      <VehicleLamps lamps={BUS_LAMPS} modeRef={lampRef || parkedLampRef} />
+      {realistic && (
+        <mesh position={[rearX - 0.02, 0.47, 0]} castShadow>
+          <boxGeometry args={[0.09, 0.18, 2.05]} />
+          <meshStandardMaterial color="#465159" metalness={0.24} roughness={0.58} />
+        </mesh>
+      )}
       <mesh position={[rearX, PLATE.centreY, 0]} rotation={[0, -Math.PI / 2, 0]}>
         <planeGeometry args={[PLATE.width, PLATE.height]} />
         <meshStandardMaterial map={plate} roughness={0.4} metalness={0} />

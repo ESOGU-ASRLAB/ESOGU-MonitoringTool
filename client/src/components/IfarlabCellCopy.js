@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import UR10eRobot from './UR10eRobot';
 import KawasakiRobot from './KawasakiRobot';
 import AGVBase from './AGVBase';
@@ -6,42 +6,70 @@ import UR10eMount from './UR10eMount';
 import EnvironmentElements from './EnvironmentElements';
 import WindowPlatform from './WindowPlatform';
 import WindowUsecaseTasks from './WindowUsecaseTasks';
+import DoorFasteningTasks from './DoorFasteningTasks';
+import DualDoorInspectionTasks from './DualDoorInspectionTasks';
 import { IfarlabCabinet } from './ServerCabinets';
+import CellLabel from './CellLabel';
+import CellDressing from './CellDressing';
+import { CELL_SCENARIOS } from './cellScenarios';
+import { FEED_TOOLS, registerFeedTool } from './RobotCameraFeeds';
 import { IFARLAB_COPY_OFFSET } from './cellLayout';
 
-// The north cell has its own work program: fastening on the work table and door
-// inspection. It shares the original cell's physical layout, not its controls.
-export default function IfarlabCellCopy({ active, inVR = false, assistantToolRef, assistantActiveRef }) {
+// The copies of the original cell's physical layout, each with its own work
+// program (`scenario`, see cellScenarios.js), not the original's controls:
+//   screwdriving  north cell: a part off the conveyor, screwed on the table
+//   door          a fitting off the conveyor, mounted and screwed on the door
+//   inspection    both arms inspect the two door leaves
+export default function IfarlabCellCopy({
+  active, inVR = false, offset = IFARLAB_COPY_OFFSET, scenario = 'screwdriving', showLabel = false,
+  assistantHandleRef, assistantActiveRef, operatorRef,
+}) {
   const urGroupRef = useRef(null);
   const agvGroupRef = useRef(null);
   const urJointsRef = useRef(null);
+  const urToolRef = useRef(null);
   const urDriveRef = useRef(null);
   const kawJointsRef = useRef(null);
   const kawToolRef = useRef(null);
   const kawDriveRef = useRef(null);
   const spinRef = useRef(false);
   const screwLoadedRef = useRef(false);
+  const productHeldRef = useRef(false);
+  const inspecting = scenario === 'inspection';
+  const { livery, number } = CELL_SCENARIOS[scenario];
+  // The panel lists these arms numbered by their cell, after the original
+  // cell's two (ControlPanel.js): readouts and the camera feed.
+  const tag = String(number).padStart(2, '0');
+  useEffect(() => {
+    registerFeedTool(`ur10e-${tag}`, { ref: urToolRef, ...FEED_TOOLS.ur10e });
+    registerFeedTool(`kawasaki-${tag}`, { ref: kawToolRef, ...FEED_TOOLS.kawasaki });
+    return () => {
+      registerFeedTool(`ur10e-${tag}`, null);
+      registerFeedTool(`kawasaki-${tag}`, null);
+    };
+  }, [tag]);
   const ur = useMemo(() => ({
-    groupRef: urGroupRef, jointsRef: urJointsRef, toolRef: assistantToolRef, driveRef: urDriveRef,
-  }), [assistantToolRef]);
+    groupRef: urGroupRef, jointsRef: urJointsRef, toolRef: urToolRef, driveRef: urDriveRef,
+  }), []);
   const kawasaki = useMemo(() => ({
     groupRef: agvGroupRef, jointsRef: kawJointsRef, toolRef: kawToolRef, driveRef: kawDriveRef,
   }), []);
 
   return (
-    <group position={IFARLAB_COPY_OFFSET}>
-      <group ref={urGroupRef} position={[-0.147, 0.58635, -0.25]}>
+    <group name={`cell-${scenario}`} position={offset}>
+      <group name={`ur10e-${scenario}`} ref={urGroupRef} position={[-0.147, 0.58635, -0.25]}>
         <UR10eMount />
         <UR10eRobot
           jointAngles={[0, -95, 100, -95, -90, 0]}
           jointsRef={urJointsRef}
-          toolRef={assistantToolRef}
+          toolRef={urToolRef}
           driveRef={urDriveRef}
-          toolMode="screwdriver"
+          toolMode={inspecting ? 'inspection' : 'screwdriver'}
           screwdriverSpinRef={spinRef}
           screwLoadedRef={screwLoadedRef}
-          variant="north"
-          reportTelemetry={false}
+          productHeldRef={productHeldRef}
+          livery={livery}
+          telemetryId={`ur10e-${tag}`}
         />
       </group>
       <group ref={agvGroupRef} position={[-2.301949, 0.17, -0.48]} rotation={[0, Math.PI / 2, 0]}>
@@ -52,15 +80,25 @@ export default function IfarlabCellCopy({ active, inVR = false, assistantToolRef
             jointsRef={kawJointsRef}
             toolRef={kawToolRef}
             driveRef={kawDriveRef}
-            variant="north"
-            reportTelemetry={false}
+            toolMode={inspecting || scenario === 'door' ? 'inspection' : 'gripper'}
+            livery={livery}
+            telemetryId={`kawasaki-${tag}`}
           />
         </group>
       </group>
-      <EnvironmentElements showChassis={false} workTableOpening={inVR} />
+      {/* The headset's screw-driving station is at the north cell's table. */}
+      <EnvironmentElements showChassis={false} workTableOpening={scenario === 'screwdriving' && inVR} />
       <WindowPlatform />
-      <WindowUsecaseTasks active={active} ur={ur} kawasaki={kawasaki} spinRef={spinRef} screwLoadedRef={screwLoadedRef} assistantActiveRef={assistantActiveRef} />
+      {scenario === 'inspection' && <DualDoorInspectionTasks active={active} ur={ur} kawasaki={kawasaki} />}
+      {scenario === 'screwdriving' && (
+        <WindowUsecaseTasks active={active} operator={!inVR} ur={ur} kawasaki={kawasaki} spinRef={spinRef} screwLoadedRef={screwLoadedRef} productHeldRef={productHeldRef} assistantHandleRef={assistantHandleRef} assistantActiveRef={assistantActiveRef} />
+      )}
+      {scenario === 'door' && (
+        <DoorFasteningTasks active={active} ur={ur} kawasaki={kawasaki} spinRef={spinRef} screwLoadedRef={screwLoadedRef} productHeldRef={productHeldRef} assistantActiveRef={assistantActiveRef} operatorRef={operatorRef} />
+      )}
       <IfarlabCabinet />
+      <CellDressing running={active} />
+      {showLabel && <CellLabel number={CELL_SCENARIOS[scenario].number} title={CELL_SCENARIOS[scenario].title} />}
     </group>
   );
 }

@@ -4,8 +4,8 @@ import * as THREE from 'three';
  * THE BUS SWAP: two parked buses trading bays, for something to watch during
  * a presentation.
  *
- *   bay A  (10.5, -5)   east of the IFARLAB cell's line
- *   bay B  (1.6, -16)   next to the Otokar cell
+ *   bay A  (10.5, -11)  east of the IFARLAB cells' line
+ *   bay B  (1.6, -18)   next to the Otokar cell
  * Both face the far wall (nose -z), as parked.
  *
  * Each half-cycle has two roles:
@@ -32,23 +32,27 @@ import * as THREE from 'three';
 const v = (x, z) => new THREE.Vector3(x, 0, z);
 const curve = (points) => new THREE.CatmullRomCurve3(points.map(([x, z]) => v(x, z)), false, 'centripetal');
 
-export const BAY_A = [10.5, -5];
+// Bay A sits six metres farther back than it first did, and the shuffle stops
+// short of where it used to, so both stay clear of the north row of cells.
+export const BAY_A = [10.5, -11];
 // On the axis of the corridor the loop bus comes down (x = 1.41, midway
 // between the two cells), so it runs straight into the bay: the corridor
 // leaves 0.2 m either side of a 2.4 m bus, too little for any sideways jog.
-export const BAY_B = [1.6, -16];
+// Parked, its nose is 2.1 m short of the far wall (z = -24.55); at -21 it
+// stood 0.9 m inside it.
+export const BAY_B = [1.6, -18];
 
-const EXIT = curve([[10.5, -5], [10.5, -7], [9.8, -10], [7.6, -14], [7.0, -18], [7.0, -24.6], [7.0, -31], [7.3, -40]]);
+const EXIT = curve([[10.5, -11], [10.5, -14], [9.8, -17], [7.6, -20], [7.0, -23], [7.0, -24.6], [7.0, -31], [7.3, -40]]);
 const ENTRY = curve([
   [-7.3, -40], [-7.0, -31], [-7.0, -24.6], [-7.2, -21], [-8.4, -17.5], [-9.3, -14], [-9.5, -10], [-9.5, 6], [-9.2, 12.5],
-  [-7.2, 18.2], [-3.9, 20.4], [-0.9, 20.5], [0.9, 19.5], [1.38, 18.2], [1.41, 16.8], [1.41, 13], [1.41, -4], [1.5, -10], [1.6, -16],
+  [-7.2, 18.2], [-3.9, 20.4], [-0.9, 20.5], [0.9, 19.5], [1.38, 18.2], [1.41, 16.8], [1.41, 13], [1.41, -10], [1.5, -14.5], [1.6, -18],
 ]);
-// Backing out of B on an S: the tail leads north, swings east and straightens,
-// leaving the bus just north of A still facing the wall.
-// The swing starts while the nose is still south of the Otokar cell's corner
-// (-0.08, -9.27), since the nose swings west as the tail goes east.
-const BACK_OUT = curve([[1.6, -16], [1.7, -12.5], [2.8, -9.5], [5.2, -6.5], [7.8, -3.8], [9.9, -1.0], [10.45, 1.5], [10.5, 3.0]]);
-const PULL_IN = curve([[10.5, 3.0], [10.5, -1], [10.5, -5]]);
+// Backing out of B on an S: the tail leads north, swings east and straightens.
+// It stops at z = -5.5, its tail 1.4 m short of the inspection cell's fence
+// (z = 0.36). The swing starts while the nose is still south of the Otokar
+// cell's corner (-0.08, -9.27), since the nose swings west as the tail goes east.
+const BACK_OUT = curve([[1.6, -18], [1.75, -15.3], [2.9, -12.8], [5.3, -10.8], [7.9, -8.9], [9.85, -7.4], [10.45, -6.4], [10.5, -5.5]]);
+const PULL_IN = curve([[10.5, -5.5], [10.5, -8.0], [10.5, -11]]);
 
 const timed = (path, speed) => ({ path, time: path.getLength() / speed });
 const LEGS = {

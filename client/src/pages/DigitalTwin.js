@@ -13,11 +13,17 @@ import ServerCabinets, { IfarlabCabinet } from "../components/ServerCabinets";
 import RobotCameraFeeds from "../components/RobotCameraFeeds";
 import EnvironmentElements from "../components/EnvironmentElements";
 import IfarlabCellCopy from "../components/IfarlabCellCopy";
+import CellLabel from "../components/CellLabel";
+import CellDressing from "../components/CellDressing";
+import { HallFloor, PostEffects, RealismExposure } from "../components/Realism";
+import { RealismContext } from "../components/realismContext";
+import { Workwear } from "../components/CeilingServices";
+import { CELL_SCENARIOS } from "../components/cellScenarios";
 import Factory from "../components/Factory";
 import Bus from "../components/Bus";
 import Workers from "../components/Workers";
 import Drones from "../components/Drones";
-import FactoryMarkings, { PARKED_BUSES } from "../components/FactoryMarkings";
+import FactoryMarkings, { PARKED_BUSES, Walkway } from "../components/FactoryMarkings";
 import WallLogos from "../components/WallLogos";
 import SafetyEquipment from "../components/SafetyEquipment";
 import HallMonitor from "../components/HallMonitor";
@@ -33,7 +39,7 @@ import Scene from "../components/Scene";
 import OtokarCell from "../components/OtokarCell";
 import { OTOKAR_ROBOT_HOME } from "../components/otokarAxes";
 import { LIGHTING } from "../components/scenePalette";
-import { IFARLAB_OFFSET } from "../components/cellLayout";
+import { IFARLAB_DOOR_OFFSET, IFARLAB_INSPECTION_OFFSET, IFARLAB_OFFSET } from "../components/cellLayout";
 import VRWalk from "../components/VRWalk";
 import VRStatsHud from "../components/VRStatsHud";
 import {
@@ -77,12 +83,33 @@ const FACTORY_CAMERA_BOUNDS = Object.freeze({
   maxZ: 23.75,
 });
 const WALK_EYE_HEIGHT = 1.75;
-// What the orbit camera circles: the two cells' shared horizontal centre. See
-// the OrbitControls below for how it was chosen.
-const ORBIT_TARGET = [-1.3, 1.5, -1.17];
+/*
+ * THE OPENING VIEW, for a presentation: from the front of the east cells,
+ * 3.3 m up and a little further back, looking north-west and gently down over
+ * all four IFARLAB cells, so every robot, the fences, the conveyors and the
+ * operators read clearly, with the Otokar gantry, the buses and the far
+ * wall's signs and screens behind. Recovered from a framing chosen by hand in
+ * the browser: the four cell tags' anchors, the three signs and the two
+ * screens fix it to about a pixel. That framing used the opening lens as it
+ * is, so only the eye and target change.
+ *
+ * The target is on the line of sight in the aisle between the two rows, the
+ * middle of the four cells, so orbiting turns about them; the headset's spawn
+ * (8 m short of it, VRWalk.js) lands in the open front aisle.
+ */
+const OPENING_EYE = [14.64, 3.33, 17.37];
+const ORBIT_TARGET = [8.54, 2.5, 6.26];
 // Orbit lens: the opening field of view, and how wide zooming out may open it.
-const BASE_FOV = 30;
+const BASE_FOV = 42;
 const MAX_FOV = 62;
+// That view is framed on a canvas this wide (a 16:10 screen with the panel
+// open). A narrower canvas -- a smaller laptop, a 4:3 projector -- opens the
+// lens until the same width fits, so no cell is cut off at the sides.
+const FRAMED_ASPECT = 1.84;
+const FRAMED_HALF_WIDTH = Math.tan(THREE.MathUtils.degToRad(BASE_FOV / 2)) * FRAMED_ASPECT;
+function openingFov(aspect) {
+  return Math.max(BASE_FOV, THREE.MathUtils.radToDeg(2 * Math.atan(FRAMED_HALF_WIDTH / aspect)));
+}
 /*
  * The Otokar program runs on the axes' real speeds (500 mm/s on the rail,
  * 250 mm/s on the arm), which put the first scan ~20 s after the engine comes
@@ -215,6 +242,20 @@ function FactoryCameraController({
     camera.updateProjectionMatrix();
   }, [camera]);
 
+  // Follow the canvas's shape with the opening lens (openingFov), but only
+  // while the lens is still where it opened -- never undo a zoom.
+  const size = useThree((state) => state.size);
+  const openingLens = useRef(null);
+  useEffect(() => {
+    if (walkingMode || xrActive || !size.height) return;
+    const fov = openingFov(size.width / size.height);
+    if (openingLens.current == null || Math.abs(camera.fov - openingLens.current) < 0.01) {
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+    }
+    openingLens.current = fov;
+  }, [size, camera, walkingMode, xrActive]);
+
   useEffect(() => {
     walkLookRef.current = walkingMode && !xrActive ? lookCamera : null;
     walkZoomRef.current = walkingMode && !xrActive ? zoomCamera : null;
@@ -316,6 +357,12 @@ export default function DigitalTwin({ liveStatus }) {
   // The headset shading profile: on the Quest browser from the first frame (so
   // entering VR recompiles nothing), elsewhere only while a session runs.
   const headsetShading = IS_QUEST_BROWSER || inVR;
+  // The realistic look (Realism.js) is the desktop's only look; a headset
+  // keeps the classic rig, as its frame budget has no room for the extra
+  // passes. The cells' name tags (CellLabel.js) are a screen overlay, so they
+  // show on the desktop and never in the headset.
+  const realistic = showFactory && !headsetShading;
+  const showLabels = !inVR;
   // The Otokar tier: whatever the URL asks for, else the headset's own 'vr'
   // tier (0.32 M triangles against 0.79 M on lo and 6 M on hi; see
   // xrSession.js) and distance-based switching elsewhere.
@@ -337,8 +384,11 @@ export default function DigitalTwin({ liveStatus }) {
 
   const ur10eGroupRef = useRef(null);
   const agvGroupRef = useRef(null);
-  const assistantToolRef = useRef(null);
-  const assistantActiveRef = useRef(false);
+  // Each fastening cell's driver handle, and whether its operator holds it.
+  const tableAssist = { handleRef: useRef(null), activeRef: useRef(false) };
+  // The door cell's operator is choreographed by its program instead
+  // (DoorFasteningTasks.js): it writes her pose here every frame.
+  const doorAssist = { activeRef: useRef(false), operatorRef: useRef(null) };
   // Refs the IFARLAB tasks drive the two arms through (IfarlabTasks.js).
   const urJointsRef = useRef(null);
   const urToolRef = useRef(null);
@@ -408,8 +458,9 @@ export default function DigitalTwin({ liveStatus }) {
     const controls = controlsRef.current;
     if (!controls) return;
     const camera = controls.object;
-    if (factor < 1 && camera.fov > BASE_FOV + 0.01) {
-      camera.fov = Math.max(BASE_FOV, camera.fov * factor);
+    const baseFov = openingFov(camera.aspect);
+    if (factor < 1 && camera.fov > baseFov + 0.01) {
+      camera.fov = Math.max(baseFov, camera.fov * factor);
       camera.updateProjectionMatrix();
       return;
     }
@@ -427,7 +478,7 @@ export default function DigitalTwin({ liveStatus }) {
     keepOrbitInside(camera, controls.target);
     const moved = camera.position.distanceTo(before);
     if (factor > 1 && moved < 0.05) {
-      camera.fov = Math.min(MAX_FOV, camera.fov * factor);
+      camera.fov = Math.min(Math.max(MAX_FOV, baseFov), camera.fov * factor);
       camera.updateProjectionMatrix();
     }
     controls.update();
@@ -686,39 +737,8 @@ export default function DigitalTwin({ liveStatus }) {
             }}
             style={{ background: "#dfe8ef" }}
             dpr={[1, 1.5]}
-            /* PRESENTATION OVERVIEW, FROM THE OTHER SIDE OF THE CELL.
-               Searched by scripts/otokar/camera_framing_reverse.mjs.
-
-               The previous pose looked from +z. This one looks back across the
-               hall from -z, closer in, and is scored on THE SMALLER OF THE TWO
-               GANTRIES' on-screen areas rather than on the cells' -- maximising
-               their sum lets one machine fill the frame while the other is a
-               sliver, which is not what "see the robots better" asks for.
-
-               A literal 180-degree flip of the old azimuth is not available and
-               the search shows why: it lands within 8 degrees of the rail axis,
-               where the 12 m vehicle foreshortens to nothing and the cell reads
-               as a line. The band either side of it is empty for the same
-               reason. This is the nearest good direction on the reverse side.
-
-               The top-scoring pose was NOT taken. It sits against the west wall
-               at x -15.37 and fills 55.6% of the frame with robot 1, but the
-               workcell shrinks to 2.9% -- the score rewards the gantries and
-               says nothing about the rest of the hall, so it drifts to where
-               there is nothing else to see. This pose is from the band that
-               keeps both:
-
-                 robot 1        27.4% of frame, 96% unoccluded by the vehicle
-                 robot 2        40.2% of frame, 74% unoccluded
-                 Otokar cell    43.8%, fully in frame
-                 IFARLAB        19.6%, fully in frame -- against 2.9%
-                 parked buses   pearl and steel on screen
-                 distance       13.8 m, against 18.3 for the top row
-                 eye            9.0 m, just under the 9.15 m camera ceiling
-
-               Nothing stands in the view cone within 4 m, checked against the
-               warehouse racking the same way as the earlier framings. */
-            camera={{ position: [15.0, 6.0, 39.83], fov: 30, near: 0.05, far: 150 }}
+            /* The opening view; see OPENING_EYE. */
+            camera={{ position: OPENING_EYE, fov: BASE_FOV, near: 0.05, far: 150 }}
             onCreated={(state) => {
               desktopCameraRef.current = state.camera;
             }}
@@ -728,6 +748,7 @@ export default function DigitalTwin({ liveStatus }) {
                 {/* Both cells are now in one close composition; the bare-grid
                     fog range (18-40 m) would haze the Otokar meshes away, so
                     push fog out while the cell is on. */}
+                <RealismContext.Provider value={realistic}>
                 <Scene
                   showGrid={!showFactory}
                   interior={showFactory}
@@ -735,6 +756,7 @@ export default function DigitalTwin({ liveStatus }) {
                   fogFar={95}
                   softShadows={!headsetShading || VR_OPTIONS.shadows === "soft"}
                   castShadows={!headsetShading || VR_OPTIONS.shadows !== "off"}
+                  realism={realistic}
                 >
                   {/* The whole workcell hangs off this one group, so
                       IFARLAB_OFFSET moves all of it together, unchanged in every
@@ -791,8 +813,12 @@ export default function DigitalTwin({ liveStatus }) {
                         run whenever the engine is on. */}
                     <IfarlabTasks active={animate} ur={urTask} kawasaki={kawTask} />
                     <IfarlabCabinet />
+                    <CellDressing running={animate} />
+                    {showLabels && <CellLabel number={CELL_SCENARIOS.pickPlace.number} title={CELL_SCENARIOS.pickPlace.title} />}
                   </group>
-                  <IfarlabCellCopy active={animate} inVR={inVR} assistantToolRef={assistantToolRef} assistantActiveRef={assistantActiveRef} />
+                  <IfarlabCellCopy active={animate} inVR={inVR} showLabel={showLabels} assistantHandleRef={tableAssist.handleRef} assistantActiveRef={tableAssist.activeRef} />
+                  <IfarlabCellCopy active={animate} offset={IFARLAB_INSPECTION_OFFSET} scenario="inspection" showLabel={showLabels} />
+                  <IfarlabCellCopy active={animate} offset={IFARLAB_DOOR_OFFSET} scenario="door" showLabel={showLabels} assistantActiveRef={doorAssist.activeRef} operatorRef={doorAssist.operatorRef} />
                   {/* Each robot's camera view, rendered small for the panel. */}
                   <RobotCameraFeeds ur={urTask} kawasaki={kawTask} />
                   <OtokarCell
@@ -813,7 +839,12 @@ export default function DigitalTwin({ liveStatus }) {
                   {inVR && infoRobot && (
                     <RobotInfoPanel3D robotId={infoRobot} context={infoContext} onClose={closeInfo} />
                   )}
-                  <Factory show={showFactory} />
+                  <Factory show={showFactory} realism={realistic} />
+                  {realistic && (
+                    <Suspense fallback={null}>
+                      <HallFloor />
+                    </Suspense>
+                  )}
                   {showFactory && (
                     <>
                       {/* Parked presentation buses; the Otokar inspection bus
@@ -824,6 +855,10 @@ export default function DigitalTwin({ liveStatus }) {
                         ? <BusShuttle key={bus.livery} livery={bus.livery} startsInA={bus.position[0] === BAY_A[0]} />
                         : <Bus key={bus.livery} {...bus} />))}
                       <FactoryMarkings />
+                      <Walkway />
+                      <Suspense fallback={null}>
+                        <Workwear />
+                      </Suspense>
                       <WallLogos />
                       <HallMonitor />
                       <SafetyEquipment />
@@ -832,11 +867,12 @@ export default function DigitalTwin({ liveStatus }) {
                       {fullScenery && <FloorCleaner />}
                       <GarageDoors />
                       {fullScenery && <Yard />}
-                      <Workers assistantToolRef={assistantToolRef} assistantActiveRef={assistantActiveRef} />
+                      <Workers inVR={inVR} tableAssist={tableAssist} doorAssist={doorAssist} />
                       {fullScenery && <Drones />}
                     </>
                   )}
                 </Scene>
+                </RealismContext.Provider>
               </Suspense>
               <OrbitControls
                 ref={controlsRef}
@@ -849,19 +885,7 @@ export default function DigitalTwin({ liveStatus }) {
                 minDistance={0.5}
                 maxDistance={34}
                 maxPolarAngle={Math.PI / 2 + 0.1}
-                /* Pivot between the two cells so orbiting keeps the inspection
-                   area central; the opening view stays inside maxDistance at
-                   13.8 m, which also leaves real room to pull back -- the
-                   previous framing opened at 23.2 m against a limit of 24, so
-                   the first scroll outwards did almost nothing.
-
-                   x and z are the two cells' shared horizontal centre. The
-                   height came out of the same search, which pinned it at the
-                   bottom of the range it was given: aiming below the cells' own
-                   centre lifts the tall machines into the frame rather than
-                   cutting them, and from a 9 m eye that is what keeps the
-                   gantries whole. */
-                target={[-1.3, 1.8, -1.17]}
+                target={ORBIT_TARGET}
                 /* DEV ONLY: prints the camera pose whenever a drag or zoom
                    settles, so a framing found by hand can be read off exactly
                    and pasted into the `camera` prop above rather than guessed
@@ -910,6 +934,8 @@ export default function DigitalTwin({ liveStatus }) {
               {inVR && <TrainingStations />}
               {inVR && <VRSoundscape targets={robotTargets} />}
               {VR_OPTIONS.stats && <VRStatsHud />}
+              {realistic && <RealismExposure />}
+              {realistic && <PostEffects />}
             </XR>
           </Canvas>
 

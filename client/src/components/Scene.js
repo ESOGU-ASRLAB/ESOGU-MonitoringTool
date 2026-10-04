@@ -1,13 +1,22 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { Suspense, useMemo, useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { SoftShadows } from '@react-three/drei';
 import * as THREE from 'three';
-import { ROOM, LIGHTING } from './scenePalette';
+import { ROOM, LIGHTING, REALISM } from './scenePalette';
+import { HallEnvironment } from './Realism';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment';
 
 const TILE_METERS = 10; // matches the bold section line spacing
 const CELL_METERS = 1;
 const PIXELS_PER_METER = 64;
+// The emissive ceiling tubes in the warehouse mesh cannot light nearby PBR
+// surfaces by themselves. These broad, shadowless fills give the four workcells
+// and the bus bays the soft light a real row of factory fixtures produces.
+const FACTORY_FIXTURES = [
+  [6.2, 7.3, 9.5], [6.2, 7.3, 2.5],
+  [12.8, 7.3, 9.5], [12.8, 7.3, 2.5],
+  [-5.5, 7.3, -13], [5.5, 7.3, -13],
+];
 
 function useGridTexture() {
   return useMemo(() => {
@@ -115,6 +124,8 @@ export default function Scene({
   // off for the headset profile (see xrSession.js).
   softShadows = true,
   castShadows = true,
+  // The realistic look (Realism.js): lit by a photographed hall instead.
+  realism = false,
 }) {
   const gridTexture = useGridTexture();
   const floorSize = floorSizeProp || 80;
@@ -171,13 +182,22 @@ export default function Scene({
       */}
       {interior && softShadows && <SoftShadows size={25} samples={12} focus={0.4} />}
 
-      {interior && <InteriorEnvironment intensity={LIGHTING.environment} />}
+      {interior && !realism && <InteriorEnvironment intensity={LIGHTING.environment} />}
+      {/* Until the photographed hall has loaded, the studio stands in. */}
+      {interior && realism && (
+        <Suspense fallback={<InteriorEnvironment intensity={LIGHTING.environment} />}>
+          <HallEnvironment />
+        </Suspense>
+      )}
 
-      <ambientLight color={ROOM.ambient} intensity={interior ? LIGHTING.ambient : 0.55} />
+      <ambientLight color={ROOM.ambient} intensity={interior ? (realism ? REALISM.ambient : LIGHTING.ambient) : 0.55} />
+      {/* Under the realistic look the key comes from overhead, as a roof full
+          of lamps does, so shadows fall under things instead of all leaning
+          one way like a low sun's. */}
       <directionalLight
         color={ROOM.lamp}
-        position={[8, 14, 6]}
-        intensity={interior ? LIGHTING.key : 1.2}
+        position={realism ? [3, 20, 4] : [8, 14, 6]}
+        intensity={interior ? (realism ? REALISM.key : LIGHTING.key) : 1.2}
         castShadow={castShadows}
         /*
          * THE SHADOW CAMERA USED TO MISS MOST OF THE BUILDING. It was an
@@ -204,7 +224,11 @@ export default function Scene({
       />
       {/* Sky bounce above, floor bounce below. The lower colour is the floor's
           own tone, so light coming back up off the concrete carries it. */}
-      <hemisphereLight args={[ROOM.skyBounce, ROOM.groundBounce, interior ? LIGHTING.hemisphere : 0.4]} />
+      <hemisphereLight args={[ROOM.skyBounce, ROOM.groundBounce, interior ? (realism ? REALISM.hemisphere : LIGHTING.hemisphere) : 0.4]} />
+      {interior && realism && <directionalLight color={ROOM.lamp} position={[2, 11, 30]} intensity={REALISM.fill} />}
+      {interior && realism && FACTORY_FIXTURES.map((position, index) => (
+        <pointLight key={index} position={position} color="#f5f7f4" intensity={24} distance={11} decay={2} />
+      ))}
 
       {showGrid && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>

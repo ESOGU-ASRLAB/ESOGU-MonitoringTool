@@ -2,6 +2,8 @@ import React, { useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { MARKING } from './scenePalette';
 import { BAY_A, BAY_B } from './busRoute';
+import { IFARLAB_DOOR_OFFSET, IFARLAB_OFFSET } from './cellLayout';
+import { useRealism } from './realismContext';
 
 // Same centres and liveries feed both the parked buses and their floor bays.
 export const PARKED_BUSES = Object.freeze([
@@ -57,4 +59,37 @@ export default function FactoryMarkings() {
       />
     </instancedMesh>
   );
+}
+
+/*
+ * Under the realistic look (Realism.js), the pedestrian walkway along the
+ * front of the IFARLAB cells: two yellow lines 1.5 m apart, clear of the
+ * cells' hazard tape (CellDressing.js, which ends 1.54 m in front of each
+ * cell's origin), from the bus corridor's edge to short of the east racking.
+ */
+const WALKWAY = Object.freeze({
+  x0: IFARLAB_OFFSET[0] - 3.6,
+  x1: IFARLAB_DOOR_OFFSET[0] + 2.05,
+  z: IFARLAB_OFFSET[2] + 1.85,
+  width: 1.5,
+  line: 0.08,
+});
+
+export function Walkway() {
+  const realistic = useRealism();
+  if (!realistic) return null;
+  const length = WALKWAY.x1 - WALKWAY.x0;
+  return [0, WALKWAY.width].map((dz) => (
+    <mesh key={dz} position={[(WALKWAY.x0 + WALKWAY.x1) / 2, 0.007, WALKWAY.z + dz]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <planeGeometry args={[length, WALKWAY.line]} />
+      <meshStandardMaterial
+        color={MARKING.bay.color}
+        metalness={MARKING.bay.metalness}
+        roughness={MARKING.bay.roughness}
+        polygonOffset
+        polygonOffsetFactor={-2}
+        polygonOffsetUnits={-2}
+      />
+    </mesh>
+  ));
 }

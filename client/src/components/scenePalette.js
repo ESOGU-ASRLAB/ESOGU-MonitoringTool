@@ -56,7 +56,7 @@
  * ------------------------------------------------------------------ */
 export const LIGHTING = Object.freeze({
   environment: 0.68, // PMREM room bounce -- the soft fill a closed shed has.
-  ambient: 0.24,     // Flat term, deliberately small.
+  ambient: 0.27,     // Flat term, deliberately small.
   hemisphere: 0.42,  // Sky above, floor bounce below.
   key: 1.2,          // The directional source. Dominant, so surfaces shade.
   /*
@@ -161,6 +161,23 @@ export const ACCENT = Object.freeze({
 });
 
 /* ------------------------------------------------------------------ *
+ * ROBOT LIVERIES -- one per IFARLAB cell (cellScenarios.js).
+ *
+ * The four cells run four different programs on the same two arms, so each
+ * pair wears its own factory finish to be told apart at a glance: the
+ * first cell's cool graphite, then safety orange, cool white with blue caps,
+ * and warm pearl white with muted brass caps. The four finishes stay distinct
+ * under the same hall lights without using saturated blue or yellow shells.
+ * ------------------------------------------------------------------ */
+const ENAMEL = { metalness: 0.05, roughness: 0.4 };
+export const ROBOT_LIVERY = Object.freeze({
+  graphite: Object.freeze({ shell: Object.freeze({ color: '#68767c', ...ENAMEL }), accent: ACCENT.brandBlue }),
+  orange: Object.freeze({ shell: Object.freeze({ color: '#01204b', ...ENAMEL }), accent: PAINT.dark }),
+  white: Object.freeze({ shell: Object.freeze({ color: '#cbd2d1', ...ENAMEL }), accent: Object.freeze({ color: '#365f86', ...ENAMEL }) }),
+  yellow: Object.freeze({ shell: Object.freeze({ color: '#d1c9b5', ...ENAMEL }), accent: Object.freeze({ color: '#7d775f', ...ENAMEL }) }),
+});
+
+/* ------------------------------------------------------------------ *
  * BARE METAL -- the only group allowed to be metallic.
  *
  * Machined slides and rail heads are polished by use, so they are the
@@ -251,9 +268,8 @@ export const BODY_IN_WHITE = Object.freeze({
  * that no two read as the same vehicle. The glazing is dark glossy glass,
  * opaque: see Bus.js for why the see-through version striped.
  *
- * Roofs are not checked against their bodies. The opening camera sits at 1.3 m
- * -- below the vehicles' waistline -- so a parked bus's roof is never in shot,
- * and separating it would spend contrast where nothing can see it.
+ * The roof shares the body paint; clearcoat in Bus.js gives both the same
+ * restrained reflections from the hall lighting.
  */
 export const BUS_LIVERY = Object.freeze({
   /*
@@ -262,7 +278,7 @@ export const BUS_LIVERY = Object.freeze({
    * floor went to pale blue (1.20:1); it is also the only warm, light hue
    * standing on that floor.
    */
-  sand: Object.freeze({ body: '#bf9f5f', chassis: '#6b5d45' }),
+  sand: Object.freeze({ body: '#d3c7b5', chassis: '#776d5d' }),
   /*
    * Was #3f6b8c, a corporate blue. Changed because blue is already doing two
    * other jobs in this hall -- it is the accent on both IFARLAB arms and the
@@ -271,13 +287,13 @@ export const BUS_LIVERY = Object.freeze({
    * mean something. A muted fleet green is a real livery colour and is the
    * only thing in the building wearing it.
    */
-  forest: Object.freeze({ body: '#4e7265', chassis: '#6b8d80' }),
+  forest: Object.freeze({ body: '#668679', chassis: '#495f57' }),
   /*
    * The dark one, pushed further down so it separates from the green: at
    * #414a51 the two rendered 0.11 apart, which on screen is one dark bus
    * twice. Now 0.33 apart.
    */
-  graphite: Object.freeze({ body: '#373f45', chassis: '#4e575e' }),
+  graphite: Object.freeze({ body: '#4c555c', chassis: '#343c42' }),
 });
 
 /* ------------------------------------------------------------------ *
@@ -300,6 +316,53 @@ export const MARKING = Object.freeze({
  * cold daylight wash behind every wall opening and lifted the far end of the
  * hall into haze. Interior air is neutral and slightly warm from the lamps.
  * ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ *
+ * THE REALISTIC LOOK (Realism.js), switched from the view controls.
+ *
+ * The values above are tuned for the classic look: flat colour, one key, a
+ * generic studio for reflections, ACES. The realistic look lights the hall
+ * from a photographed industrial interior instead, puts a real concrete under
+ * the cells, and finishes the frame like a camera would -- contact shadows,
+ * glow off the lamps, AgX tone mapping, a little vignette and grain. With the
+ * photographed hall doing the fill, the flat ambient and hemisphere terms
+ * step down, and the hall's saturated blues and cream go to the greys a
+ * plant's painted steel and cladding actually are.
+ * ------------------------------------------------------------------ */
+export const REALISM = Object.freeze({
+  // A working hall is evenly and brightly lit (some 500 lux at the machines),
+  // so the fill is generous and the exposure a step up: the robots have to
+  // read clearly against the cells, not sit in murk.
+  exposure: 1.14,
+  environment: 0.8,
+  ambient: 0.16,
+  hemisphere: 0.34,
+  key: 1.35,
+  // A soft, shadowless light from the hall's front (Scene.js). The overhead
+  // key all but grazes the far wall, which left it near-black; this lights it
+  // and the camera-facing sides of the robots, as the lamp rows nearer the
+  // viewer do in a real hall.
+  fill: 0.6,
+  // The floor's blue epoxy coat (Realism.js HallFloor): its colour, its gloss,
+  // how much of the hall it mirrors (`mirror` darkens the coat's own colour
+  // where nothing bright is reflected, `reflection` scales what is), and how
+  // much of the photographed environment it shows on top of the true mirror.
+  // A satin coat, as a working floor's is once it has been walked on: the
+  // lamps show in it as soft pools and the machines as faint shadows, not as
+  // a mirror image -- glossier read as wet ice.
+  floor: Object.freeze({ color: '#70767b', roughness: 0.62, mirror: 0.06, reflection: 0.38, environment: 0.25 }),
+  architecture: Object.freeze({
+    // The model's roof panels share the floor's material (mat0), which is why
+    // the classic roof is the floor's blue. Here they are a coated roof deck;
+    // the floor itself is covered by the epoxy coat (HallFloor).
+    roof: Object.freeze({ color: '#b1babd', metalness: 0.0, roughness: 0.74 }),
+    // One step lighter than the cladding's own texture leaves it, so the far
+    // wall behind the signs reads as the pale panel it is.
+    wall: Object.freeze({ color: '#f9fbfe', metalness: 0.0, roughness: 0.8 }),
+    steel: Object.freeze({ color: '#828489', metalness: 0.18, roughness: 0.58 }),
+    details: Object.freeze({ color: '#717b81', metalness: 0.12, roughness: 0.62 }),
+  }),
+});
+
 export const ROOM = Object.freeze({
   background: '#c8ccce',
   fog: '#c8ccce',

@@ -1,6 +1,7 @@
-import React, { Suspense, useEffect, useMemo } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
-import { ARCHITECTURE } from './scenePalette';
+import { ARCHITECTURE, REALISM } from './scenePalette';
+import { dressWarehouse } from './warehouseDressing';
 import { useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -11,13 +12,10 @@ import * as THREE from 'three';
  * axis-flip group and no unit rescale.
  *
  * Materials are meant to be used exactly as authored. In particular the
- * "details" material's KHR_materials_emissive_strength: 35 looks alarming but
- * is correct -- its emissive map is black everywhere except a few small
- * rectangles over the ceiling lamp tubes and the window panes, so the strength
- * only ever multiplies those texels, and R3F's default ACES tone mapping rolls
- * them off into a lit-tube glow. Clamping it doesn't dim "too-bright pallets",
- * it just switches the lamps and windows off, because those sample the black
- * part of the same map.
+ * "details" material's KHR_materials_emissive_strength: 35 is used in the
+ * classic view. The realistic view uses a lower lamp strength with its camera
+ * exposure and bloom. The emissive map is black except over the ceiling tubes
+ * and window panes, so this adjustment only affects the bright fixtures.
  */
 const FACTORY_URL = process.env.PUBLIC_URL + '/assets/factory/warehouse_blender.blend.glb';
 
@@ -77,6 +75,9 @@ const CONVERTED_SCALE = 1 / 2.02157;
 const EMISSIVE_URL = process.env.PUBLIC_URL + '/assets/factory/details_Emissive.png';
 const DETAILS_MATERIAL_INDEX = 3;
 const EMISSIVE_STRENGTH = 35;
+// The camera-like exposure in realistic mode needs less lamp radiance to keep
+// tube detail and avoid a white wash across the roof.
+const REALISTIC_EMISSIVE_STRENGTH = 22;
 
 function collectMaterials(root) {
   const materials = [];
@@ -141,7 +142,7 @@ varying vec3 vShutterWorld;`)
   material.needsUpdate = true;
 }
 
-function WarehouseModel() {
+function WarehouseModel({ realism }) {
   const { scene } = useGLTF(FACTORY_URL);
   const emissiveMap = useLoader(THREE.TextureLoader, EMISSIVE_URL);
 
@@ -193,10 +194,12 @@ function WarehouseModel() {
        * their own. Rolled section is bare, so it keeps a little at 0.15.
        */
       const surface = [
-        ARCHITECTURE.floor,
-        ARCHITECTURE.wall,
-        ARCHITECTURE.steel,
-        ARCHITECTURE.details,
+        realism ? REALISM.architecture.roof : ARCHITECTURE.floor,
+        // The realistic look (Realism.js) paints the shell the greys a plant's
+        // cladding and steel actually are; its floor is laid over this one.
+        realism ? REALISM.architecture.wall : ARCHITECTURE.wall,
+        realism ? REALISM.architecture.steel : ARCHITECTURE.steel,
+        realism ? REALISM.architecture.details : ARCHITECTURE.details,
       ][slot];
       mat.color.set(surface.color);
       mat.metalness = surface.metalness;
@@ -205,24 +208,40 @@ function WarehouseModel() {
       if (slot === DETAILS_MATERIAL_INDEX) {
         mat.emissive.setRGB(1, 1, 1);
         mat.emissiveMap = emissiveMap;
-        mat.emissiveIntensity = EMISSIVE_STRENGTH;
+        mat.emissiveIntensity = realism ? REALISTIC_EMISSIVE_STRENGTH : EMISSIVE_STRENGTH;
       }
 
       mat.needsUpdate = true;
     }
-  }, [scene, materials, converted, emissiveMap]);
+  }, [scene, materials, converted, emissiveMap, realism]);
+
+  // The racking, pallets and loads, painted as in a real plant under the
+  // realistic look (warehouseDressing.js).
+  const dressing = useRef(null);
+  useEffect(() => {
+    if (!converted) return;
+    if (!dressing.current) {
+      const base = materials.find((mat) => mat.name === CONVERTED_MATERIAL_NAMES[DETAILS_MATERIAL_INDEX]);
+      if (base) dressing.current = dressWarehouse(scene, base);
+    }
+    dressing.current?.apply(realism);
+  }, [scene, materials, converted, realism]);
+  useEffect(() => () => {
+    dressing.current?.dispose();
+    dressing.current = null;
+  }, [scene]);
 
   return <primitive object={scene} scale={converted ? CONVERTED_SCALE : 1} />;
 }
 
 useGLTF.preload(FACTORY_URL);
 
-export default function Factory({ show = true }) {
+export default function Factory({ show = true, realism = false }) {
   if (!show) return null;
 
   return (
     <Suspense fallback={null}>
-      <WarehouseModel />
+      <WarehouseModel realism={realism} />
     </Suspense>
   );
 }

@@ -28,12 +28,29 @@ export function registerFeedCanvas(key, canvas) {
   else canvases.delete(key);
 }
 
+/*
+ * Other arms' cameras, by the key their panel row uses: the IFARLAB cell
+ * copies register their tools here, as { ref, axis, setBack }.
+ */
+const tools = new Map();
+export function registerFeedTool(key, source) {
+  if (source) tools.set(key, source);
+  else tools.delete(key);
+}
+
 // The Otokar body's bounds (see BodyInspection.js): its centre line is what the
 // heads look up at.
 const BODY_CENTRE_X = (-5.18 + -2.66) / 2;
 
 const UR_TOOL_AXIS = new THREE.Vector3(1, 0, 0);
 const KAW_TOOL_AXIS = new THREE.Vector3(0, 0, 1);
+// Where each arm type's camera sits on its tool. The UR's is just ahead of
+// the tool tip (set back, the view is the inside of the gripper); the
+// Kawasaki's a little behind its tip.
+export const FEED_TOOLS = Object.freeze({
+  ur10e: Object.freeze({ axis: UR_TOOL_AXIS, setBack: 0.03 }),
+  kawasaki: Object.freeze({ axis: KAW_TOOL_AXIS, setBack: -0.05 }),
+});
 
 export default function RobotCameraFeeds({ ur, kawasaki }) {
   const gl = useThree((state) => state.gl);
@@ -55,11 +72,15 @@ export default function RobotCameraFeeds({ ur, kawasaki }) {
 
   // Where each robot's camera is and which way it looks, in world space.
   const views = {
-    // Just ahead of the fingertips: set back, the view is the inside of the gripper.
-    ur10e: () => tool(ur.toolRef.current, UR_TOOL_AXIS, 0.03),
-    kawasaki: () => tool(kawasaki.toolRef.current, KAW_TOOL_AXIS, -0.05),
+    ur10e: () => tool(ur.toolRef.current, FEED_TOOLS.ur10e.axis, FEED_TOOLS.ur10e.setBack),
+    kawasaki: () => tool(kawasaki.toolRef.current, FEED_TOOLS.kawasaki.axis, FEED_TOOLS.kawasaki.setBack),
     robot1: () => otokar(0),
     robot2: () => otokar(1),
+  };
+  const view = (key) => {
+    if (views[key]) return views[key]();
+    const source = tools.get(key);
+    return source ? tool(source.ref.current, source.axis, source.setBack) : false;
   };
 
   function tool(node, axis, setBack) {
@@ -101,8 +122,7 @@ export default function RobotCameraFeeds({ ur, kawasaki }) {
     if (!keys.length) return;
     const key = keys[s.next % keys.length];
     s.next += 1;
-    const aim = views[key];
-    if (!aim || !aim()) return;
+    if (!view(key)) return;
 
     camera.updateMatrixWorld();
     const previous = gl.getRenderTarget();

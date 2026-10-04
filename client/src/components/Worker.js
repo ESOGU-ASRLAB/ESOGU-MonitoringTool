@@ -88,7 +88,9 @@ export function workerChains(clone) {
   }));
 }
 
-export function holdPose(group, chains, mode) {
+// `crouch` is how far the figure has been lowered: the feet are lifted back
+// by as much, so they stay on the floor and the knees bend.
+export function holdPose(group, chains, mode, crouch = 0) {
   const pose = POSES[mode];
   group.updateMatrixWorld(true);
   for (const { side, leg, arm } of chains) {
@@ -97,7 +99,7 @@ export function holdPose(group, chains, mode) {
       [arm, pose.hands[side], pose.elbows[side]],
     ]) {
       if (bones.some((bone) => !bone)) continue;
-      group.localToWorld(stanceTarget.set(...target));
+      group.localToWorld(stanceTarget.set(target[0], target[1] + (bones === leg ? crouch : 0), target[2]));
       group.localToWorld(stancePole.set(...pole));
       solveTwoBone(...bones, stanceTarget, stancePole);
     }
@@ -152,7 +154,23 @@ function pickMode(random, only) {
 
 const faceTowards = (from, to) => Math.atan2(to[0] - from[0], to[1] - from[1]);
 
-function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveRef }) {
+/*
+ * A CHOREOGRAPHED OPERATOR. `scriptRef.current`, when set, is written every
+ * frame by her cell's program (DoorFasteningTasks.js) so that what she does
+ * stays in step with the robot she works beside:
+ *
+ *   x, z, yaw          where she stands and faces (world)
+ *   walking            on the move: the walk clip runs and the feet are
+ *                      placed from `traveled` / `remaining` along the route,
+ *                      `speed` her pace
+ *   hands, grip        both hands on something: `hands` the point between
+ *                      them (world), `grip` how far each is to the side
+ *   lean, crouch       bending to reach: forward from the waist (radians) and
+ *                      down at the knees (metres)
+ *
+ * Null hands leave the arms down, as when she stands watching.
+ */
+function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveRef, scriptRef }) {
   const { scene, animations } = useGLTF(WORKER_URL);
   // SkeletonUtils rebinds bones per walker while geometry and textures remain shared.
   const clone = useMemo(() => {
@@ -166,7 +184,13 @@ function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveR
   const chains = useMemo(() => workerChains(clone), [clone]);
   const random = useMemo(() => seededRandom(seed), [seed]);
   const plan = useRef(null);
-  const assist = useMemo(() => ({ target: new THREE.Vector3(), hand: new THREE.Vector3(), lateral: new THREE.Vector3(), pole: new THREE.Vector3() }), []);
+  const assist = useMemo(() => ({ target: new THREE.Vector3(), hand: new THREE.Vector3(), rest: new THREE.Vector3(), pole: new THREE.Vector3(), blend: 0 }), []);
+  const spine = useMemo(() => clone.getObjectByName('mixamorigSpine1'), [clone]);
+  const carry = useMemo(() => ({
+    hand: new THREE.Vector3(), lateral: new THREE.Vector3(), pole: new THREE.Vector3(),
+    axis: new THREE.Vector3(), world: new THREE.Quaternion(), bend: new THREE.Quaternion(),
+    before: new THREE.Quaternion(), after: new THREE.Quaternion(), bent: false,
+  }), []);
 
   useEffect(() => {
     const action = actions['Armature|mixamo.com|Layer0'] || Object.values(actions)[0];
@@ -178,28 +202,75 @@ function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveR
     };
   }, [actions]);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     const group = groupRef.current;
     if (!group || !stations.length) return;
     const now = clock.getElapsedTime();
 
-    if (assistActiveRef?.current && assistTargetRef?.current) {
+    const script = scriptRef?.current;
+    if (script) {
+      const crouch = script.crouch || 0;
+      group.position.set(script.x, -crouch, script.z);
+      group.rotation.y = script.yaw;
+      if (pendantRef.current) pendantRef.current.visible = false;
+      if (actionRef.current) {
+        actionRef.current.paused = !script.walking;
+        if (script.walking) actionRef.current.timeScale = Math.max(0.5, (script.speed || 0.8) / 0.8);
+      }
+      if (spine) {
+        // Undo last frame's bend first. The clip does animate the spine, but
+        // a mixer writes a bone only when the clip's value for it changes, and
+        // with the clip paused it does not -- so a bend applied on top every
+        // frame piled up into a continuous forward roll.
+        if (carry.bent && spine.quaternion.equals(carry.after)) spine.quaternion.copy(carry.before);
+        carry.bent = false;
+      }
+      group.updateMatrixWorld(true);
+      if (spine && script.lean) {
+        // Forward from the waist, about her own left-right axis.
+        carry.before.copy(spine.quaternion);
+        carry.axis.set(1, 0, 0).applyQuaternion(group.quaternion);
+        spine.getWorldQuaternion(carry.world);
+        carry.axis.applyQuaternion(carry.world.invert());
+        spine.quaternion.multiply(carry.bend.setFromAxisAngle(carry.axis, script.lean));
+        carry.after.copy(spine.quaternion);
+        carry.bent = true;
+      }
+      if (script.walking) walkPose(group, chains, script.traveled, script.remaining);
+      else holdPose(group, chains, 'observe', crouch);
+      if (script.hands) {
+        // Her left is +x in her own frame.
+        carry.lateral.set(1, 0, 0).applyQuaternion(group.quaternion);
+        for (const { side, arm } of chains) {
+          if (arm.some((bone) => !bone)) continue;
+          const sign = side === 'Left' ? 1 : -1;
+          carry.hand.copy(script.hands).addScaledVector(carry.lateral, sign * script.grip);
+          group.localToWorld(carry.pole.set(sign * 0.5, 0.8, -0.2));
+          solveTwoBone(...arm, carry.hand, carry.pole);
+        }
+      }
+      return;
+    }
+
+    const assisting = Boolean(assistActiveRef?.current && assistTargetRef?.current);
+    if (assisting || (assist.blend > 0 && assistTargetRef?.current)) {
       assistTargetRef.current.getWorldPosition(assist.target);
-      // Stand inside the new cell beside the work table, with both hands on the
-      // UR tool housing while the robot seats each screw.
-      group.position.set(assist.target.x + 0.5, 0, assist.target.z + 0.08);
-      group.rotation.y = faceTowards([group.position.x, group.position.z], [assist.target.x, assist.target.z]);
+      assist.blend = THREE.MathUtils.clamp(assist.blend + (assisting ? 1 : -1) * delta * 4, 0, 1);
+      // Keep the feet and torso oriented toward the work. Turning the entire
+      // figure toward each moving screw point pivots the shoes across the
+      // floor; the arms can follow the handle from this planted stance.
+      group.position.set(stations[0].at[0], 0, stations[0].at[1]);
+      group.rotation.y = faceTowards(stations[0].at, stations[0].look);
       if (actionRef.current) actionRef.current.paused = true;
       if (pendantRef.current) pendantRef.current.visible = false;
       holdPose(group, chains, 'observe');
-      assist.lateral.set(1, 0, 0).applyQuaternion(group.quaternion);
       for (const { side, arm } of chains) {
         if (arm.some((bone) => !bone)) continue;
         const sign = side === 'Left' ? 1 : -1;
+        arm[2].getWorldPosition(assist.rest);
         assist.hand.copy(assist.target);
-        assist.hand.x += 0.11;
-        assist.hand.y += 0.11;
-        assist.hand.addScaledVector(assist.lateral, sign * 0.065);
+        assist.hand.z += sign * 0.07;
+        assist.hand.lerpVectors(assist.rest, assist.hand, assist.blend);
         group.localToWorld(assist.pole.set(sign * 0.45, 1.05, -0.25));
         solveTwoBone(...arm, assist.hand, assist.pole);
       }
@@ -214,7 +285,7 @@ function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveR
     }
     let p = plan.current;
 
-    if (p.phase === 'dwell' && now - p.start >= p.dwell) {
+    if (p.phase === 'dwell' && now - p.start >= p.dwell && stations.length > 1) {
       let next = Math.floor(random() * (stations.length - 1));
       if (next >= p.at) next += 1;
       const from = stations[p.at].at;
@@ -244,8 +315,8 @@ function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveR
     const station = stations[p.at];
     group.position.set(station.at[0], 0, station.at[1]);
     let yaw = faceTowards(station.at, station.look);
-    // Watching: the gaze drifts slowly along the machine and back.
-    if (p.mode === 'observe') yaw += 0.45 * Math.sin((now - p.start) * 0.5);
+    // Patrol workers turn to watch the machine; fixed assistants stay planted.
+    if (p.mode === 'observe' && stations.length > 1) yaw += 0.45 * Math.sin((now - p.start) * 0.5);
     group.rotation.y = yaw;
     if (actionRef.current) actionRef.current.paused = true;
     if (pendantRef.current) pendantRef.current.visible = p.mode === 'pendant';
@@ -253,7 +324,7 @@ function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveR
   });
 
   return (
-    <group ref={groupRef}>
+    <group name={`worker-${seed}`} ref={groupRef}>
       <primitive object={clone} />
       {/* Turn the screen outwards and slightly up so visitors can read it. */}
       <group ref={pendantRef} position={[0, 1.03, 0.32]} rotation={[-0.4, Math.PI, 0]} visible={false}>

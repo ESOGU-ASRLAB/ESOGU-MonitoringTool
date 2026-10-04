@@ -15,6 +15,8 @@ import * as THREE from "three";
  */
 
 import { METAL, PAINT } from './scenePalette';
+import MeshFencePanel, { FENCE_BOUNDS } from './MeshFence';
+import { useRealism } from './realismContext';
 
 const MM_TO_M = [0.001, 0.001, 0.001];
 const FURNITURE_BASE = process.env.PUBLIC_URL + "/meshes/ur10e";
@@ -83,6 +85,17 @@ function EnvMesh({
       />
     </mesh>
   );
+}
+
+/*
+ * A fence segment: its STL, or under the realistic look a guarding panel built
+ * the way real ones are (MeshFence.js), in the same place.
+ */
+function Barrier({ url, ...props }) {
+  const realistic = useRealism();
+  const bounds = FENCE_BOUNDS[url.split('/').pop()];
+  if (realistic && bounds) return <MeshFencePanel bounds={bounds} position={props.position} rotation={props.rotation} />;
+  return <EnvMesh url={url} {...props} />;
 }
 
 /* Nearby workcell furniture -- loads first, cheap enough to cast shadows.
@@ -270,38 +283,38 @@ function Facility({ infeedOpening, workTableOpening }) {
   return (
     <Suspense fallback={null}>
       {!infeedOpening && (
-        <EnvMesh
+        <Barrier
           url={`${FACILITY_BASE}/barrier.stl`}
           material={FACILITY_GRAY}
           position={spreadOffset(3.716, -0.005)}
           receiveShadow
         />
       )}
-      <EnvMesh
+      <Barrier
         url={`${FACILITY_BASE}/barrier.stl`}
         material={FACILITY_GRAY}
         position={spreadOffset(-3.116, -0.005)}
         receiveShadow
       />
-      <EnvMesh
+      <Barrier
         url={`${FACILITY_BASE}/barrier_closekabinet.stl`}
         material={FACILITY_GRAY}
         position={spreadOffset(-5.134, -0.005)}
         receiveShadow
       />
-      <EnvMesh
+      <Barrier
         url={`${FACILITY_BASE}/barrier_kaw1.stl`}
         material={FACILITY_GRAY}
         position={KAW_WALL_OFFSET}
         receiveShadow
       />
-      <EnvMesh
+      <Barrier
         url={`${FACILITY_BASE}/barrier_kaw2.stl`}
         material={FACILITY_GRAY}
         position={KAW_WALL_OFFSET}
         receiveShadow
       />
-      <EnvMesh
+      <Barrier
         url={`${FACILITY_BASE}/barrier_kaw3.stl`}
         material={FACILITY_GRAY}
         position={KAW_WALL_OFFSET}
@@ -316,13 +329,13 @@ function Facility({ infeedOpening, workTableOpening }) {
       {/* Extra fence run: closes the open stretch along the top edge, from
           the existing barrier_closetable wall back over to the left
           (barrier_kaw) wall. */}
-      <EnvMesh
+      <Barrier
         url={`${FACILITY_BASE}/barrier.stl`}
         material={FACILITY_GRAY}
         position={BARRIER_AT(-0.591, 3.594)}
         receiveShadow
       />
-      <EnvMesh
+      <Barrier
         url={`${FACILITY_BASE}/barrier.stl`}
         material={FACILITY_GRAY}
         position={BARRIER_AT(-2.241, 3.594)}
@@ -332,14 +345,14 @@ function Facility({ infeedOpening, workTableOpening }) {
       {/* Corner + side fence where the mannequin used to stand -- turned 90
           degrees to run alongside the table, offset out from it so there's
           clearance to the aluminum table / conveyor. */}
-      <EnvMesh
+      <Barrier
         url={`${FACILITY_BASE}/barrier.stl`}
         material={FACILITY_GRAY}
         position={BARRIER_AT(1.117, 3.594)}
         receiveShadow
       />
       {!workTableOpening && (
-        <EnvMesh
+        <Barrier
           url={`${FACILITY_BASE}/barrier.stl`}
           material={FACILITY_GRAY}
           position={BARRIER_AT(1.7, 2.525, true)}
@@ -349,7 +362,7 @@ function Facility({ infeedOpening, workTableOpening }) {
       )}
 
       {/* Fence added in front of the conveyor */}
-      <EnvMesh
+      <Barrier
         url={`${FACILITY_BASE}/barrier.stl`}
         material={FACILITY_GRAY}
         position={BARRIER_AT(1.7, -0.4, true)}

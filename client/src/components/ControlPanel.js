@@ -3,6 +3,7 @@ import './ControlPanel.css';
 import { OTOKAR_AXES, OTOKAR_ROBOT_HOME, formatAxis } from './otokarAxes';
 import { useTelemetry, normaliseTrace } from './robotTelemetry';
 import { registerFeedCanvas, FEED_W, FEED_H } from './RobotCameraFeeds';
+import { CELL_SCENARIOS } from './cellScenarios';
 
 /*
  * Each machine's maker, as a small brand mark beside its name: Universal
@@ -106,6 +107,21 @@ const TELEMETRY_ROWS = [
     units: ['mm', 'mm', 'mm', '°', '°'],
     digits: 0,
   },
+  /*
+   * The IFARLAB cell copies' arms, numbered by their cell as its floor tag
+   * numbers it (cellScenarios.js) -- UR10e 02 and Kawasaki 02 work cell 02 --
+   * in the same rows as the original cell's two.
+   */
+  ...Object.values(CELL_SCENARIOS)
+    .filter(({ number }) => number > 1)
+    .sort((a, b) => a.number - b.number)
+    .flatMap(({ number }) => {
+      const tag = String(number).padStart(2, '0');
+      return [
+        { key: `ur10e-${tag}`, logo: 'ur10e', name: `UR10e ${tag}`, meta: '6-DOF on rail', axes: ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'], unit: '°', digits: 0 },
+        { key: `kawasaki-${tag}`, logo: 'kawasaki', name: `Kawasaki ${tag}`, meta: '6-DOF on AGV', axes: ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'], unit: '°', digits: 0 },
+      ];
+    }),
 ];
 
 // Each axis is scaled to its own recent range. The chart shows motion;
@@ -196,7 +212,7 @@ function TelemetryPanel({ animate }) {
           <div className="telemetry-robot" key={row.key}>
             <div className="telemetry-robot-head">
               <span className="telemetry-id">
-                <RobotIcon kind={row.key} />
+                <RobotIcon kind={row.logo || row.key} />
                 <span className="telemetry-name">{row.name}</span>
               </span>
               <span className="telemetry-meta">{row.meta}</span>

@@ -4,6 +4,7 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import * as THREE from 'three';
 import { PAINT, ACCENT, METAL } from './scenePalette';
 import { publishTelemetry } from './robotTelemetry';
+import { useRealism } from './realismContext';
 
 /*
  * Kawasaki RS005L Robot (6-DOF) from ESOGU-HILTest-DualRobot-2.
@@ -25,11 +26,9 @@ const MESH_BASE = process.env.PUBLIC_URL + '/meshes/rs005l';
 // Kawasaki machine enamel. This was the worst offender in the scene at
 // metalness 0.72 -- a painted white arm rendered as three-quarters chrome.
 const WHITE_BODY = { ...PAINT.shell };
-const NORTH_BODY = { color: '#d9dde0', metalness: 0.05, roughness: 0.42 };
 
 // Vurgu: Parlak, belirgin kırmızı
 const BLUE_ACCENT = { ...ACCENT.brandBlue };
-const NORTH_ACCENT = { color: '#aeb7bd', metalness: 0.08, roughness: 0.38 };
 
 // Eklemler: Koyu renkli, yansıtıcı anotlanmış metal
 const DARK_JOINT = { ...PAINT.dark };
@@ -37,8 +36,29 @@ const DARK_JOINT = { ...PAINT.dark };
 // Tutucu uç: Fırçalanmış çelik/alüminyum
 const GRIPPER_MAT = { ...METAL.machined };
 
+function InspectionCameraTool({ toolRef }) {
+  return (
+    <group>
+      <mesh position={[0, 0, 0.065]} castShadow>
+        <boxGeometry args={[0.09, 0.075, 0.13]} />
+        <meshStandardMaterial color="#354753" metalness={0.28} roughness={0.44} />
+      </mesh>
+      <mesh position={[0, 0, 0.14]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.029, 0.029, 0.035, 20]} />
+        <meshStandardMaterial color="#aebbc3" metalness={0.62} roughness={0.3} />
+      </mesh>
+      <mesh position={[0, 0, 0.16]}>
+        <circleGeometry args={[0.022, 24]} />
+        <meshStandardMaterial color="#102b3d" metalness={0.35} roughness={0.16} emissive="#116b8c" emissiveIntensity={0.25} />
+      </mesh>
+      <group ref={toolRef} position={[0, 0, 0.18]} />
+    </group>
+  );
+}
+
 function STLMesh({ url, position = [0, 0, 0], rotation = [0, 0, 0], scale = MESH_SCALE, material = WHITE_BODY }) {
   const geometry = useLoader(STLLoader, url);
+  const realistic = useRealism();
   const preparedGeometry = useMemo(() => {
     // STLLoader usually provides normals. Only compute if they're missing.
     if (!geometry.userData.__stlPrepared) {
@@ -52,12 +72,11 @@ function STLMesh({ url, position = [0, 0, 0], rotation = [0, 0, 0], scale = MESH
 
   return (
     <mesh geometry={preparedGeometry} position={position} rotation={rotation} scale={scale} castShadow receiveShadow>
-      <meshStandardMaterial
-        color={material.color}
-        metalness={material.metalness}
-        roughness={material.roughness}
-        side={THREE.DoubleSide}
-      />
+      {realistic && material.metalness < 0.2
+        // Realistic: robot enamel is semi-gloss -- a clear coat that catches
+        // the hall's lamps along each link. Bare metal keeps its own finish.
+        ? <meshPhysicalMaterial color={material.color} metalness={material.metalness} roughness={material.roughness} clearcoat={0.3} clearcoatRoughness={0.3} side={THREE.DoubleSide} />
+        : <meshStandardMaterial color={material.color} metalness={material.metalness} roughness={material.roughness} side={THREE.DoubleSide} />}
     </mesh>
   );
 }
@@ -77,10 +96,14 @@ export default function KawasakiRobot({
   toolRef,
   driveRef,
   reportTelemetry = true,
-  variant = 'default',
+  // The id the panel reads this arm under (the cell copies number theirs).
+  telemetryId = 'kawasaki',
+  // A cell's ROBOT_LIVERY ({ shell, accent }); the original cell's by default.
+  livery,
+  toolMode = 'gripper',
 }) {
-  const body = variant === 'north' ? NORTH_BODY : WHITE_BODY;
-  const accent = variant === 'north' ? NORTH_ACCENT : BLUE_ACCENT;
+  const body = livery?.shell ?? WHITE_BODY;
+  const accent = livery?.accent ?? BLUE_ACCENT;
   const jointRefs = useRef([]);
   if (jointsRef) jointsRef.current = jointRefs.current;
   const timeRef = useRef(0);
@@ -124,7 +147,7 @@ export default function KawasakiRobot({
     // `angles` is in radians here, whichever branch produced it; the readout
     // is in degrees, like the sliders.
     for (let i = 0; i < 6; i += 1) liveRef.current[i] = (angles[i] * 180) / Math.PI;
-    if (reportTelemetry) publishTelemetry('kawasaki', liveRef.current);
+    if (reportTelemetry) publishTelemetry(telemetryId, liveRef.current);
   });
 
   return (
@@ -169,7 +192,9 @@ export default function KawasakiRobot({
                                       local Z=0 (its mounting face) and extends to Z=0.10, so it
                                       mounts flush at J6's own origin with no extra offset; the old
                                       +0.05 push here was leaving a visible gap to J6. */}
-                                  <group position={[0, 0, 0]}>
+                                  {toolMode === 'inspection' ? (
+                                    <InspectionCameraTool toolRef={toolRef} />
+                                  ) : <group position={[0, 0, 0]}>
                                     <STLMesh url={`${MESH_BASE}/gripper.STL`} material={GRIPPER_MAT} />
                                     {/* The gripper runs 0..0.104 along this frame's z. */}
                                     <group ref={toolRef} position={[0, 0, 0.11]} />
@@ -183,7 +208,7 @@ export default function KawasakiRobot({
                                       position={[0.025 * gripperOpen, 0, 0]}
                                       material={GRIPPER_MAT}
                                     />
-                                  </group>
+                                  </group>}
                                 </group>
                               </group>
                             </group>

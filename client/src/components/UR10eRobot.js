@@ -4,6 +4,7 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import * as THREE from 'three';
 import { PAINT, ACCENT, METAL } from './scenePalette';
 import { publishTelemetry } from './robotTelemetry';
+import { useRealism } from './realismContext';
 
 /*
  * UR10e Robot Visualizer using actual STL meshes from the
@@ -22,14 +23,12 @@ const MESH_BASE = process.env.PUBLIC_URL + '/meshes/ur10e';
 // alloy: it took the room's colour instead of its own and lost its form the
 // moment it left a highlight.
 const SILVER = { ...PAINT.shell };
-const NORTH_SHELL = { color: '#d9dde0', metalness: 0.05, roughness: 0.43 };
 
 // Eklemler/Motorlar: Koyu renkli döküm metal
 const DARK_METAL = { ...PAINT.dark };
 
 // Vurgu kapakları: Anotlanmış mavi alüminyum veya sert plastik
 const BLUE_ACCENT = { ...ACCENT.brandBlue };
-const NORTH_ACCENT = { color: '#aeb7bd', metalness: 0.08, roughness: 0.42 };
 
 // Tutucu uç: İşlenmiş karbon çeliği veya mat koyu metal
 // The gripper body is anodised alloy -- genuinely bare, so genuinely metallic.
@@ -45,6 +44,7 @@ const GRIPPER_FINGER_TRAVEL = 0.02; // metres of additional opening travel
 
 function STLMesh({ url, position = [0, 0, 0], rotation = [0, 0, 0], scale = MESH_SCALE, material = SILVER }) {
   const geometry = useLoader(STLLoader, url);
+  const realistic = useRealism();
   const preparedGeometry = useMemo(() => {
     // STLLoader usually provides normals. Only compute if they're missing.
     if (!geometry.userData.__stlPrepared) {
@@ -58,12 +58,11 @@ function STLMesh({ url, position = [0, 0, 0], rotation = [0, 0, 0], scale = MESH
 
   return (
     <mesh geometry={preparedGeometry} position={position} rotation={rotation} scale={scale} castShadow receiveShadow>
-      <meshStandardMaterial
-        color={material.color}
-        metalness={material.metalness}
-        roughness={material.roughness}
-        side={THREE.DoubleSide}
-      />
+      {realistic && material.metalness < 0.2
+        // Realistic: robot enamel is semi-gloss -- a clear coat that catches
+        // the hall's lamps along each link. Bare metal keeps its own finish.
+        ? <meshPhysicalMaterial color={material.color} metalness={material.metalness} roughness={material.roughness} clearcoat={0.3} clearcoatRoughness={0.3} side={THREE.DoubleSide} />
+        : <meshStandardMaterial color={material.color} metalness={material.metalness} roughness={material.roughness} side={THREE.DoubleSide} />}
     </mesh>
   );
 }
@@ -87,12 +86,14 @@ function CoordinateFrame({ size = 0.1 }) {
   );
 }
 
-function ScrewdriverTool({ spinRef, screwLoadedRef, toolRef }) {
+function ScrewdriverTool({ spinRef, screwLoadedRef, productHeldRef, toolRef }) {
   const bit = useRef(null);
   const carriedScrew = useRef(null);
+  const productClamp = useRef(null);
   useFrame((_, delta) => {
     if (bit.current && spinRef?.current) bit.current.rotation.x += delta * 24;
     if (carriedScrew.current) carriedScrew.current.visible = Boolean(screwLoadedRef?.current);
+    if (productClamp.current) productClamp.current.visible = Boolean(productHeldRef?.current);
   });
   return (
     <group position={[0, 0.1, -0.01]}>
@@ -126,7 +127,37 @@ function ScrewdriverTool({ spinRef, screwLoadedRef, toolRef }) {
         <cylinderGeometry args={[0.01, 0.006, 0.022, 12]} />
         <meshStandardMaterial color="#b6c0c8" metalness={0.8} roughness={0.25} />
       </mesh>
+      <group ref={productClamp} position={[0.25, 0, 0]} visible={false}>
+        <mesh position={[0, 0, 0.13]} castShadow>
+          <boxGeometry args={[0.06, 0.16, 0.025]} />
+          <meshStandardMaterial color="#495762" metalness={0.72} roughness={0.28} />
+        </mesh>
+        <mesh position={[0, 0, -0.13]} castShadow>
+          <boxGeometry args={[0.06, 0.16, 0.025]} />
+          <meshStandardMaterial color="#495762" metalness={0.72} roughness={0.28} />
+        </mesh>
+      </group>
       <group ref={toolRef} position={[0.25, 0, 0]} />
+    </group>
+  );
+}
+
+function InspectionCameraTool({ toolRef }) {
+  return (
+    <group position={[0, 0.1, -0.01]}>
+      <mesh position={[0.1, 0, 0]} castShadow>
+        <boxGeometry args={[0.14, 0.075, 0.09]} />
+        <meshStandardMaterial color="#354753" metalness={0.28} roughness={0.44} />
+      </mesh>
+      <mesh position={[0.177, 0, 0]} rotation={[0, 0, -Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[0.029, 0.029, 0.035, 20]} />
+        <meshStandardMaterial color="#aebbc3" metalness={0.62} roughness={0.3} />
+      </mesh>
+      <mesh position={[0.197, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <circleGeometry args={[0.022, 24]} />
+        <meshStandardMaterial color="#102b3d" metalness={0.35} roughness={0.16} emissive="#116b8c" emissiveIntensity={0.25} />
+      </mesh>
+      <group ref={toolRef} position={[0.22, 0, 0]} />
     </group>
   );
 }
@@ -153,13 +184,17 @@ export default function UR10eRobot({
   driveRef,
   gripRef,
   reportTelemetry = true,
+  // The id the panel reads this arm under (the cell copies number theirs).
+  telemetryId = 'ur10e',
   toolMode = 'gripper',
   screwdriverSpinRef,
   screwLoadedRef,
-  variant = 'default',
+  productHeldRef,
+  // A cell's ROBOT_LIVERY ({ shell, accent }); the original cell's by default.
+  livery,
 }) {
-  const shell = variant === 'north' ? NORTH_SHELL : SILVER;
-  const accent = variant === 'north' ? NORTH_ACCENT : BLUE_ACCENT;
+  const shell = livery?.shell ?? SILVER;
+  const accent = livery?.accent ?? BLUE_ACCENT;
   const jointRefs = useRef([]);
   const upperFinger = useRef(null);
   const lowerFinger = useRef(null);
@@ -223,7 +258,7 @@ export default function UR10eRobot({
       if (jointRefs.current[5]) jointRefs.current[5].rotation.y = toRad(jointAngles[5]);
       for (let i = 0; i < 6; i += 1) liveRef.current[i] = jointAngles[i];
     }
-    if (reportTelemetry) publishTelemetry('ur10e', liveRef.current);
+    if (reportTelemetry) publishTelemetry(telemetryId, liveRef.current);
   });
 
   /*
@@ -335,8 +370,10 @@ export default function UR10eRobot({
                                           />
                                         </group>
 
-                                        {toolMode === 'screwdriver' ? (
-                                          <ScrewdriverTool spinRef={screwdriverSpinRef} screwLoadedRef={screwLoadedRef} toolRef={toolRef} />
+                                        {toolMode === 'inspection' ? (
+                                          <InspectionCameraTool toolRef={toolRef} />
+                                        ) : toolMode === 'screwdriver' ? (
+                                          <ScrewdriverTool spinRef={screwdriverSpinRef} screwLoadedRef={screwLoadedRef} productHeldRef={productHeldRef} toolRef={toolRef} />
                                         ) : (<>
                                         {/* Gripper (fixed body + opening fingers, mounted on flange) */}
                                         <STLMesh

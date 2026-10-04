@@ -8,22 +8,24 @@ import { WORKER_URL, settleMaterials, walkPose, workerChains } from './Worker';
 import { limb, solveTwoBone } from './limbIK';
 
 /*
- * A cleaner pushing a walk-behind floor scrubber up and down the east floor,
- * between the IFARLAB cell's line and the east racking.
+ * A cleaner pushing a walk-behind floor scrubber along the west side of the
+ * hall's front, away from the robot cells and out of the opening view.
  *
  * There is no ride-on scrubber among the free models, and the only person
  * model in the scene is a walking figure -- which is exactly what a
  * walk-behind machine needs, so the operator is the same worker as the rest
  * of the hall (with the same hard-hat fix) and the machine is modelled here.
  *
- * The run is z = 2..18 along x = 13.3: clear of the east racking (x >= 14.97)
- * and of the buses, whose nearest approach is the shuffle's tail at x = 11.7
- * (busRoute.js). At each end the operator swings the machine round and comes
- * back down the same line.
+ * The run is z = 7.5..14 along x = -13.0. The scrubber's nose extends 1.45 m
+ * past the worker, so swinging round it sweeps x = -14.45..-11.55: clear of
+ * the west wall's steel (x = -16.08), of the incoming bus (its west side
+ * never past x = -10.7 here) and, 3.2 m off, of the forklift's north pallet
+ * stack (z <= 4.3). At each end the operator swings the machine round and
+ * returns.
  */
-const RUN_X = 13.3;
-const RUN_FROM_Z = 2.0;
-const RUN_TO_Z = 18.0;
+const RUN_X = -13.0;
+const RUN_FROM_Z = 7.5;
+const RUN_TO_Z = 14.0;
 const SPEED = 0.7; // m/s, a slow scrubbing walk
 const TURN_TIME = 2.6; // s to swing the machine through 180 degrees
 

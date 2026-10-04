@@ -153,7 +153,7 @@ export default function SafetyEquipment() {
       <SignPlate texture={signs.firstAid} position={[-0.45, 1.85, FAR_WALL_Z + 0.01]} rotation={[0, 0, 0]} />
 
       {/* Wet-floor sign where the scrubber is working. */}
-      <Prop url={PROP_BASE + 'wetfloor.glb'} height={0.62} position={[12.3, 0, 9.5]} rotation={[0, -0.6, 0]} />
+      <Prop url={PROP_BASE + 'wetfloor.glb'} height={0.62} position={[-11.5, 0, 6.2]} rotation={[0, 0.6, 0]} />
     </group>
   );
 }

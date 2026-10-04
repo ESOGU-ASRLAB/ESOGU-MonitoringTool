@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { METAL } from './scenePalette';
+import { useRealism } from './realismContext';
 
 /*
  * Lab and project signage on the far (-z) end wall of the warehouse -- the
@@ -232,15 +233,23 @@ function useSignFaces() {
 }
 
 function Lightbox({ position, width, height, depth, face }) {
+  const realistic = useRealism();
   return (
     <group position={position}>
       <mesh>
         <boxGeometry args={[width, height, depth]} />
-        <meshStandardMaterial {...METAL.aluminium} />
+        <meshStandardMaterial {...(realistic
+          ? { color: '#626d75', metalness: 0.66, roughness: 0.4 }
+          : METAL.aluminium)} />
       </mesh>
       <mesh position={[0, 0, depth / 2 + 0.003]}>
         <planeGeometry args={[width - CASE_LIP * 2, height - CASE_LIP * 2]} />
-        <meshBasicMaterial map={face} toneMapped={false} />
+        {/* Realistic: the face is backlit acrylic -- printed film you see by
+            the hall's light, the backlight glowing through it, and a glossy
+            skin the lamps streak across. */}
+        {realistic
+          ? <meshPhysicalMaterial map={face} emissive="#ffffff" emissiveMap={face} emissiveIntensity={0.6} metalness={0} roughness={0.3} clearcoat={1} clearcoatRoughness={0.05} />
+          : <meshBasicMaterial map={face} toneMapped={false} />}
       </mesh>
     </group>
   );

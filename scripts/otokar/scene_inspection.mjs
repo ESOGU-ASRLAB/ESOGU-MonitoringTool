@@ -56,6 +56,8 @@ export function createInspector(overrides = {}) {
     useRef: (current) => ({ current }),
     useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}],
     useEffect: () => {},
+    createContext: (value) => ({ value, Provider: ({ children }) => children }),
+    useContext: (context) => context.value,
     /*
      * Returns the callback itself. The harness renders each component once and
      * never re-renders, so memoisation has nothing to preserve -- what matters

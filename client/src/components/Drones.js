@@ -27,7 +27,7 @@ import { busPose } from './busRoute';
  *
  * Over the Otokar cell a drone cannot come below 5.3 m -- the gantry masts
  * reach 4.90 m and travel the whole runway -- so the patrols sit beside the
- * work instead: one patrols over the scrubber on the east floor at 3.6 m, off
+ * work instead: one patrols over the scrubber on the west floor at 3.6 m, off
  * the routes of the two buses trading bays (busRoute.js); the other rides over
  * the graphite bus itself (ESCORT below). A third, over
  * the IFARLAB cell, hung across the lab signs from the opening camera and was
@@ -35,7 +35,7 @@ import { busPose } from './busRoute';
  * centre, so every orbit keeps it above head height.
  */
 export const DRONE_PATROLS = Object.freeze([
-  { center: [12.4, 0, 12.0], radius: 0.8, height: 3.6, speed: 0.34, phase: 2.2, tilt: -0.07 },
+  { center: [-13.0, 0, 10.8], radius: 0.55, height: 3.6, speed: 0.34, phase: 2.2, tilt: -0.07 },
 ]);
 
 // All in the gantries' signal yellow, the one yellow already in the hall.
