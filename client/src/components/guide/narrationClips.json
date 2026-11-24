@@ -1,0 +1,40 @@
+{
+  "en": {
+    "This station monitors the real UR10e and Kawasaki beside the bus inspection area.": "en-01-d5289cfe2f.mp3",
+    "When the physical robots run, joint angles received through the API from MongoDB drive these digital robots in real time.": "en-02-5a3942cc2d.mp3",
+    "In the first use case, UR10e moves boxes from the conveyor to the table.": "en-03-ff6f2f7d59.mp3",
+    "The UR10e closes its gripper around a box.": "en-04-58613b5456.mp3",
+    "It carries the box to the table while Kawasaki checks the chassis beside it.": "en-05-23b62c038b.mp3",
+    "This cell fastens screws into a prepared part.": "en-06-f3da18fad7.mp3",
+    "Up close, the tool collects a screw and approaches its fastening point.": "en-07-aecc1813f7.mp3",
+    "The robot repeats the operation to finish the part.": "en-08-e6d25011e1.mp3",
+    "Two robots inspect opposite sides of the aluminium chassis.": "en-09-58decb547c.mp3",
+    "The UR10e camera scans one side with clearance from the frame.": "en-10-7a2a12cce8.mp3",
+    "The Kawasaki camera checks the other face.": "en-11-6a4afd10f9.mp3",
+    "This cell attaches a fitting to the door.": "en-12-3769ee0b97.mp3",
+    "The UR10e positions and fastens it.": "en-13-fa3fb00cb1.mp3",
+    "Here is the attachment point that the robots assemble and check.": "en-14-92aad41ad1.mp3",
+    "Two rail-mounted robots inspect the bus body.": "en-15-662c686e8f.mp3",
+    "R1 reaches under the floor and scans upward.": "en-16-03d0bd410d.mp3",
+    "R2 reaches inside the bus to inspect the roof.": "en-17-76fbd1b61b.mp3"
+  },
+  "tr": {
+    "Bu alan, otobüs kontrol alanı yanındaki gerçek UR10e ve Kawasaki robotlarını izler.": "tr-01-5d92267013.mp3",
+    "Fiziksel robotlar çalıştığında MongoDB veritabanından API ile gelen eklem açıları bu dijital robotlara gerçek zamanlı uygulanır.": "tr-02-313fe9e558.mp3",
+    "İlk kullanım senaryosunda UR10e kutuları konveyörden masaya taşıyor.": "tr-03-a6735a0805.mp3",
+    "UR10e, tutucusunu kutunun etrafında kapatıyor.": "tr-04-54bbc52d7c.mp3",
+    "Kutuyu masaya taşırken Kawasaki yanındaki şasiyi kontrol ediyor.": "tr-05-68943d367c.mp3",
+    "Bu hücrede hazırlanmış parçaya vidalar takılıyor.": "tr-06-240ff3b0f6.mp3",
+    "Yakından, aracın vidayı alıp bağlantı noktasına yaklaşmasını görüyoruz.": "tr-07-d801ce3124.mp3",
+    "Robot işlemi tekrarlayarak parçayı tamamlıyor.": "tr-08-c3ebc0106e.mp3",
+    "İki robot alüminyum şasinin karşılıklı yüzlerini inceliyor.": "tr-09-ca982a03d8.mp3",
+    "UR10e kamerası şasiye mesafe bırakarak bir yüzü tarıyor.": "tr-10-a9d9e6d504.mp3",
+    "Kawasaki kamerası diğer yüzü kontrol ediyor.": "tr-11-4f2501489c.mp3",
+    "Bu hücrede kapıya bir bağlantı parçası takılıyor.": "tr-12-d1dcab8777.mp3",
+    "UR10e parçayı konumlandırıp sabitliyor.": "tr-13-a233ee7c8e.mp3",
+    "Robotların montaj ve kontrol yaptığı bağlantı noktası burada.": "tr-14-0a4d7e21d1.mp3",
+    "Raylı iki robot otobüs gövdesini inceliyor.": "tr-15-8f32066b7c.mp3",
+    "R1 tabanın altına uzanıp yukarı doğru tarıyor.": "tr-16-45e14e9a36.mp3",
+    "R2 otobüsün içine uzanarak tavanı kontrol ediyor.": "tr-17-a3a97387bc.mp3"
+  }
+}

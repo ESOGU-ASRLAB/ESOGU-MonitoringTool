@@ -7,9 +7,8 @@ import EnvironmentElements from './EnvironmentElements';
 import WindowPlatform from './WindowPlatform';
 import WindowUsecaseTasks from './WindowUsecaseTasks';
 import DoorFasteningTasks from './DoorFasteningTasks';
-import DualDoorInspectionTasks from './DualDoorInspectionTasks';
+import DualDoorInspectionTasks, { CHASSIS_INSPECTION_HOME } from './DualDoorInspectionTasks';
 import { IfarlabCabinet } from './ServerCabinets';
-import CellLabel from './CellLabel';
 import CellDressing from './CellDressing';
 import { CELL_SCENARIOS } from './cellScenarios';
 import { FEED_TOOLS, registerFeedTool } from './RobotCameraFeeds';
@@ -21,7 +20,7 @@ import { IFARLAB_COPY_OFFSET } from './cellLayout';
 //   door          a fitting off the conveyor, mounted and screwed on the door
 //   inspection    both arms inspect the two door leaves
 export default function IfarlabCellCopy({
-  active, inVR = false, offset = IFARLAB_COPY_OFFSET, scenario = 'screwdriving', showLabel = false,
+  active, inVR = false, offset = IFARLAB_COPY_OFFSET, scenario = 'screwdriving',
   assistantHandleRef, assistantActiveRef, operatorRef,
 }) {
   const urGroupRef = useRef(null);
@@ -57,10 +56,10 @@ export default function IfarlabCellCopy({
 
   return (
     <group name={`cell-${scenario}`} position={offset}>
-      <group name={`ur10e-${scenario}`} ref={urGroupRef} position={[-0.147, 0.58635, -0.25]}>
+      <group name={`ur10e-${scenario}`} ref={urGroupRef} position={[-0.147, 0.58635, -(inspecting ? CHASSIS_INSPECTION_HOME.ur.rail : .25)]}>
         <UR10eMount />
         <UR10eRobot
-          jointAngles={[0, -95, 100, -95, -90, 0]}
+          jointAngles={inspecting ? CHASSIS_INSPECTION_HOME.ur.angles : [0, -95, 100, -95, -90, 0]}
           jointsRef={urJointsRef}
           toolRef={urToolRef}
           driveRef={urDriveRef}
@@ -72,11 +71,11 @@ export default function IfarlabCellCopy({
           telemetryId={`ur10e-${tag}`}
         />
       </group>
-      <group ref={agvGroupRef} position={[-2.301949, 0.17, -0.48]} rotation={[0, Math.PI / 2, 0]}>
+      <group ref={agvGroupRef} position={[-2.301949, 0.17, -(inspecting ? CHASSIS_INSPECTION_HOME.kawasaki.rail : .48)]} rotation={[0, Math.PI / 2, 0]}>
         <AGVBase />
         <group position={[0.001, 0.263, 0.26]} rotation={[0, Math.PI, 0]}>
           <KawasakiRobot
-            jointAngles={[0, 20, -30, 0, 45, 0]}
+            jointAngles={inspecting ? CHASSIS_INSPECTION_HOME.kawasaki.angles : [0, 20, -30, 0, 45, 0]}
             jointsRef={kawJointsRef}
             toolRef={kawToolRef}
             driveRef={kawDriveRef}
@@ -87,8 +86,8 @@ export default function IfarlabCellCopy({
         </group>
       </group>
       {/* The headset's screw-driving station is at the north cell's table. */}
-      <EnvironmentElements showChassis={false} workTableOpening={scenario === 'screwdriving' && inVR} />
-      <WindowPlatform />
+      <EnvironmentElements showChassis={inspecting} chassisName={inspecting ? "guide-inspection-panel" : undefined} workTableOpening={scenario === 'screwdriving' && inVR} />
+      {!inspecting && <WindowPlatform name={`guide-${scenario}-panel`} />}
       {scenario === 'inspection' && <DualDoorInspectionTasks active={active} ur={ur} kawasaki={kawasaki} />}
       {scenario === 'screwdriving' && (
         <WindowUsecaseTasks active={active} operator={!inVR} ur={ur} kawasaki={kawasaki} spinRef={spinRef} screwLoadedRef={screwLoadedRef} productHeldRef={productHeldRef} assistantHandleRef={assistantHandleRef} assistantActiveRef={assistantActiveRef} />
@@ -98,7 +97,6 @@ export default function IfarlabCellCopy({
       )}
       <IfarlabCabinet />
       <CellDressing running={active} />
-      {showLabel && <CellLabel number={CELL_SCENARIOS[scenario].number} title={CELL_SCENARIOS[scenario].title} />}
     </group>
   );
 }

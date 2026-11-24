@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { readTelemetry } from './robotTelemetry';
 import {
   audioContext, isMuffled, isMuted, loadSample, muffleFilter, onMuffleChange, onMuteChange, playClick, playSample,
-  sample, setMuted, unlockAudio,
+  sample, setHallDucked, setMuted, unlockAudio,
 } from './vrAudio';
 import { IS_TEST_HOST } from './xrSession';
 
@@ -86,13 +86,24 @@ function emitterAt(listener, scene, position, refDistance, rolloff) {
   return { input, emitter };
 }
 
-export default function VRSoundscape({ targets }) {
+export default function VRSoundscape({ targets, ducked }) {
   const camera = useThree((state) => state.camera);
   const scene = useThree((state) => state.scene);
   const gl = useThree((state) => state.gl);
   const left = useXRInputSourceState('controller', 'left');
   const voices = useRef([]);
   const xDown = useRef(false);
+  const listenerRef = useRef(null);
+  const quiet = useRef(ducked);
+  quiet.current = ducked;
+
+  useEffect(() => {
+    const listener = listenerRef.current;
+    const gain = listener?.gain.gain;
+    if (gain) gain.setTargetAtTime(isMuted() ? 0 : ducked ? 0.3 : 1, audioContext().currentTime, 0.12);
+    setHallDucked(ducked);
+    return () => setHallDucked(false);
+  }, [ducked]);
 
   useEffect(() => {
     unlockAudio();
@@ -101,9 +112,11 @@ export default function VRSoundscape({ targets }) {
     session?.addEventListener('selectstart', unlockAudio);
 
     const listener = new THREE.AudioListener();
+    listenerRef.current = listener;
     camera.add(listener);
-    listener.setMasterVolume(isMuted() ? 0 : 1);
-    const offMute = onMuteChange((muted) => listener.setMasterVolume(muted ? 0 : 1));
+    const setVolume = (muted) => listener.setMasterVolume(muted ? 0 : quiet.current ? 0.3 : 1);
+    setVolume(isMuted());
+    const offMute = onMuteChange(setVolume);
     // Ear defenders on (safety-gear training): the placed sounds muffled too.
     const muffle = (on) => (on ? listener.setFilter(muffleFilter()) : listener.removeFilter());
     muffle(isMuffled());
@@ -154,18 +167,16 @@ export default function VRSoundscape({ targets }) {
       offMute();
       offMuffle();
       playing.forEach((p) => p.stop());
-      [...Object.values(spots).flat(), ...people].forEach(({ emitter, input }) => {
-        scene.remove(emitter);
-        input.disconnect();
-        emitter.disconnect();
-      });
-      voices.current.forEach(({ emitter, input }) => {
+      [...Object.values(spots).flat(), ...people, ...voices.current].forEach(({ emitter }) => {
         emitter.removeFromParent();
-        input.disconnect();
         emitter.disconnect();
+        emitter.gain.disconnect();
       });
       voices.current = [];
       camera.remove(listener);
+      listener.removeFilter();
+      listener.gain.disconnect();
+      listenerRef.current = null;
     };
   }, [camera, scene, gl, targets]);
 

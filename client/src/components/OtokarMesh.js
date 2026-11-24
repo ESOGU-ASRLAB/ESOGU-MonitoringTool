@@ -26,7 +26,7 @@ import { OTOKAR_BODY_PALETTE } from './otokarCadPalette';
 // RoomEnvironment choice in Scene.js).
 const DRACO_PATH = process.env.PUBLIC_URL + '/draco/';
 
-export const OTOKAR_MESH_BASE = process.env.PUBLIC_URL + '/meshes/otokar';
+export const OTOKAR_MESH_BASE = process.env.PUBLIC_URL + '/meshes/bus-inspection';
 // Bump this whenever the STEP->GLB output or its frame interpretation changes.
 // The static server still serves the same file for the query-string URL, while
 // GLTFLoader's cache key and the browser cache see a new asset revision.
@@ -190,10 +190,10 @@ export default function OtokarMesh({
         // than rebuilding it per mount: scene.clone() hands every instance the
         // same BufferGeometry, and the body is the heaviest mesh in the cell.
         const source = child.geometry;
-        if (!source.userData.__otokarCadSurface) {
-          source.userData.__otokarCadSurface = createCadSurfaceGeometry(source);
+        if (!source.userData.__inspectionCadSurface) {
+          source.userData.__inspectionCadSurface = createCadSurfaceGeometry(source);
         }
-        child.geometry = source.userData.__otokarCadSurface;
+        child.geometry = source.userData.__inspectionCadSurface;
       }
       child.material = mat;
       child.castShadow = true;

@@ -2,9 +2,9 @@ import { ROBOT_LIVERY } from './scenePalette';
 
 /*
  * The four IFARLAB cells share one physical layout and run four programs. For
- * a presentation each needs to be named and recognisable from across the
- * hall, so every cell has its name tag over it (CellLabel.js, switched from
- * the view controls) and its two robots wear one livery.
+ * a presentation each needs to be recognisable, so its two robots share a
+ * livery. Mira names the scenarios during narration and in the topic list;
+ * the hall itself has no floating cell-name overlays.
  *
  *   pickPlace     the original cell (IfarlabTasks.js)
  *   screwdriving  north cell, part screwed on the table (WindowUsecaseTasks.js)

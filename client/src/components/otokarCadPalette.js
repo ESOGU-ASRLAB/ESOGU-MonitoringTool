@@ -96,7 +96,7 @@ export const OTOKAR_ROBOT_LIVERY = Object.freeze({
    * which is precisely how an accent stops reading as a signal.
    */
   amber: ACCENT.hazardAmber.color, // Vehicle support fixtures along the rail bed.
-  signalRed: ACCENT.signalRed.color, // Drive blocks: axis-2 slide and wrist.
+  signalRed: ACCENT.hazardAmber.color, // Drive blocks: axis-2 slide and wrist.
   satinSteel: METAL.machined.color, // Exposed guides and telescoping stages.
   sensorGrey: '#99a1a7',           // Camera enclosure, light against the wrist.
 });

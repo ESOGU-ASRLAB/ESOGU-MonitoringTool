@@ -97,6 +97,7 @@ function ScrewdriverTool({ spinRef, screwLoadedRef, productHeldRef, toolRef }) {
   });
   return (
     <group position={[0, 0.1, -0.01]}>
+      <mesh name="tool-mount-adapter" position={[.015, -.03, 0]} castShadow><boxGeometry args={[.05, .065, .075]} /><meshStandardMaterial color="#65727d" metalness={.75} roughness={.4} /></mesh>
       <mesh rotation={[0, 0, -Math.PI / 2]} position={[0.065, 0, 0]} castShadow>
         <cylinderGeometry args={[0.042, 0.042, 0.085, 24]} />
         <meshStandardMaterial color="#303b46" metalness={0.48} roughness={0.38} />
@@ -145,6 +146,7 @@ function ScrewdriverTool({ spinRef, screwLoadedRef, productHeldRef, toolRef }) {
 function InspectionCameraTool({ toolRef }) {
   return (
     <group position={[0, 0.1, -0.01]}>
+      <mesh name="tool-mount-adapter" position={[.015, -.03, 0]} castShadow><boxGeometry args={[.05, .065, .075]} /><meshStandardMaterial color="#65727d" metalness={.75} roughness={.4} /></mesh>
       <mesh position={[0.1, 0, 0]} castShadow>
         <boxGeometry args={[0.14, 0.075, 0.09]} />
         <meshStandardMaterial color="#354753" metalness={0.28} roughness={0.44} />
@@ -354,7 +356,7 @@ export default function UR10eRobot({
                                       />
 
                                       {/* Flange (fixed from tool0) */}
-                                      <group position={[0.028, 0.0249, 0.01]}>
+                                      <group name={`guide-${telemetryId}-flange`} position={[0.028, 0.0249, 0.01]}>
                                         <STLMesh
                                           url={`${MESH_BASE}/flange.stl`}
                                           position={[-1.106132, -0.502789, -0.727752]}
@@ -362,19 +364,19 @@ export default function UR10eRobot({
                                         />
 
                                         {/* SICK Camera (fixed from flange) */}
-                                        <group position={[-0.081802, 0.043811, 0.003]}>
+                                        {toolMode !== 'inspection' && <group name={`guide-${telemetryId}-camera`} position={[-0.081802, 0.043811, 0.003]}>
                                           <STLMesh
                                             url={`${MESH_BASE}/sick_camera_mo.stl`}
                                             position={[-1.02433, -0.5466, -0.730752]}
                                             material={accent}
                                           />
-                                        </group>
+                                        </group>}
 
                                         {toolMode === 'inspection' ? (
-                                          <InspectionCameraTool toolRef={toolRef} />
+                                          <group name={`guide-${telemetryId}-camera`}><InspectionCameraTool toolRef={toolRef} /></group>
                                         ) : toolMode === 'screwdriver' ? (
-                                          <ScrewdriverTool spinRef={screwdriverSpinRef} screwLoadedRef={screwLoadedRef} productHeldRef={productHeldRef} toolRef={toolRef} />
-                                        ) : (<>
+                                          <group name={`guide-${telemetryId}-screwdriver`}><ScrewdriverTool spinRef={screwdriverSpinRef} screwLoadedRef={screwLoadedRef} productHeldRef={productHeldRef} toolRef={toolRef} /></group>
+                                        ) : (<group name={`guide-${telemetryId}-gripper`}>
                                         {/* Gripper (fixed body + opening fingers, mounted on flange) */}
                                         <STLMesh
                                           url={`${MESH_BASE}/gripper_body_1.stl`}
@@ -399,7 +401,7 @@ export default function UR10eRobot({
                                         {/* Fingertip centre, measured off the finger meshes
                                             (x 0.095..0.162, y 0.068..0.131 in this frame). */}
                                         <group ref={toolRef} position={[0.16, 0.1, -0.01]} />
-                                        </>)}
+                                        </group>)}
                                       </group>
 
                                       {/* Cable channel flange (fixed from tool0) */}

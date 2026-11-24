@@ -78,7 +78,7 @@ export default function VRIntegration() {
         <Anchor id="overview">Overview</Anchor>
         <p>
           Put on the headset, open the site and press <strong>Enter VR</strong>: you stand on the
-          hall floor between the Otokar inspection cell and the IFARLAB workcell, at real scale,
+          hall floor between the bus-body inspection cell and the IFARLAB workcell, at real scale,
           while the gantries run their inspection program and the arms their tasks. Other visitors
           appear as workers where they are looking from, and pointing at a robot opens its details.
           In the headset the hall also sounds like one. Five training stations let you work
@@ -170,7 +170,7 @@ export default function VRIntegration() {
 
         <Anchor id="robots">Robot details</Anchor>
         <p>
-          The UR10e, the Kawasaki RS005L and both Otokar gantries each open a details panel. In the
+          The UR10e, the Kawasaki RS005L and both inspection gantries each open a details panel. In the
           headset, point at the robot and pull the trigger; on the desktop, click it. The panel
           refreshes four times a second and shows:
         </p>
@@ -232,7 +232,7 @@ export default function VRIntegration() {
           head={['Sound', 'Where it comes from']}
           rows={[
             ['The factory floor', 'A recording of a working factory floor, all around you, looping without a seam'],
-            ['People', 'Workers talking and handling boxes, from where the hall\'s own workers stand at the Otokar cell'],
+            ['People', 'Workers talking and handling boxes, from where the hall\'s own workers stand at the inspection cell'],
             ['The work', 'Every 3 to 8 s one of eleven recordings -- an air line let go, an impact wrench, a toolbox, a dropped spanner, a repair shop, forklift hydraulics, a forklift reversing -- from a bench or a forklift aisle, never the same clip twice running and each a little different in pitch and level'],
             ['Robots', 'Now and then, while a robot moves, a short recording of real servos from its moving part, stronger the faster it moves; heard only close to it'],
             ['The infeed', 'Rollers running as a box you handed over rolls in to the conveyor'],
@@ -271,13 +271,13 @@ export default function VRIntegration() {
         <p>
           A Quest 3 draws every frame twice, once per eye, on a mobile GPU. Measured on the hall as
           it loads, the two cells were modelled at CAD density: the IFARLAB workcell 1.13 million
-          triangles, the Otokar cell 1.16 million at its light detail tier and 6.1 million at its
+          triangles, the inspection cell 1.16 million at its light detail tier and 6.1 million at its
           detailed one, and a shadow map drew every shadow-casting part a second time. The hall
           came to 2.9 million triangles per eye before walking anywhere. Now:
         </p>
         <SpecTable rows={[
           ['IFARLAB meshes', 'Simplified to 0.15 million triangles for every viewer, within 0.2% of each part\'s shape (the fence wire mesh within 0.03%); a 54 MB download became about 6 MB'],
-          ['Otokar detail', 'Its own headset tier, 0.32 million triangles, wherever you stand'],
+          ['Inspection-cell detail', 'Its own headset tier, 0.32 million triangles, wherever you stand'],
           ['Scenery', 'The parked buses, forklift, floor scrubber, drones and yard are left out in the headset; the staff, signs and safety equipment stay'],
           ['Refresh rate', '72 Hz, which gives each frame 13.9 ms; the headset\'s highest rate (90 or 120 Hz) leaves 8 to 11 ms'],
           ['Shadows', 'Off. On the Quest browser this applies from page load, so entering VR recompiles nothing.'],
@@ -305,7 +305,7 @@ export default function VRIntegration() {
           rows={[
             [<code>?vrhz=72|90|120</code>, 'Refresh rate asked of the headset (default 72)'],
             [<code>?vrshadows=off|hard|soft</code>, 'Shadow quality in VR (default off)'],
-            [<code>?lod=auto|vr|lo|hi</code>, 'Otokar mesh detail (default: vr on the headset, by distance elsewhere)'],
+            [<code>?lod=auto|vr|lo|hi</code>, 'Inspection-cell mesh detail (default: vr on the headset, by distance elsewhere)'],
             [<code>?vrscenery=lite|full</code>, 'Hall decoration in the headset (default lite)'],
             [<code>?vrscale=0.8</code>, 'Render scale; below 1 trades sharpness for frame rate'],
             [<code>?vrstats=1|0</code>, 'Frame-rate card on or off'],
@@ -324,7 +324,7 @@ export default function VRIntegration() {
           <li><strong>Follow view:</strong> desktop viewers watch through a headset visitor&apos;s eyes, or from behind them, for presentations.</li>
           <li><strong>&quot;Look here&quot;:</strong> a desktop viewer marks a machine and the headset user sees the marker.</li>
           <li><strong>Collisions with machines:</strong> today only the hall walls stop you.</li>
-          <li><strong>More training stations:</strong> lockout/tagout before entering the cell (stop, isolate, padlock and tag the main switch); sort damaged boxes off the belt before the robot takes them; stack a pallet to a pattern; mount a sensor head on an Otokar gantry.</li>
+          <li><strong>More training stations:</strong> lockout/tagout before entering the cell (stop, isolate, padlock and tag the main switch); sort damaged boxes off the belt before the robot takes them; stack a pallet to a pattern; mount a sensor head on an inspection gantry.</li>
         </ul>
       </article>
     </div>

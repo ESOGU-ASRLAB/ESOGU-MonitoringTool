@@ -193,7 +193,7 @@ export default function KawasakiRobot({
                                       mounts flush at J6's own origin with no extra offset; the old
                                       +0.05 push here was leaving a visible gap to J6. */}
                                   {toolMode === 'inspection' ? (
-                                    <InspectionCameraTool toolRef={toolRef} />
+                                    <group name={`guide-${telemetryId}-inspection-tool`}><InspectionCameraTool toolRef={toolRef} /></group>
                                   ) : <group position={[0, 0, 0]}>
                                     <STLMesh url={`${MESH_BASE}/gripper.STL`} material={GRIPPER_MAT} />
                                     {/* The gripper runs 0..0.104 along this frame's z. */}

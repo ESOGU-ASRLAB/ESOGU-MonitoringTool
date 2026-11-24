@@ -19,6 +19,11 @@
     "build": "react-scripts build",
     "postbuild": "node -e \"const fs=require('fs');for(const p of ['docs','vr']){fs.mkdirSync('build/'+p,{recursive:true});fs.copyFileSync('build/index.html','build/'+p+'/index.html')}fs.copyFileSync('build/index.html','build/404.html');for(const f of ['windowdoor.stl','windowlessdoor.stl'])fs.rmSync('build/new_usecase/'+f,{force:true})\"",
     "test": "react-scripts test",
+    "inspection:build-meshes": "bash ../scripts/otokar/build_otokar_meshes.sh",
+    "inspection:check-layout": "node ../scripts/otokar/verify_cell_fit.mjs",
+    "inspection:check-palette": "node ../scripts/otokar/verify_palette.mjs",
+    "inspection:inspect-meshes": "node ../scripts/otokar/inspect_meshes.mjs",
+    "inspection:test-motion": "node --test ../scripts/otokar/motion.test.mjs",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

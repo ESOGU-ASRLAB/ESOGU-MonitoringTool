@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
-import { ARCHITECTURE, REALISM } from './scenePalette';
+import { ARCHITECTURE, LIGHTING, ROOM } from './scenePalette';
 import { dressWarehouse } from './warehouseDressing';
 import { useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -11,11 +11,9 @@ import * as THREE from 'three';
  * meters, so unlike the STL facility props in EnvironmentElements it needs no
  * axis-flip group and no unit rescale.
  *
- * Materials are meant to be used exactly as authored. In particular the
- * "details" material's KHR_materials_emissive_strength: 35 is used in the
- * classic view. The realistic view uses a lower lamp strength with its camera
- * exposure and bloom. The emissive map is black except over the ceiling tubes
- * and window panes, so this adjustment only affects the bright fixtures.
+ * The repaired materials and lamp radiance use the shared factory palette.
+ * The emissive map is black except over the ceiling tubes and window panes,
+ * so adjusting it preserves the surrounding ceiling and shelving finishes.
  */
 const FACTORY_URL = process.env.PUBLIC_URL + '/assets/factory/warehouse_blender.blend.glb';
 
@@ -74,10 +72,6 @@ const CONVERTED_SCALE = 1 / 2.02157;
 // (identical UV layout, so it lines up on the new geometry) and re-attached.
 const EMISSIVE_URL = process.env.PUBLIC_URL + '/assets/factory/details_Emissive.png';
 const DETAILS_MATERIAL_INDEX = 3;
-const EMISSIVE_STRENGTH = 35;
-// The camera-like exposure in realistic mode needs less lamp radiance to keep
-// tube detail and avoid a white wash across the roof.
-const REALISTIC_EMISSIVE_STRENGTH = 22;
 
 function collectMaterials(root) {
   const materials = [];
@@ -142,7 +136,7 @@ varying vec3 vShutterWorld;`)
   material.needsUpdate = true;
 }
 
-function WarehouseModel({ realism }) {
+function WarehouseModel() {
   const { scene } = useGLTF(FACTORY_URL);
   const emissiveMap = useLoader(THREE.TextureLoader, EMISSIVE_URL);
 
@@ -171,52 +165,22 @@ function WarehouseModel({ realism }) {
       const slot = CONVERTED_MATERIAL_NAMES.indexOf(mat.name);
       if (slot === -1) continue;
 
-      /*
-       * Base colours, finish included, from the shared scene palette.
-       *
-       * These had drifted to #ffffff, #fcfcfc, #fffcfc and #ffffff -- four
-       * shades of white -- while the comment that used to sit here described
-       * a cool darker floor and beams "a step darker and cooler than the
-       * panels". The comment was right about what the hall needs; the values
-       * were not doing it. Wall against beam measured 1.01:1, so the whole
-       * distinction between cladding and the structure holding it up rested on
-       * the texture map, and the floor was as bright as the walls, leaving the
-       * dark cells sitting on a white field with nothing grounding them.
-       *
-       * ARCHITECTURE now carries all four, and verify_palette.mjs asserts the
-       * separation that the old comment only claimed: floor/wall 2.25:1,
-       * wall/steel 1.63:1, floor against the machines 2.3-2.8:1.
-       *
-       * Metalness comes from the palette too, replacing ORIGINAL_METALNESS.
-       * Sealed concrete and coated panel are dielectrics and were at 0.12 and
-       * 0.04 -- close enough -- but the "structural steel" slot was at 0.55,
-       * half metal, which is why the frames took the room's colour instead of
-       * their own. Rolled section is bare, so it keeps a little at 0.15.
-       */
-      const surface = [
-        realism ? REALISM.architecture.roof : ARCHITECTURE.floor,
-        // The realistic look (Realism.js) paints the shell the greys a plant's
-        // cladding and steel actually are; its floor is laid over this one.
-        realism ? REALISM.architecture.wall : ARCHITECTURE.wall,
-        realism ? REALISM.architecture.steel : ARCHITECTURE.steel,
-        realism ? REALISM.architecture.details : ARCHITECTURE.details,
-      ][slot];
+      const surface = [ARCHITECTURE.roof, ARCHITECTURE.wall, ARCHITECTURE.steel, ARCHITECTURE.details][slot];
       mat.color.set(surface.color);
       mat.metalness = surface.metalness;
       mat.roughness = surface.roughness;
 
       if (slot === DETAILS_MATERIAL_INDEX) {
-        mat.emissive.setRGB(1, 1, 1);
+        mat.emissive.set(ROOM.lamp);
         mat.emissiveMap = emissiveMap;
-        mat.emissiveIntensity = realism ? REALISTIC_EMISSIVE_STRENGTH : EMISSIVE_STRENGTH;
+        mat.emissiveIntensity = LIGHTING.lampEmission;
       }
 
       mat.needsUpdate = true;
     }
-  }, [scene, materials, converted, emissiveMap, realism]);
+  }, [scene, materials, converted, emissiveMap]);
 
-  // The racking, pallets and loads, painted as in a real plant under the
-  // realistic look (warehouseDressing.js).
+  // Apply the same rack and pallet finishes in both viewer modes.
   const dressing = useRef(null);
   useEffect(() => {
     if (!converted) return;
@@ -224,8 +188,8 @@ function WarehouseModel({ realism }) {
       const base = materials.find((mat) => mat.name === CONVERTED_MATERIAL_NAMES[DETAILS_MATERIAL_INDEX]);
       if (base) dressing.current = dressWarehouse(scene, base);
     }
-    dressing.current?.apply(realism);
-  }, [scene, materials, converted, realism]);
+    dressing.current?.apply(true);
+  }, [scene, materials, converted]);
   useEffect(() => () => {
     dressing.current?.dispose();
     dressing.current = null;
@@ -236,12 +200,12 @@ function WarehouseModel({ realism }) {
 
 useGLTF.preload(FACTORY_URL);
 
-export default function Factory({ show = true, realism = false }) {
+export default function Factory({ show = true }) {
   if (!show) return null;
 
   return (
     <Suspense fallback={null}>
-      <WarehouseModel realism={realism} />
+      <WarehouseModel />
     </Suspense>
   );
 }

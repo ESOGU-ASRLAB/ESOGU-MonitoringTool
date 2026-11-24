@@ -5,6 +5,7 @@ import Footer from './components/Footer';
 import { useTelemetryStream } from './components/telemetryStream';
 import Documentation from './pages/Documentation';
 import VRIntegration from './pages/VRIntegration';
+import { LanguageProvider } from './LanguageContext';
 
 /*
  * A lazy page that heals a poisoned chunk.
@@ -80,6 +81,7 @@ export default function App() {
   const liveStatus = useTelemetryStream(onGuide ? GUIDE_STREAM_MS : TWIN_STREAM_MS); // 'connecting' | 'live' | 'offline'
 
   return (
+    <LanguageProvider>
     <div className="app-shell">
       <Navbar liveStatus={liveStatus} />
       <main className="app-main">
@@ -91,5 +93,6 @@ export default function App() {
       </main>
       <Footer />
     </div>
+    </LanguageProvider>
   );
 }

@@ -12,7 +12,7 @@
  *
  * ---------------------------------------------------------------------------
  * VERIFICATION STATUS -- read before trusting any of this (details and the
- * full cross-check are in docs/otokar-cad-notes.md):
+ * full cross-check are in docs/inspection-cell-cad-notes.md):
  *
  *   CONFIRMED against the STEP geometry:
  *     - axis 1 travel is 16 000 mm (Robot2_EKSEN1's X extent is 16 000.0 mm

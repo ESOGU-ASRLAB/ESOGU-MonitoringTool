@@ -49,13 +49,13 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
  * door from the station, and the arm reaches across to it.
  */
 const ROWS = [1.5, 1.15, 0.8, 0.45];
-const STATIONS = [0.36, 0.84, 1.31, 1.78, 2.24];
+const STATIONS = [0.62, 0.93, 1.24, 1.55, 1.86];
 const TIMING = { move: 1.2, rowChange: 2.0, back: 2.8, settle: 0.3, capture: 0.55 };
 // Per arm: camera plane (CAD x), the face it looks at, its height band, and
 // where its carriage stands relative to the station.
 const ARMS = {
-  kawasaki: { cameraX: -1.69, faceX: -1.21, band: [0.75, 1.3], dock: -0.3, rail: [-0.2, 2.8] },
-  ur: { cameraX: -0.46, faceX: -0.8, band: [0.9, 1.45], dock: -0.45, rail: [0.06, 2.2] },
+  kawasaki: { cameraX: -1.85, faceX: -1.4956, band: [0.75, 1.3], dock: -0.3, rail: [-0.2, 2.8] },
+  ur: { cameraX: -0.38, faceX: -0.7304, band: [0.9, 1.45], dock: -0.45, rail: [0.06, 2.2] },
 };
 
 // One cycle as keys: the time to reach each key, where (station y, spot height h)
@@ -126,6 +126,10 @@ const START = {
   ur: [-0.4535, -1.2091, -1.4461, 1.2157, 1.6347, -2.0202],
   kawasaki: [-1.9345, -0.0465, -1.1068, 1.3227, 1.097, -0.2836],
 };
+export const CHASSIS_INSPECTION_HOME = Object.fromEntries(Object.entries(START).map(([side, angles]) => [
+  side,
+  { angles: angles.map((angle, index) => KIT[side].joints[index].toDeg(angle)), rail: armPlan(side, sampleRaster(0)).rail },
+]));
 const APPROACH = 2.5;
 
 /*

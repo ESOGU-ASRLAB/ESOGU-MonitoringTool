@@ -1,7 +1,7 @@
 {
   "frame": "Robot1 EKSEN1 installed frame -- CAD millimetres, Z up, rail along X",
-  "note": "Source of truth for the native->installed transform baked into each Otokar GLB by convert.py. build_otokar_meshes.sh reads it; write_placements.mjs copies it to client/public/meshes/otokar/placements.json beside the meshes. Matrices are row-major 4x4 in mm.",
-  "generated": "2026-09-25",
+  "note": "Native-to-installed transforms used in the inspection cell meshes. Matrices are row-major 4x4 in mm.",
+  "generated": "2026-11-24",
   "entries": [
     {
       "glb": "robot1/hi/axis1.glb",
@@ -325,7 +325,7 @@
         0,
         1
       ],
-      "provenance": "Rz(+90 deg) plus t=(3376.008, -3570.168, -1252.860), placing Robot 2's rail as the MIRROR of Robot 1's about the bus's vertical longitudinal centre plane at cell Y = -137.2612 mm (Otokar's end-view slide: two parallel rails, bus centred, arms inward).",
+      "provenance": "Rz(+90 deg) plus t=(3376.008, -3570.168, -1252.860), placing Robot 2's rail as the MIRROR of Robot 1's about the bus's vertical longitudinal centre plane at cell Y = -137.2612 mm (the industrial partner's end-view slide: two parallel rails, bus centred, arms inward).",
       "evidence": "Anchored on the carriage, which is provably the same hardware in both exports: Robot 1's 1_Eksen_Hareketli_SYM is 750.5 mm wide across the rail, Robot 2's 1_eksen_hareketli is 750.4 mm. Robot 2's rail runs along its native Y, so Rz(+90) turns it onto the cell X the bus runs along; native +Y (the carriage's home end) maps to cell -X, putting both carriages at the same cable-loop end. INDEPENDENT CHECK: the Z term was fixed by the carriage alone and lands Robot 2's carriage centre at cell Z -720.96 against Robot 1's -720.96, a 0.1 mm agreement that was not fitted."
     },
     {
@@ -350,7 +350,7 @@
         0,
         1
       ],
-      "provenance": "Rz(+90 deg) plus t=(3376.008, -3570.168, -1252.860), placing Robot 2's rail as the MIRROR of Robot 1's about the bus's vertical longitudinal centre plane at cell Y = -137.2612 mm (Otokar's end-view slide: two parallel rails, bus centred, arms inward).",
+      "provenance": "Rz(+90 deg) plus t=(3376.008, -3570.168, -1252.860), placing Robot 2's rail as the MIRROR of Robot 1's about the bus's vertical longitudinal centre plane at cell Y = -137.2612 mm (the industrial partner's end-view slide: two parallel rails, bus centred, arms inward).",
       "evidence": "Anchored on the carriage, which is provably the same hardware in both exports: Robot 1's 1_Eksen_Hareketli_SYM is 750.5 mm wide across the rail, Robot 2's 1_eksen_hareketli is 750.4 mm. Robot 2's rail runs along its native Y, so Rz(+90) turns it onto the cell X the bus runs along; native +Y (the carriage's home end) maps to cell -X, putting both carriages at the same cable-loop end. INDEPENDENT CHECK: the Z term was fixed by the carriage alone and lands Robot 2's carriage centre at cell Z -720.96 against Robot 1's -720.96, a 0.1 mm agreement that was not fitted."
     },
     {
@@ -375,7 +375,7 @@
         0,
         1
       ],
-      "provenance": "Rz(+90 deg) plus t=(3376.008, -3570.168, -1252.860), placing Robot 2's rail as the MIRROR of Robot 1's about the bus's vertical longitudinal centre plane at cell Y = -137.2612 mm (Otokar's end-view slide: two parallel rails, bus centred, arms inward).",
+      "provenance": "Rz(+90 deg) plus t=(3376.008, -3570.168, -1252.860), placing Robot 2's rail as the MIRROR of Robot 1's about the bus's vertical longitudinal centre plane at cell Y = -137.2612 mm (the industrial partner's end-view slide: two parallel rails, bus centred, arms inward).",
       "evidence": "Anchored on the carriage, which is provably the same hardware in both exports: Robot 1's 1_Eksen_Hareketli_SYM is 750.5 mm wide across the rail, Robot 2's 1_eksen_hareketli is 750.4 mm. Robot 2's rail runs along its native Y, so Rz(+90) turns it onto the cell X the bus runs along; native +Y (the carriage's home end) maps to cell -X, putting both carriages at the same cable-loop end. INDEPENDENT CHECK: the Z term was fixed by the carriage alone and lands Robot 2's carriage centre at cell Z -720.96 against Robot 1's -720.96, a 0.1 mm agreement that was not fitted."
     },
     {
@@ -400,7 +400,7 @@
         0,
         1
       ],
-      "provenance": "Rz(+90 deg) plus t=(3376.008, -3570.168, -1252.860), placing Robot 2's rail as the MIRROR of Robot 1's about the bus's vertical longitudinal centre plane at cell Y = -137.2612 mm (Otokar's end-view slide: two parallel rails, bus centred, arms inward).",
+      "provenance": "Rz(+90 deg) plus t=(3376.008, -3570.168, -1252.860), placing Robot 2's rail as the MIRROR of Robot 1's about the bus's vertical longitudinal centre plane at cell Y = -137.2612 mm (the industrial partner's end-view slide: two parallel rails, bus centred, arms inward).",
       "evidence": "Anchored on the carriage, which is provably the same hardware in both exports: Robot 1's 1_Eksen_Hareketli_SYM is 750.5 mm wide across the rail, Robot 2's 1_eksen_hareketli is 750.4 mm. Robot 2's rail runs along its native Y, so Rz(+90) turns it onto the cell X the bus runs along; native +Y (the carriage's home end) maps to cell -X, putting both carriages at the same cable-loop end. INDEPENDENT CHECK: the Z term was fixed by the carriage alone and lands Robot 2's carriage centre at cell Z -720.96 against Robot 1's -720.96, a 0.1 mm agreement that was not fitted."
     },
     {
@@ -609,7 +609,7 @@
       "source": "Robot2_Kamera.stp",
       "matrix": null,
       "provenance": "NOT DERIVABLE FROM THE EXPORTS -- DECLARED ASSUMPTION.",
-      "evidence": "Robot1_EKSEN5.stp contains no camera instance (0 hits scanning for Kamera/Blaze/Basler/D455/DT35), and Robot2_Kamera.stp is modelled centred on its own origin, so no upstream placed instance exists to read a matrix from. The head is positioned at render time by CAMERA_MOUNT in OtokarGantryRobot.js, which hangs it below the axis-5 reducer. That is an assumption, not a measurement, and needs a figure from Otokar."
+      "evidence": "Robot1_EKSEN5.stp contains no camera instance (0 hits scanning for Kamera/Blaze/Basler/D455/DT35), and Robot2_Kamera.stp is modelled centred on its own origin, so no upstream placed instance exists to read a matrix from. The head is positioned at render time by CAMERA_MOUNT in the gantry renderer, which hangs it below the axis-5 reducer. That is an assumption, not a measurement, and needs a figure from the industrial partner."
     },
     {
       "glb": "shared/lo/camera.glb",
@@ -617,7 +617,7 @@
       "source": "Robot2_Kamera.stp",
       "matrix": null,
       "provenance": "NOT DERIVABLE FROM THE EXPORTS -- DECLARED ASSUMPTION.",
-      "evidence": "Robot1_EKSEN5.stp contains no camera instance (0 hits scanning for Kamera/Blaze/Basler/D455/DT35), and Robot2_Kamera.stp is modelled centred on its own origin, so no upstream placed instance exists to read a matrix from. The head is positioned at render time by CAMERA_MOUNT in OtokarGantryRobot.js, which hangs it below the axis-5 reducer. That is an assumption, not a measurement, and needs a figure from Otokar."
+      "evidence": "Robot1_EKSEN5.stp contains no camera instance (0 hits scanning for Kamera/Blaze/Basler/D455/DT35), and Robot2_Kamera.stp is modelled centred on its own origin, so no upstream placed instance exists to read a matrix from. The head is positioned at render time by CAMERA_MOUNT in the gantry renderer, which hangs it below the axis-5 reducer. That is an assumption, not a measurement, and needs a figure from the industrial partner."
     }
   ]
 }

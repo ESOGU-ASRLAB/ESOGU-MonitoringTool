@@ -86,8 +86,8 @@ export const ROBOTS = {
     docs: '/docs#kawasaki',
   },
   robot1: {
-    name: 'Otokar R1',
-    maker: 'Otokar · MATISSE inspection cell',
+    name: 'Gantry R1',
+    maker: 'MATISSE inspection cell',
     role: '5-axis gantry robot, underbody scan',
     description:
       'Column low, arm extended under the floor pan and camera turned up; slides along the bus body while it scans the underbody.',
@@ -96,11 +96,11 @@ export const ROBOTS = {
     axes: GANTRY_AXES,
     streamed: false,
     task: otokarTask,
-    docs: '/docs#otokar',
+    docs: '/docs#inspection-cell',
   },
   robot2: {
-    name: 'Otokar R2',
-    maker: 'Otokar · MATISSE inspection cell',
+    name: 'Gantry R2',
+    maker: 'MATISSE inspection cell',
     role: '5-axis gantry robot, roof scan',
     description:
       'Reaches through the window band into the cabin with the camera turned up at the roof; pans, nods, rises and traces rings on the roof panel.',
@@ -109,7 +109,7 @@ export const ROBOTS = {
     axes: GANTRY_AXES,
     streamed: false,
     task: otokarTask,
-    docs: '/docs#otokar',
+    docs: '/docs#inspection-cell',
   },
 };
 
@@ -119,8 +119,8 @@ export const ROBOTS = {
  * follow the MongoDB stream when it is live; otherwise the sliders drive them.
  */
 export function driveMode(id, { animate, liveStatus }) {
+  if (ROBOTS[id].streamed) return liveStatus === 'live' ? { label: 'Live telemetry', tone: 'live' } : { label: 'Waiting for telemetry', tone: 'offline' };
   if (animate) return { label: 'Demo program', tone: 'demo' };
-  if (ROBOTS[id].streamed && liveStatus === 'live') return { label: 'Live telemetry', tone: 'live' };
   return { label: 'Manual control', tone: 'manual' };
 }
 

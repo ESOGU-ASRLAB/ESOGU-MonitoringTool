@@ -210,6 +210,7 @@ export default function BodyInspection() {
       if (!heads[i]) for (const ref of [beamRef, spotRef, ringRef]) if (ref.current) ref.current.visible = false;
     });
     heads.forEach((mount, i) => {
+      if (!mount) return;
       const { beamRef, spotRef, ringRef } = beamRefs[i];
       mount.getWorldPosition(head);
       /*
@@ -246,7 +247,7 @@ export default function BodyInspection() {
       // The beam starts a little behind the lens, so it reads as coming out of
       // the head rather than off its face, and runs the full way to the body.
       dir.subVectors(spot, head).normalize();
-      head.addScaledVector(dir, -0.35);
+      head.addScaledVector(dir, -0.015);
       dir.subVectors(spot, head);
       const length = dir.length();
       mid.addVectors(head, spot).multiplyScalar(0.5);

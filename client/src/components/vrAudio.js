@@ -73,9 +73,11 @@ export function onMuteChange(listener) {
 let hallBus = null;
 let hallFilter = null;
 let muffled = false;
+let hallDucked = false;
 const muffleListeners = new Set();
 const MUFFLE_HZ = 650;
 const MUFFLE_GAIN = 0.55;
+const hallGain = () => (muffled ? MUFFLE_GAIN : 1) * (hallDucked ? 0.3 : 1);
 
 function hall() {
   if (!hallBus) {
@@ -84,10 +86,15 @@ function hall() {
     hallFilter.type = 'lowpass';
     hallFilter.frequency.value = muffled ? MUFFLE_HZ : 20000;
     hallBus = ctx.createGain();
-    hallBus.gain.value = muffled ? MUFFLE_GAIN : 1;
+    hallBus.gain.value = hallGain();
     hallBus.connect(hallFilter).connect(out());
   }
   return hallBus;
+}
+
+export function setHallDucked(value) {
+  hallDucked = value;
+  if (hallBus) hallBus.gain.setTargetAtTime(hallGain(), audioContext().currentTime, 0.12);
 }
 
 export function isMuffled() {
@@ -100,7 +107,7 @@ export function setMuffled(value) {
   if (hallBus) {
     const t = audioContext().currentTime;
     hallFilter.frequency.setTargetAtTime(muffled ? MUFFLE_HZ : 20000, t, 0.08);
-    hallBus.gain.setTargetAtTime(muffled ? MUFFLE_GAIN : 1, t, 0.08);
+    hallBus.gain.setTargetAtTime(hallGain(), t, 0.08);
   }
   muffleListeners.forEach((listener) => listener(muffled));
 }

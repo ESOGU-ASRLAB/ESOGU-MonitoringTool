@@ -107,8 +107,9 @@ function spawnFrom(desktopCamera, walking, orbitTarget, bounds) {
   };
 }
 
-export default function VRWalk({ desktopCameraRef, walkingMode, orbitTarget, bounds }) {
-  const originRef = useRef(null);
+export default function VRWalk({ desktopCameraRef, walkingMode, orbitTarget, bounds, guideActive, originRef: sharedOrigin }) {
+  const ownOrigin = useRef(null);
+  const originRef = sharedOrigin || ownOrigin;
   const session = useXR((state) => state.session);
   // During a session this is the XR camera, parented to the origin.
   const camera = useThree((state) => state.camera);
@@ -125,7 +126,7 @@ export default function VRWalk({ desktopCameraRef, walkingMode, orbitTarget, bou
     const spawn = spawnFrom(desktopCamera, entry.walkingMode, entry.orbitTarget, entry.bounds);
     origin.position.set(spawn.x, 0, spawn.z);
     origin.rotation.set(0, spawn.yaw, 0);
-  }, [session, desktopCameraRef]);
+  }, [session, desktopCameraRef, originRef]);
 
   // Moves the origin so the HEAD, not the origin, lands on `point`. The
   // library's own offset ignores the origin's rotation, so after a snap turn it
@@ -140,7 +141,7 @@ export default function VRWalk({ desktopCameraRef, walkingMode, orbitTarget, bou
   useXRControllerLocomotion(
     (velocity, rotationY, delta) => {
       const origin = originRef.current;
-      if (!origin) return;
+      if (!origin || guideActive) return;
       // On a snap-turn frame the library also pre-rotates the velocity, so that
       // one step is turned by the snap angle: ~3.5 cm at 72 Hz, not worth undoing.
       const level = levelVelocity(velocity, camera, scratch.level);
@@ -164,7 +165,7 @@ export default function VRWalk({ desktopCameraRef, walkingMode, orbitTarget, bou
   // physically in the play space stops at the cladding as well.
   useFrame(() => {
     const origin = originRef.current;
-    if (!session || !origin) return;
+    if (!session || !origin || guideActive) return;
     camera.getWorldPosition(scratch.head);
     origin.position.x += clampInside(scratch.head.x, bounds.minX, bounds.maxX) - scratch.head.x;
     origin.position.z += clampInside(scratch.head.z, bounds.minZ, bounds.maxZ) - scratch.head.z;
@@ -178,7 +179,7 @@ export default function VRWalk({ desktopCameraRef, walkingMode, orbitTarget, bou
   }, [session]);
   useFrame((_, delta) => {
     const origin = originRef.current;
-    if (!session || !origin) return;
+    if (!session || !origin || guideActive) return;
     camera.getWorldPosition(scratch.head);
     const eye = scratch.head.y - origin.position.y; // tracked height above the floor
     const h = height.current;
@@ -225,6 +226,12 @@ export default function VRWalk({ desktopCameraRef, walkingMode, orbitTarget, bou
     const stickY = right?.gamepad?.['xr-standard-thumbstick']?.yAxis ?? 0;
     const state = aim.current;
     if (!ray || !ring || !session) return;
+    if (guideActive) {
+      state.active = false;
+      arc.visible = false;
+      ring.visible = false;
+      return;
+    }
 
     if (stickY < STICK_AIM) state.active = true;
     if (state.active && stickY > STICK_RELEASE) {

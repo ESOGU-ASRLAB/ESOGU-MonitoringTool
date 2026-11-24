@@ -1,12 +1,12 @@
 # Realistic look (CC0 assets)
 
-Loaded only when the viewer has "Realistic" on (`src/components/Realism.js`).
+The desktop and XR factory views share these assets.
 
 | File | Source | Licence |
 |---|---|---|
-| `machine_shop_02_1k.hdr` | Poly Haven, "Machine Shop 02" HDRI, 1k | CC0 |
+| `machine_shop_02_1k.hdr` | [Machine Shop 02](https://polyhaven.com/a/machine_shop_02), Poly Haven | CC0 |
+| `hall-concrete-albedo.webp` and `hall-concrete-surface.webp` | [Smooth Concrete Floor](https://polyhaven.com/a/smooth_concrete_floor), Dimitrios Savva via Poly Haven | CC0 |
 
-https://polyhaven.com/a/machine_shop_02
-
-The floor's epoxy coat, its wear and its large-scale variation are generated in
-the browser (`HallFloor`), so they need no files here.
+The floor maps use the 1K JPG diffuse, displacement and roughness inputs.
+The offline floor generator bakes the control joints and packs
+height and roughness into one texture.

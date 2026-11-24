@@ -70,7 +70,7 @@ export const BODY_HALF_WIDTH_MM = 1251.0;
  * body BETWEEN them -- so the clearance is measured from each rail to the body
  * beside it, and this single-sided formula does not express that. Left as-is
  * deliberately until the two-rail layout lands, so the change is one thing at
- * a time. See docs/otokar-cad-notes.md, "RETRACTED: the cell is two portals on
+ * a time. See docs/inspection-cell-cad-notes.md, "RETRACTED: the cell is two portals on
  * one runway".
  */
 export const BODY_CENTRELINE_IN_ROBOT_MM =
@@ -117,7 +117,7 @@ class BusMeshBoundary extends React.Component {
   componentDidCatch(error) {
     // eslint-disable-next-line no-console
     console.warn(
-      'Otokar bus body mesh unavailable — run scripts/otokar/build_otokar_meshes.sh',
+      'Inspection bus body mesh unavailable',
       error,
     );
   }
@@ -137,7 +137,7 @@ export default function OtokarBusBody({ show = true, lod = 'hi' }) {
         <group rotation={[-Math.PI / 2, 0, 0]}>
           {/* BUS_OFFSET_MM stays in the CAD-local basis; the parent root's
               -90° X rotation performs the single frame conversion. */}
-          <group position={BUS_OFFSET_MM.map((v) => v * MM)}>
+          <group name="inspection-bus-body" position={BUS_OFFSET_MM.map((v) => v * MM)}>
             <OtokarMesh
               group="bus"
               part="body"

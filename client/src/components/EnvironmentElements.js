@@ -118,7 +118,7 @@ const ACRYLIC = new THREE.MeshStandardMaterial({
 });
 const PANEL_MIN_AREA = 0.1 * 1e6; // mm^2, in the STL's own units
 
-function ChassisMesh({ position, rotation }) {
+function ChassisMesh({ position, rotation, name }) {
   const source = useLoader(STLLoader, `${FURNITURE_BASE}/chassis.stl`);
   const geometry = useMemo(() => {
     const pos = source.getAttribute('position');
@@ -158,7 +158,7 @@ function ChassisMesh({ position, rotation }) {
   ], []);
 
   return (
-    <mesh geometry={geometry} material={materials} scale={MM_TO_M} position={position} rotation={rotation} receiveShadow />
+    <mesh name={name} userData={{ doorSurface: true }} geometry={geometry} material={materials} scale={MM_TO_M} position={position} rotation={rotation} receiveShadow />
   );
 }
 
@@ -210,7 +210,7 @@ function ConveyorMesh() {
   return <mesh geometry={geometry} material={materials} scale={MM_TO_M} receiveShadow />;
 }
 
-function Furniture({ showChassis }) {
+function Furniture({ showChassis, chassisName }) {
   return (
     <Suspense fallback={null}>
       <EnvMesh
@@ -227,7 +227,7 @@ function Furniture({ showChassis }) {
       {/* Turned end for end about its own vertical centre line
           (x -1.113, y 1.235), so its open side faces the Kawasaki and the arm
           reaches in through the gaps instead of meeting the side panels. */}
-      {showChassis && <ChassisMesh position={[-2.226, 2.47, 0]} rotation={[0, 0, Math.PI]} />}
+      {showChassis && <ChassisMesh name={chassisName} position={[-2.226, 2.47, 0]} rotation={[0, 0, Math.PI]} />}
     </Suspense>
   );
 }
@@ -374,12 +374,12 @@ function Facility({ infeedOpening, workTableOpening }) {
   );
 }
 
-export default function EnvironmentElements({ showEnvironment = true, infeedOpening = false, workTableOpening = false, showChassis = true }) {
+export default function EnvironmentElements({ showEnvironment = true, infeedOpening = false, workTableOpening = false, showChassis = true, chassisName }) {
   if (!showEnvironment) return null;
 
   return (
     <group rotation={[-Math.PI / 2, 0, 0]}>
-      <Furniture showChassis={showChassis} />
+      <Furniture showChassis={showChassis} chassisName={chassisName} />
       <Facility infeedOpening={infeedOpening} workTableOpening={workTableOpening} />
     </group>
   );

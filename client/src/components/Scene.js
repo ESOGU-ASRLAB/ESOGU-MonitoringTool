@@ -2,7 +2,7 @@ import React, { Suspense, useMemo, useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { SoftShadows } from '@react-three/drei';
 import * as THREE from 'three';
-import { ROOM, LIGHTING, REALISM } from './scenePalette';
+import { ROOM, LIGHTING } from './scenePalette';
 import { HallEnvironment } from './Realism';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment';
 
@@ -124,7 +124,7 @@ export default function Scene({
   // off for the headset profile (see xrSession.js).
   softShadows = true,
   castShadows = true,
-  // The realistic look (Realism.js): lit by a photographed hall instead.
+  // Desktop adds the local work-bay fixtures to the shared lighting rig.
   realism = false,
 }) {
   const gridTexture = useGridTexture();
@@ -145,59 +145,19 @@ export default function Scene({
         <fog attach="fog" args={[ROOM.fog, 18, 40]} />
       )}
 
-      {/*
-        THE FILL WAS DOING ALMOST ALL THE WORK, and that is what made the hall
-        look like a CAD viewport rather than a photograph of a factory.
-
-        Four sources were stacked: an environment map at 0.95, ambient at 0.22,
-        hemisphere at 0.42 and only 0.85 of actual directional key. Roughly two
-        thirds of the light arriving at any surface came from every direction at
-        once, so nothing was shaded -- a cylinder and a flat plate returned the
-        same value, the vehicle's structure flattened into a white cut-out, and
-        the light surfaces climbed towards clipping with no highlight left to
-        place them by.
-
-        The ratio is inverted here, and then settled back a step. The first
-        attempt cut the fill to 0.32/0.10/0.22 against a key of 1.55, which did
-        restore form but overshot: everything not facing the key fell away, the
-        roof structure went to near-black and the hall lost the even working
-        light a lit shed actually has. These are the numbers in between -- the
-        key is still the dominant single source, so surfaces are shaded by
-        direction, but there is enough bounce left to see into the volume.
-      */}
-      {/*
-        CONTACT-HARDENING SHADOWS (PCSS).
-
-        A single shadow map gives every shadow the same hard edge whatever its
-        distance from what casts it, and that uniform edge is one of the clearest
-        tells of a real-time viewport rather than a render. Real shadows are
-        sharp where an object meets the floor and spread the further away the
-        surface gets -- a gantry leg is crisp at its foot and soft two metres up
-        the column.
-
-        drei's SoftShadows patches the shadow sampling to do that, with no extra
-        dependency and no second shadow pass. `size` is the light's apparent
-        width in world units: a 25 m roof-lit hall, not a point source. Samples
-        are kept modest because this runs every frame.
-      */}
-      {interior && softShadows && <SoftShadows size={25} samples={12} focus={0.4} />}
-
-      {interior && !realism && <InteriorEnvironment intensity={LIGHTING.environment} />}
-      {/* Until the photographed hall has loaded, the studio stands in. */}
-      {interior && realism && (
+      {interior && softShadows && <SoftShadows size={8} samples={12} focus={0.25} />}
+      {interior && (
         <Suspense fallback={<InteriorEnvironment intensity={LIGHTING.environment} />}>
           <HallEnvironment />
         </Suspense>
       )}
 
-      <ambientLight color={ROOM.ambient} intensity={interior ? (realism ? REALISM.ambient : LIGHTING.ambient) : 0.55} />
-      {/* Under the realistic look the key comes from overhead, as a roof full
-          of lamps does, so shadows fall under things instead of all leaning
-          one way like a low sun's. */}
+      <ambientLight color={ROOM.ambient} intensity={interior ? LIGHTING.ambient : 0.55} />
+      {/* The overhead rows supply a broad key and the shadow direction. */}
       <directionalLight
         color={ROOM.lamp}
-        position={realism ? [3, 20, 4] : [8, 14, 6]}
-        intensity={interior ? (realism ? REALISM.key : LIGHTING.key) : 1.2}
+        position={interior ? [2, 20, 4] : [8, 14, 6]}
+        intensity={interior ? LIGHTING.key : 1.2}
         castShadow={castShadows}
         /*
          * THE SHADOW CAMERA USED TO MISS MOST OF THE BUILDING. It was an
@@ -224,10 +184,10 @@ export default function Scene({
       />
       {/* Sky bounce above, floor bounce below. The lower colour is the floor's
           own tone, so light coming back up off the concrete carries it. */}
-      <hemisphereLight args={[ROOM.skyBounce, ROOM.groundBounce, interior ? (realism ? REALISM.hemisphere : LIGHTING.hemisphere) : 0.4]} />
-      {interior && realism && <directionalLight color={ROOM.lamp} position={[2, 11, 30]} intensity={REALISM.fill} />}
+      <hemisphereLight args={[ROOM.skyBounce, ROOM.groundBounce, interior ? LIGHTING.hemisphere : 0.4]} />
+      {interior && <directionalLight color={ROOM.daylight} position={[16, 7, -6]} intensity={0.44} />}
       {interior && realism && FACTORY_FIXTURES.map((position, index) => (
-        <pointLight key={index} position={position} color="#f5f7f4" intensity={24} distance={11} decay={2} />
+        <pointLight key={index} position={position} color={ROOM.lamp} intensity={26} distance={12} decay={2} />
       ))}
 
       {showGrid && (

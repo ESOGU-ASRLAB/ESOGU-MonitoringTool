@@ -1,10 +1,11 @@
 import React, { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
-import { useFrame, useLoader } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BUS_LIVERY } from './scenePalette';
 import VehicleLamps from './VehicleLamps';
 import { useRealism } from './realismContext';
+import { alignGlazingNormals, createBusGlazing, projectBusGlazing, writeGlazingUv } from './busGlazing';
 
 // Parked presentation buses, separate from the Otokar inspection-body CAD.
 // The old bus asset is Y-up and in centimetres, hence its 0.01 scale.
@@ -37,7 +38,6 @@ import { useRealism } from './realismContext';
  */
 const BUS_URL = process.env.PUBLIC_URL + '/assets/bus/bus.glb';
 const BUS_SCALE = 0.01;
-const OTOKAR_LOGO_URL = process.env.PUBLIC_URL + '/assets/logo/logo2.png';
 
 /*
  * From BUS_LIVERY in the shared scene palette. Each vehicle is one paint
@@ -56,37 +56,10 @@ const LIVERIES = Object.freeze({
  */
 const TYRE = new THREE.MeshStandardMaterial({ color: '#191d20', metalness: 0, roughness: 0.95, flatShading: true });
 
-/*
- * GLAZING: DARK, GLOSSY AND OPAQUE.
- *
- * It was transparent, double-sided and wrote no depth, so the far side of the
- * vehicle would show through. But the height band that stands for glass here
- * is not one pane: it holds the outer skin at |z| = 1.10 m and three inner
- * layers at 1.08, 1.05 and 1.00 m -- frames and inner panels -- which all got
- * the glass material because they sit at its height. With no depth test
- * between them those layers blended in whatever order they happened to draw,
- * and slid against each other as the camera moved: the band of shifting
- * horizontal stripes along every window line.
- *
- * Tinted glazing has no such failure. Opaque, the outer skin hides what is
- * behind it, and low roughness keeps the Fresnel reflection of the hall, which
- * is what reads as glass from the outside anyway.
- */
-const GLASS = new THREE.MeshStandardMaterial({
-  color: '#1d2830',
-  metalness: 0.0,
-  roughness: 0.08,
-  flatShading: true,
-});
-// Realistic glazing: tinted, with soft reflections. The panes are big flat
-// facets (flatShading), so a near-mirror coat drew each row of ceiling lamps
-// across the rear window as hard white bars; real bus glass, seen across a
-// hall, shows them only as a dull sheen.
-const GLASS_REAL = new THREE.MeshPhysicalMaterial({
-  color: '#1c272e', metalness: 0, roughness: 0.36,
-  clearcoat: 0.22, clearcoatRoughness: 0.38, envMapIntensity: 0.5, flatShading: true,
-});
-
+// The source shell has overlapping skin and inner panels. Both viewer
+// modes use the same opaque tinted exterior, with separate glass and rubber
+// finishes so the windows do not read as a single painted stripe.
+let glazing;
 const geometryCache = new WeakMap();
 
 /*
@@ -259,23 +232,32 @@ function preparedBusGeometry(scene) {
 
   const triangles = groups.reduce((sum, group) => sum + group.length, 0);
   const position = new Float32Array(triangles * 9);
+  const uv = new Float32Array(triangles * 6);
   const geometry = new THREE.BufferGeometry();
+  const halfLength = (max.x - min.x) / 2;
+  const halfWidth = (max.z - min.z) / 2;
+  const glazingBottom = BAND_EDGES[2] * height;
+  const glazingHeight = (BAND_EDGES[3] - BAND_EDGES[2]) * height;
   let vertex = 0;
   groups.forEach((group, slot) => {
     const start = vertex;
     for (const triangle of group) {
-      for (const p of triangle) {
-        position.set(p, vertex * 3);
+      const projection = slot === 3 ? projectBusGlazing(triangle, halfLength, halfWidth) : null;
+      for (const point of triangle) {
+        position.set(point, vertex * 3);
+        if (projection) writeGlazingUv(uv, vertex * 2, point, projection, glazingBottom, glazingHeight);
         vertex += 1;
       }
     }
     if (vertex > start) geometry.addGroup(start, vertex - start, slot);
   });
   geometry.setAttribute('position', new THREE.BufferAttribute(position, 3));
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
 
   // The legacy GLB contains positions only. Lit PBR paint needs vertex normals;
   // without them every livery becomes a near-black silhouette in the factory.
   geometry.computeVertexNormals();
+  alignGlazingNormals(geometry);
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
 
@@ -302,65 +284,14 @@ function busMaterials(paint, realistic) {
   const skirt = new THREE.MeshStandardMaterial({
     color: paint.chassis, metalness: 0.08, roughness: realistic ? 0.72 : 0.6, flatShading: true,
   });
-  return [TYRE, shell, skirt, realistic ? GLASS_REAL : GLASS, shell];
-}
-
-/*
- * Rear number plate in the Turkish format -- 520 x 110 mm, black rim, blue TR
- * band -- carrying the Otokar mark where the registration would be. Painted
- * once at 0.5 mm per pixel and shared by every bus.
- */
-const PLATE = Object.freeze({ width: 0.52, height: 0.11, centreY: 0.75, standoff: 0.004 });
-const plateCache = new WeakMap();
-
-function plateTexture(logo) {
-  if (plateCache.has(logo)) return plateCache.get(logo);
-  const width = 1040;
-  const height = 220;
-  const rim = 8;
-  const band = 82;
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-
-  ctx.fillStyle = '#111111';
-  ctx.beginPath();
-  ctx.roundRect(0, 0, width, height, 22);
-  ctx.fill();
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.roundRect(rim, rim, width - rim * 2, height - rim * 2, 16);
-  ctx.fill();
-  ctx.fillStyle = '#1b3e94';
-  ctx.beginPath();
-  ctx.roundRect(rim, rim, band, height - rim * 2, [16, 0, 0, 16]);
-  ctx.fill();
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '700 48px Arial, Helvetica, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('TR', rim + band / 2, height - 36);
-
-  // The mark sits on its own white ground; multiplying drops that ground into
-  // the plate's white instead of leaving a visible box.
-  ctx.globalCompositeOperation = 'multiply';
-  const logoHeight = 150;
-  const logoWidth = (logoHeight * logo.width) / logo.height;
-  const faceLeft = rim + band;
-  const faceWidth = width - rim - faceLeft;
-  ctx.drawImage(logo, faceLeft + (faceWidth - logoWidth) / 2, (height - logoHeight) / 2, logoWidth, logoHeight);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
-  plateCache.set(logo, texture);
-  return texture;
+  glazing ??= createBusGlazing();
+  return [TYRE, shell, skirt, glazing, shell];
 }
 
 /*
  * Lamps, in the bus's own frame in metres (nose +x). The headlamps sit low on
  * the nose, whose face is at x = 4.14 below the windscreen; the tail and
- * reversing lamps on the flat rear (x = -4.43), either side of the plate.
+ * reversing lamps on the flat rear (x = -4.43).
  */
 const BUS_LAMPS = [
   ...[-0.92, 0.92].map((z) => ({ kind: 'head', position: [4.15, 0.78, z], size: [0.04, 0.13, 0.34], facing: [1, 0, 0] })),
@@ -377,7 +308,6 @@ function BusModel({ position, rotation = Math.PI / 2, livery = 'forest', rollRef
   const realistic = useRealism();
   const parkedLampRef = useRef('off');
   const { scene } = useGLTF(BUS_URL);
-  const logo = useLoader(THREE.ImageLoader, OTOKAR_LOGO_URL);
   const prepared = useMemo(() => preparedBusGeometry(scene), [scene]);
   const geometry = prepared && prepared.geometry;
   const wheelRefs = useRef([]);
@@ -394,14 +324,11 @@ function BusModel({ position, rotation = Math.PI / 2, livery = 'forest', rollRef
     materials[1].dispose();
     materials[2].dispose();
   }, [materials]);
-  const plate = useMemo(() => plateTexture(logo), [logo]);
 
   if (!geometry) return null;
-  // The flat rear (-x in the model; the raked windscreen is +x) faces +z once
-  // parked at rotation pi/2, so the plate faces the opening camera.
-  const rearX = geometry.boundingBox.min.x * BUS_SCALE - PLATE.standoff;
+  const rearX = geometry.boundingBox.min.x * BUS_SCALE;
   return (
-    <group position={position} rotation={[0, rotation, 0]}>
+    <group name="factory-presentation-bus" position={position} rotation={[0, rotation, 0]}>
       <mesh
         geometry={geometry}
         material={materials}
@@ -428,10 +355,6 @@ function BusModel({ position, rotation = Math.PI / 2, livery = 'forest', rollRef
           <meshStandardMaterial color="#465159" metalness={0.24} roughness={0.58} />
         </mesh>
       )}
-      <mesh position={[rearX, PLATE.centreY, 0]} rotation={[0, -Math.PI / 2, 0]}>
-        <planeGeometry args={[PLATE.width, PLATE.height]} />
-        <meshStandardMaterial map={plate} roughness={0.4} metalness={0} />
-      </mesh>
     </group>
   );
 }

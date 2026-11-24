@@ -34,12 +34,12 @@ import { cellTraining } from './training/cellTraining';
  * belt and table and horizontal into the chassis, clear of the furniture.
  *
  * The headset's pick-and-place training (training/PickPlaceStation.js) can
- * take the UR10e over through training/cellTraining.js: it clears the table,
+ * take the UR10e over through training/training.js: it clears the table,
  * waits at home at the end of each cycle, and starts the next one only when
  * the wearer has put a box on the infeed -- that box rides in along the
  * infeed and the belt, and the arm picks it and sets it down as usual. Its
  * emergency-stop drill (training/EmergencyStopStation.js) freezes both arms
- * the same way (cellTraining.frozen).
+ * the same way (training.frozen).
  */
 const DEG = 180 / Math.PI;
 const smooth = (u) => u * u * (3 - 2 * u);
@@ -160,7 +160,11 @@ const beamMaterial = () => new THREE.MeshBasicMaterial({
  * the UR), and the group the rail or AGV moves. `active` is the engine switch:
  * off, the arms go back to the manual sliders.
  */
-export default function IfarlabTasks({ active, ur, kawasaki }) {
+export default function IfarlabTasks({ active, ur, kawasaki, standalone = false, boxPrefix = 'guide-pick-box' }) {
+  const privateStatus = useRef({ ...ifarlab });
+  const privateTraining = useRef({ ...cellTraining, active: false, frozen: false, feeds: [] });
+  const telemetry = standalone ? privateStatus.current : ifarlab;
+  const training = standalone ? privateTraining.current : cellTraining;
   const root = useRef(null);
   const urBeam = useRef(null);
   const kawBeam = useRef(null);
@@ -255,7 +259,7 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
     const dt = state.lastNow == null ? 0 : Math.max(0, now - state.lastNow);
     state.lastNow = now;
     // A headset training may run the UR10e even with the engine off.
-    const on = active || cellTraining.active;
+    const on = active || training.active;
     if (!on) {
       // Hand the arms back to the sliders.
       if (state.started) {
@@ -273,7 +277,7 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
     // Emergency stop (the headset's drill): everything holds its pose, the
     // beams go out, and no clock moves -- the Kawasaki's runs off t0, so t0
     // moves with the time spent stopped.
-    if (cellTraining.frozen) {
+    if (training.frozen) {
       if (state.started) state.t0 += dt;
       if (urBeam.current) urBeam.current.visible = false;
       if (kawBeam.current) kawBeam.current.visible = false;
@@ -299,14 +303,14 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
     if (state.urT == null) beginUrCycle(state, null);
     if (!state.urHold) state.urT += dt;
     if (state.urHold || state.urT >= UR_CYCLE) {
-      if (cellTraining.active) {
-        if (state.trainingRun !== cellTraining.run) {
+      if (training.active) {
+        if (state.trainingRun !== training.run) {
           // A new training: an empty table for its boxes.
-          state.trainingRun = cellTraining.run;
+          state.trainingRun = training.run;
           state.boxes = [];
           state.spotCount = 0;
         }
-        const feed = cellTraining.feeds.find((f) => !f.taken);
+        const feed = training.feeds.find((f) => !f.taken);
         if (feed) {
           feed.taken = true;
           beginUrCycle(state, feed);
@@ -318,7 +322,7 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
         beginUrCycle(state, null);
       }
     }
-    cellTraining.waiting = state.urHold;
+    training.waiting = state.urHold;
     const ct = Math.max(0, state.urT);
     const spot = state.urSpot;
     const keys = state.urKeys;
@@ -329,7 +333,7 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
     ur.gripRef.current = lerp(from.grip, to.grip, u);
     toWorld(target, lerp(from.p[0], to.p[0], u), lerp(from.p[1], to.p[1], u), lerp(from.p[2], to.p[2], u));
     drive(ur, UR_JOINTS, target, aim.copy(DOWN), UR_TOOL_AXIS);
-    ifarlab.ur = to.state;
+    telemetry.ur = to.state;
 
     // Holding at home there is no box in play (the last one is on the table).
     const box = state.urHold ? null : state.boxes[state.boxes.length - 1];
@@ -340,8 +344,8 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
       if (index > releaseAt && !box.onTable) {
         box.onTable = true;
         box.spot = spot;
-        ifarlab.picks += 1;
-        if (box.training) cellTraining.placed += 1;
+        telemetry.picks += 1;
+        if (box.training) training.placed += 1;
       }
       box.detected = keys[index].detect || (index > 2 && index <= attachAt);
     }
@@ -350,6 +354,7 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
     boxRefs.current.forEach((mesh, i) => {
       if (!mesh) return;
       const b = state.boxes[i];
+      mesh.userData.held = Boolean(b?.held);
       mesh.visible = Boolean(b);
       if (!b) return;
       if (b.onTable) {
@@ -399,11 +404,11 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
     toWorld(target, lerp(k.from.p[0], k.to.p[0], k.u), ky, lerp(k.from.p[2], k.to.p[2], k.u));
     aim.set(1, tilt, 0).normalize(); // workcell +x is world +x
     drive(kawasaki, KAW_JOINTS, target, aim, KAW_TOOL_AXIS);
-    ifarlab.kawasaki = k.to.state;
+    telemetry.kawasaki = k.to.state;
 
     if (bayIndex !== state.kawBay) {
       state.kawBay = bayIndex;
-      if (bayIndex > 0) ifarlab.scans += 1;
+      if (bayIndex > 0) telemetry.scans += 1;
       state.foundThisBay = false;
       if (bayIndex % KAW_BAYS.length === 0) findsGroup.current?.clear();
     }
@@ -424,7 +429,7 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
       // One find in some bays, marked where the beam falls mid-sweep.
       if (k.to.sweep && !state.foundThisBay && k.u > 0.5 && (bayIndex * 7) % 3 === 1 && findsGroup.current) {
         state.foundThisBay = true;
-        ifarlab.findings += 1;
+        telemetry.findings += 1;
       }
     }
   }, -1);
@@ -432,7 +437,7 @@ export default function IfarlabTasks({ active, ur, kawasaki }) {
   return (
     <group ref={root}>
       {[0, 1, 2, 3, 4].map((i) => (
-        <group key={i} ref={(el) => { boxRefs.current[i] = el; }} visible={false}>
+        <group key={i} name={`${boxPrefix}-${i}`} ref={(el) => { boxRefs.current[i] = el; }} visible={false}>
           <mesh castShadow receiveShadow material={materials.box}>
             <boxGeometry args={[BOX.w, BOX.h, BOX.d]} />
           </mesh>

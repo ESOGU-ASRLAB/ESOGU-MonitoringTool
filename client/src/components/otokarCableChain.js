@@ -267,7 +267,7 @@ const FOLD_CHUNK = /* glsl */`
   uniform float uSpacing;
   uniform float uFoldDir;     // which way the loop lies. FIXED by the install.
 
-  vec3 otokarFoldChain(vec3 p) {
+  vec3 foldGantryChain(vec3 p) {
     vec3 mm = p * 1000.0;
     float along = dot(mm, uArcAxis);
     float across = dot(mm, uSepAxis);
@@ -367,7 +367,7 @@ export function makeFoldingChainMaterial(base, params) {
       .replace('#include <common>', `#include <common>\n${FOLD_CHUNK}`)
       .replace(
         '#include <begin_vertex>',
-        '#include <begin_vertex>\n  transformed = otokarFoldChain(transformed);',
+        '#include <begin_vertex>\n  transformed = foldGantryChain(transformed);',
       );
   };
   /*
@@ -383,7 +383,7 @@ export function makeFoldingChainMaterial(base, params) {
    * shaped wrong. Four programs instead of one is the price of four chains
    * that each know where they are.
    */
-  const key = `otokar-folding-chain-${foldingChainSerial += 1}`;
+  const key = `gantry-folding-chain-${foldingChainSerial += 1}`;
   material.customProgramCacheKey = () => key;
   material.userData.foldUniforms = uniforms;
   return material;

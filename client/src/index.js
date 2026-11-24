@@ -3,6 +3,15 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 
+const assetTermsUrl = new URL(`${process.env.PUBLIC_URL}/docs/#confidentiality`, window.location.origin);
+// eslint-disable-next-line no-console
+console.warn(
+  '3D asset usage notice\n' +
+  'Third-party models, textures and logos are subject to their licences and confidentiality terms. ' +
+  'Obtain permission from the rights holder before extracting, reusing or redistributing assets outside those terms.\n' +
+  assetTermsUrl.href
+);
+
 /*
  * KEEPS THE 3D ASSETS ACROSS A REFRESH.
  *

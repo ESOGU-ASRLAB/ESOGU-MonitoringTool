@@ -4,6 +4,7 @@ import { OrbitControls } from "@react-three/drei";
 import { XR } from "@react-three/xr";
 import * as THREE from "three";
 import "./DigitalTwin.css";
+import "../components/setupGltf";
 import UR10eRobot from "../components/UR10eRobot";
 import KawasakiRobot from "../components/KawasakiRobot";
 import AGVBase from "../components/AGVBase";
@@ -13,12 +14,10 @@ import ServerCabinets, { IfarlabCabinet } from "../components/ServerCabinets";
 import RobotCameraFeeds from "../components/RobotCameraFeeds";
 import EnvironmentElements from "../components/EnvironmentElements";
 import IfarlabCellCopy from "../components/IfarlabCellCopy";
-import CellLabel from "../components/CellLabel";
 import CellDressing from "../components/CellDressing";
-import { HallFloor, PostEffects, RealismExposure } from "../components/Realism";
+import { HallFloor, PostEffects } from "../components/Realism";
 import { RealismContext } from "../components/realismContext";
 import { Workwear } from "../components/CeilingServices";
-import { CELL_SCENARIOS } from "../components/cellScenarios";
 import Factory from "../components/Factory";
 import Bus from "../components/Bus";
 import Workers from "../components/Workers";
@@ -59,6 +58,12 @@ import TrainingStations from "../components/training/TrainingStations";
 import VRSoundscape from "../components/VRSoundscape";
 import { unlockAudio } from "../components/vrAudio";
 import { RobotHitBoxes, RobotInfoCard, RobotInfoPanel3D } from "../components/RobotInfo";
+import DigitalGuide from "../components/guide/DigitalGuide";
+import GuideCamera from "../components/guide/GuideCamera";
+import VRGuide from "../components/guide/VRGuide";
+import useGuideTour from "../components/guide/useGuideTour";
+import OtokarPickPlace from "../components/OtokarPickPlace";
+import GuideFocusIndicator from "../components/guide/GuideFocusIndicator";
 
 /*
  * What a click on each robot resolves to: the part that moves, so the click
@@ -198,6 +203,7 @@ function FactoryCameraController({
   controlsRef,
   walkingMode,
   xrActive,
+  guided,
   keysRef,
   walkStepRef,
   walkLookRef,
@@ -247,14 +253,14 @@ function FactoryCameraController({
   const size = useThree((state) => state.size);
   const openingLens = useRef(null);
   useEffect(() => {
-    if (walkingMode || xrActive || !size.height) return;
+    if (walkingMode || xrActive || guided || !size.height) return;
     const fov = openingFov(size.width / size.height);
     if (openingLens.current == null || Math.abs(camera.fov - openingLens.current) < 0.01) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
     }
     openingLens.current = fov;
-  }, [size, camera, walkingMode, xrActive]);
+  }, [size, camera, walkingMode, xrActive, guided]);
 
   useEffect(() => {
     walkLookRef.current = walkingMode && !xrActive ? lookCamera : null;
@@ -290,7 +296,7 @@ function FactoryCameraController({
 
   useFrame((_, delta) => {
     // In a headset the camera is the headset's; VRWalk keeps it in the hall.
-    if (xrActive) return;
+    if (xrActive || guided) return;
     if (!walkingMode) {
       const controls = controlsRef.current;
       if (controls) keepOrbitInside(camera, controls.target);
@@ -315,7 +321,7 @@ function FactoryCameraController({
 }
 
 export default function DigitalTwin({ liveStatus }) {
-  const [selectedRobot, setSelectedRobot] = useState("otokar1");
+  const [selectedRobot, setSelectedRobot] = useState("gantry1");
   const [jointAngles, setJointAngles] = useState([0, -90, 0, -90, 0, 0]);
   /*
    * The engine runs from the moment the page opens. The cell's whole point is
@@ -347,10 +353,10 @@ export default function DigitalTwin({ liveStatus }) {
   // full row. Separate from panelOpen, which drives the mobile slide-in drawer.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   // Otokar MATISSE cell -- manual/demo only, no live telemetry yet. Axes are
-  // millimetres of travel for 1-3 and degrees for 4-5; see otokarAxes.js.
+  // millimetres of travel for 1-3 and degrees for 4-5; see gantryAxes.js.
   // Both portals share one runway, so they start at different stations along
   // it -- see OTOKAR_ROBOT_HOME.
-  const [otokarAxes, setOtokarAxes] = useState(OTOKAR_ROBOT_HOME);
+  const [gantryAxes, setGantryAxes] = useState(OTOKAR_ROBOT_HOME);
   const [walkingMode, setWalkingMode] = useState(false);
   const vrSupported = useVRSupported();
   const inVR = useXRSessionActive();
@@ -359,10 +365,9 @@ export default function DigitalTwin({ liveStatus }) {
   const headsetShading = IS_QUEST_BROWSER || inVR;
   // The realistic look (Realism.js) is the desktop's only look; a headset
   // keeps the classic rig, as its frame budget has no room for the extra
-  // passes. The cells' name tags (CellLabel.js) are a screen overlay, so they
-  // show on the desktop and never in the headset.
+  // passes. Scenario names stay in Mira's topic browser and narration, so
+  // the production floor remains free of floating signs.
   const realistic = showFactory && !headsetShading;
-  const showLabels = !inVR;
   // The Otokar tier: whatever the URL asks for, else the headset's own 'vr'
   // tier (0.32 M triangles against 0.79 M on lo and 6 M on hi; see
   // xrSession.js) and distance-based switching elsewhere.
@@ -381,7 +386,18 @@ export default function DigitalTwin({ liveStatus }) {
   const [infoRobot, setInfoRobot] = useState(null);
   const closeInfo = useCallback(() => setInfoRobot(null), []);
   const infoContext = useMemo(() => ({ animate, liveStatus }), [animate, liveStatus]);
+  const prepareGuideScene = useCallback(() => {
+    setWalkingMode(false);
+    setShowFactory(true);
+    setAnimate(true);
+    setPanelOpen(false);
+    setInfoRobot(null);
+  }, []);
+  const guide = useGuideTour({ inVR, prepareScene: prepareGuideScene });
+  const xrOriginRef = useRef(null);
 
+  const liveUrTool = useRef(null);
+  const liveKawTool = useRef(null);
   const ur10eGroupRef = useRef(null);
   const agvGroupRef = useRef(null);
   // Each fastening cell's driver handle, and whether its operator holds it.
@@ -404,8 +420,8 @@ export default function DigitalTwin({ liveStatus }) {
     jointsRef: kawJointsRef, toolRef: kawToolRef, driveRef: kawDriveRef, groupRef: agvGroupRef,
   }), []);
   const robotTargets = useMemo(() => [
-    { id: "ur10e", resolve: () => ur10eGroupRef.current },
-    { id: "kawasaki", resolve: () => agvGroupRef.current },
+    { id: "ur10e", resolve: (scene) => scene.getObjectByName("live-ur10e") },
+    { id: "kawasaki", resolve: (scene) => scene.getObjectByName("live-kawasaki") },
     { id: "robot1", resolve: otokarCarriage("robot1") },
     { id: "robot2", resolve: otokarCarriage("robot2") },
   ], []);
@@ -425,6 +441,7 @@ export default function DigitalTwin({ liveStatus }) {
   const ROTATE_STEP = Math.PI / 10;
 
   const orbitBy = (deltaTheta, deltaPhi) => {
+    if (guide.active) guide.stop();
     const controls = controlsRef.current;
     if (!controls) return;
     const camera = controls.object;
@@ -455,6 +472,7 @@ export default function DigitalTwin({ liveStatus }) {
    * dolly stops dead at the wall, which is why zooming out did nothing.
    */
   const zoomBy = (factor) => {
+    if (guide.active) guide.stop();
     const controls = controlsRef.current;
     if (!controls) return;
     const camera = controls.object;
@@ -503,7 +521,8 @@ export default function DigitalTwin({ liveStatus }) {
   const wheelRef = useRef(null);
   const handleViewportMouseDown = (event) => {
     if (event.button !== 0) return;
-    if (event.target.closest(".view-controls, button, a")) return;
+    if (event.target.closest(".view-controls, [data-guide-ui], button, a")) return;
+    if (guide.active) guide.stop();
     event.preventDefault();
     walkMouseRef.current = {
       dragging: true,
@@ -513,7 +532,7 @@ export default function DigitalTwin({ liveStatus }) {
   };
 
   const handleViewportWheel = (event) => {
-    if (event.target.closest(".view-controls")) return;
+    if (event.target.closest(".view-controls, [data-guide-ui]")) return;
     event.preventDefault();
     if (walkingMode) {
       walkZoomRef.current?.(event.deltaY);
@@ -537,7 +556,7 @@ export default function DigitalTwin({ liveStatus }) {
       const t = event.target;
       if (!(t instanceof Element)) return false;
       // The robot details card scrolls and selects text like any page element.
-      if (t.closest(".view-controls, .sidebar-toggle, .panel-toggle, .robot-info, button, a, input")) return false;
+      if (t.closest(".view-controls, .sidebar-toggle, .panel-toggle, .robot-info, [data-guide-ui], button, a, input")) return false;
       return t.tagName === "CANVAS" || Boolean(t.closest(".twin-viewport"));
     };
     const down = (event) => { if (inViewport(event)) pointerDownRef.current?.(event); };
@@ -614,28 +633,24 @@ export default function DigitalTwin({ liveStatus }) {
   }, [showFactory, walkingMode]);
 
   /*
-   * Live joint states from the page's telemetry stream (App opens it; see
-   * telemetryStream.js). While the demo animation runs they are not applied;
-   * switching it off applies the latest one at once, as reopening the stream
-   * used to.
+   * Only the monitoring station receives these poses. The simulation cells
+   * use their own task controllers regardless of the stream state.
    */
-  const animateRef = useRef(animate);
-  animateRef.current = animate;
   const applyJointStates = useCallback((payload) => {
-    if (Array.isArray(payload.ur10e) && payload.ur10e.length === 6) setJointAngles(payload.ur10e);
-    if (Array.isArray(payload.kawasaki) && payload.kawasaki.length === 6) setKawasakiAngles(payload.kawasaki);
+    if (Array.isArray(payload.ur10e) && payload.ur10e.length === 6 && payload.ur10e.every(Number.isFinite)) setJointAngles(payload.ur10e);
+    if (Array.isArray(payload.kawasaki) && payload.kawasaki.length === 6 && payload.kawasaki.every(Number.isFinite)) setKawasakiAngles(payload.kawasaki);
     if (Number.isFinite(payload.ur10eRail)) setRailPosition(payload.ur10eRail);
     if (Number.isFinite(payload.agvRail)) setAgvRailPosition(payload.agvRail);
   }, []);
 
   useEffect(() => subscribeJointStates((payload) => {
-    if (!animateRef.current) applyJointStates(payload);
+    applyJointStates(payload);
   }), [applyJointStates]);
 
   useEffect(() => {
     const latest = latestJointStates();
-    if (!animate && latest) applyJointStates(latest);
-  }, [animate, applyJointStates]);
+    if (latest) applyJointStates(latest);
+  }, [applyJointStates]);
 
   return (
     <div className="dt-wrapper">
@@ -665,8 +680,8 @@ export default function DigitalTwin({ liveStatus }) {
             setGripperOpen={setGripperOpen}
             showFactory={showFactory}
             setShowFactory={setShowFactory}
-            otokarAxes={otokarAxes}
-            setOtokarAxes={setOtokarAxes}
+            gantryAxes={gantryAxes}
+            setGantryAxes={setGantryAxes}
           />
         </div>
 
@@ -677,7 +692,7 @@ export default function DigitalTwin({ liveStatus }) {
 
         {/* Right viewport */}
         <div
-          className={`twin-viewport${walkingMode ? " walking-mode" : ""}`}
+          className={`twin-viewport${walkingMode ? " walking-mode" : ""}${guide.active ? " guided-view" : ""}`}
         >
           <button
             className="panel-toggle"
@@ -720,19 +735,11 @@ export default function DigitalTwin({ liveStatus }) {
 
           <Canvas
             shadows
-            /*
-             * Tone mapping and exposure, set rather than left to whatever the
-             * default happens to be. ACES filmic rolls the highlights off
-             * instead of clipping them, which is the difference between a lit
-             * white panel that still has panel in it and one that has gone to
-             * flat paper. Exposure slightly under 1 keeps the roof lights and
-             * the pale mast inside the range they roll off in.
-             */
             gl={{
               antialias: true,
               alpha: false,
               powerPreference: "high-performance",
-              toneMapping: THREE.ACESFilmicToneMapping,
+              toneMapping: THREE.AgXToneMapping,
               toneMappingExposure: LIGHTING.exposure,
             }}
             style={{ background: "#dfe8ef" }}
@@ -762,7 +769,7 @@ export default function DigitalTwin({ liveStatus }) {
                       IFARLAB_OFFSET moves all of it together, unchanged in every
                       internal dimension. It is the only thing to edit to
                       reposition the cell. */}
-                  <group position={IFARLAB_OFFSET}>
+                  <group name="cell-pickPlace" position={IFARLAB_OFFSET}>
                     {/* UR10e sits on its own 7th-axis carriage (UR10eMount), which
                         rides the fixed rail rendered in EnvironmentElements
                         (base_link.stl). railPosition is that 7th axis --
@@ -770,13 +777,14 @@ export default function DigitalTwin({ liveStatus }) {
                         rail) when live, or the slider in ControlPanel otherwise. */}
                     <group
                       ref={ur10eGroupRef}
-                      position={[-0.147, 0.58635, -railPosition]}
+                      position={[-0.147, 0.58635, -1.115]}
                     >
                       <UR10eMount />
                       <UR10eRobot
-                        jointAngles={jointAngles}
+                        jointAngles={[0, -90, 0, -90, 0, 0]}
                         gripperOpen={gripperOpen}
                         animate={animate}
+                        telemetryId="demo-ur10e"
                         jointsRef={urTask.jointsRef}
                         toolRef={urTask.toolRef}
                         driveRef={urTask.driveRef}
@@ -785,7 +793,7 @@ export default function DigitalTwin({ liveStatus }) {
                     </group>
                     <group
                       ref={agvGroupRef}
-                      position={[-2.301949, 0.17, -agvRailPosition]}
+                      position={[-2.301949, 0.17, -.530401]}
                       rotation={[0, Math.PI / 2, 0]}
                     >
                       {/* AGV (OTA) base -- ota_base.xacro is the true root of the
@@ -797,9 +805,10 @@ export default function DigitalTwin({ liveStatus }) {
                         rotation={[0, Math.PI, 0]}
                       >
                         <KawasakiRobot
-                          jointAngles={kawasakiAngles}
+                          jointAngles={[0, 20, -30, 0, 45, 0]}
                           animate={animate}
                           gripperOpen={gripperOpen}
+                          telemetryId="demo-kawasaki"
                           jointsRef={kawTask.jointsRef}
                           toolRef={kawTask.toolRef}
                           driveRef={kawTask.driveRef}
@@ -814,24 +823,24 @@ export default function DigitalTwin({ liveStatus }) {
                     <IfarlabTasks active={animate} ur={urTask} kawasaki={kawTask} />
                     <IfarlabCabinet />
                     <CellDressing running={animate} />
-                    {showLabels && <CellLabel number={CELL_SCENARIOS.pickPlace.number} title={CELL_SCENARIOS.pickPlace.title} />}
                   </group>
-                  <IfarlabCellCopy active={animate} inVR={inVR} showLabel={showLabels} assistantHandleRef={tableAssist.handleRef} assistantActiveRef={tableAssist.activeRef} />
-                  <IfarlabCellCopy active={animate} offset={IFARLAB_INSPECTION_OFFSET} scenario="inspection" showLabel={showLabels} />
-                  <IfarlabCellCopy active={animate} offset={IFARLAB_DOOR_OFFSET} scenario="door" showLabel={showLabels} assistantActiveRef={doorAssist.activeRef} operatorRef={doorAssist.operatorRef} />
+                  <IfarlabCellCopy active={animate} inVR={inVR} assistantHandleRef={tableAssist.handleRef} assistantActiveRef={tableAssist.activeRef} />
+                  <IfarlabCellCopy active={animate} offset={IFARLAB_INSPECTION_OFFSET} scenario="inspection" />
+                  <IfarlabCellCopy active={animate} offset={IFARLAB_DOOR_OFFSET} scenario="door" assistantActiveRef={doorAssist.activeRef} operatorRef={doorAssist.operatorRef} />
                   {/* Each robot's camera view, rendered small for the panel. */}
-                  <RobotCameraFeeds ur={urTask} kawasaki={kawTask} />
+                  <RobotCameraFeeds ur={{ toolRef: liveUrTool }} kawasaki={{ toolRef: liveKawTool }} />
                   <OtokarCell
                     show
-                    robotAxes={otokarAxes}
+                    robotAxes={gantryAxes}
                     showBus
                     showRails
-                    lodMode={otokarLod}
+                    lodMode={guide.session && !inVR ? "lo" : otokarLod}
                     animate={animate}
                     animationSpeed={OTOKAR_DEMO_SPEED}
                   />
                   {/* The cell's work made visible: scan beams, finds, progress. */}
                   <BodyInspection />
+                  <OtokarPickPlace jointAngles={jointAngles} kawasakiAngles={kawasakiAngles} railPosition={railPosition} agvRailPosition={agvRailPosition} urToolRef={liveUrTool} kawToolRef={liveKawTool} />
                   {/* Other people on the page, as workers where they stand. */}
                   <Visitors />
                   {/* Click (or point and trigger) a robot for its details. */}
@@ -839,8 +848,8 @@ export default function DigitalTwin({ liveStatus }) {
                   {inVR && infoRobot && (
                     <RobotInfoPanel3D robotId={infoRobot} context={infoContext} onClose={closeInfo} />
                   )}
-                  <Factory show={showFactory} realism={realistic} />
-                  {realistic && (
+                  <Factory show={showFactory} />
+                  {showFactory && (
                     <Suspense fallback={null}>
                       <HallFloor />
                     </Suspense>
@@ -873,6 +882,17 @@ export default function DigitalTwin({ liveStatus }) {
                   )}
                 </Scene>
                 </RealismContext.Provider>
+                {/* Subscribe after the robot task components have mounted.
+                    A camera outside this Suspense subscribed before them and
+                    followed the previous frame's pose after initial loading. */}
+                <GuideCamera
+                  request={guide.request}
+                  paused={Boolean(guide.session?.paused)}
+                  controlsRef={controlsRef}
+                  onArrive={guide.arrive}
+                  disabled={inVR}
+                />
+                <GuideFocusIndicator request={guide.request} disabled={inVR} />
               </Suspense>
               <OrbitControls
                 ref={controlsRef}
@@ -914,30 +934,35 @@ export default function DigitalTwin({ liveStatus }) {
                 controlsRef={controlsRef}
                 walkingMode={walkingMode}
                 xrActive={inVR}
+                guided={guide.active}
                 keysRef={walkKeysRef}
                 walkStepRef={walkStepRef}
                 walkLookRef={walkLookRef}
                 walkZoomRef={walkZoomRef}
               />
               <VRWalk
+                originRef={xrOriginRef}
+                guideActive={inVR && guide.active}
                 desktopCameraRef={desktopCameraRef}
                 walkingMode={walkingMode}
                 orbitTarget={ORBIT_TARGET}
                 bounds={FACTORY_CAMERA_BOUNDS}
               />
+              {inVR && <VRGuide guide={guide} originRef={xrOriginRef} />}
               <PresenceBroadcaster
                 bounds={FACTORY_CAMERA_BOUNDS}
                 walkingMode={walkingMode}
                 orbitTarget={ORBIT_TARGET}
               />
               {/* Headset only: hands-on training stations and the hall's sound. */}
-              {inVR && <TrainingStations />}
-              {inVR && <VRSoundscape targets={robotTargets} />}
+              {inVR && !guide.active && <TrainingStations />}
+              {inVR && <VRSoundscape targets={robotTargets} ducked={guide.active && !guide.session?.paused} />}
               {VR_OPTIONS.stats && <VRStatsHud />}
-              {realistic && <RealismExposure />}
               {realistic && <PostEffects />}
             </XR>
           </Canvas>
+
+          <DigitalGuide guide={guide} inVR={inVR} liveStatus={liveStatus} animate={animate} />
 
           {!inVR && infoRobot && (
             <RobotInfoCard robotId={infoRobot} context={infoContext} onClose={closeInfo} />
@@ -962,7 +987,7 @@ export default function DigitalTwin({ liveStatus }) {
             <button
               type="button"
               className={`walk-toggle${walkingMode ? " active" : ""}`}
-              onClick={() => setWalkingMode((enabled) => !enabled)}
+              onClick={() => { guide.stop(); setWalkingMode((enabled) => !enabled); }}
               aria-pressed={walkingMode}
               aria-label={walkingMode ? "Exit walking mode" : "Enter walking mode"}
               title={walkingMode ? "Exit walking mode" : "Enter walking mode"}

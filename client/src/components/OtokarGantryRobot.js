@@ -35,7 +35,7 @@ import {
  *  16 000 mm travel and the rotary nature of axes 4 and 5 are confirmed
  *  against the STEP geometry; the rest is inferred from slide order.
  *
- *  ASSUMPTIONS MARKED IN THIS FILE (all detailed in docs/otokar-cad-notes.md):
+ *  ASSUMPTIONS MARKED IN THIS FILE (all detailed in docs/inspection-cell-cad-notes.md):
  *    meshGroup      each robot draws its own mirrored mesh set
  *    CAD_POSE       what axis value the exported CAD pose corresponds to
  *    PIVOTS         rotary axis centres -- these ARE geometry-derived
@@ -89,7 +89,7 @@ const CAD_POSE = { a1: 0, a2: 0, a3: 0, a4: 0, a5: 0 };
  * standing in for this rotation is exactly what left the arm and camera
  * pointing away from the body, and no bbox check could see it.
  *
- * Provenance and evidence: client/public/meshes/otokar/placements.json.
+ * Provenance and evidence: client/public/meshes/bus-inspection/placements.json.
  */
 const BAKED_PLACEMENT_MM = [
   [-1, 0, 0, -10738.384],
@@ -493,6 +493,10 @@ export default function OtokarGantryRobot({
                               position={kinematics.cameraMount.map((v) => v * MM)}
                               rotation={[0, 0, CAMERA_HEADING[robotId]]}
                             >
+                              <mesh name="camera-flange-adapter" position={[0, 0, .05]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+                                <cylinderGeometry args={[.028, .028, .03, 20]} />
+                                <meshStandardMaterial color="#8b959b" metalness={.8} roughness={.38} />
+                              </mesh>
                               <OtokarMesh
                                 group="shared"
                                 part="camera"

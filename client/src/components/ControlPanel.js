@@ -6,16 +6,12 @@ import { registerFeedCanvas, FEED_W, FEED_H } from './RobotCameraFeeds';
 import { CELL_SCENARIOS } from './cellScenarios';
 
 /*
- * Each machine's maker, as a small brand mark beside its name: Universal
- * Robots, Kawasaki (its "K" alone -- the wordmark is unreadable this small),
- * and Otokar for both gantries. All sit in one 30 x 16 box, scaled to fit.
+ * Small manufacturer marks for the UR10e and Kawasaki.
  */
 const LOGO_BASE = `${process.env.PUBLIC_URL}/assets/logo/`;
 const MAKER_LOGOS = {
   ur10e: { src: 'ur_icon.png', alt: 'Universal Robots', width: 15 },
   kawasaki: { src: 'kawasaki_icon.png', alt: 'Kawasaki', width: 21 },
-  robot1: { src: 'logo2.png', alt: 'Otokar', width: 30 },
-  robot2: { src: 'logo2.png', alt: 'Otokar', width: 30 },
 };
 
 function RobotIcon({ kind }) {
@@ -51,13 +47,13 @@ const JOINT_LABELS = ['Base (J1)', 'Shoulder (J2)', 'Elbow (J3)', 'Wrist 1 (J4)'
 // two IFARLAB arms share: three of their five axes are linear and measured in
 // millimetres of travel. They get their own slider block rather than being
 // forced through JOINT_LABELS.
-const OTOKAR_ROBOTS = { otokar1: 'robot1', otokar2: 'robot2' };
+const OTOKAR_ROBOTS = { gantry1: 'robot1', gantry2: 'robot2' };
 
 const ROBOT_TABS = [
   { id: 'ur10e', label: 'UR10e' },
   { id: 'kawasaki', label: 'Kawasaki' },
-  { id: 'otokar1', label: 'Otokar R1' },
-  { id: 'otokar2', label: 'Otokar R2' },
+  { id: 'gantry1', label: 'Gantry R1' },
+  { id: 'gantry2', label: 'Gantry R2' },
 ];
 
 /*
@@ -271,8 +267,8 @@ export default function ControlPanel({
   setGripperOpen,
   showFactory,
   setShowFactory,
-  otokarAxes,
-  setOtokarAxes,
+  gantryAxes,
+  setGantryAxes,
 }) {
   const otokarKey = OTOKAR_ROBOTS[selectedRobot];
   const isUR10e = selectedRobot === 'ur10e';
@@ -284,7 +280,7 @@ export default function ControlPanel({
   const railRange = isUR10e ? { min: 0, max: 2.4 } : { min: -0.45, max: 3 };
 
   const handleOtokarChange = (index, value) => {
-    setOtokarAxes((prev) => {
+    setGantryAxes((prev) => {
       const next = [...prev[otokarKey]];
       next[index] = Number(value);
       return { ...prev, [otokarKey]: next };
@@ -292,7 +288,7 @@ export default function ControlPanel({
   };
 
   const resetOtokarHome = () => {
-    setOtokarAxes((prev) => ({
+    setGantryAxes((prev) => ({
       ...prev,
       [otokarKey]: OTOKAR_ROBOT_HOME[otokarKey],
     }));
@@ -350,7 +346,7 @@ export default function ControlPanel({
                   </span>
                 </span>
                 <span className="joint-slider-value">
-                  {formatAxis(index, otokarAxes[otokarKey][index])}
+                  {formatAxis(index, gantryAxes[otokarKey][index])}
                 </span>
               </span>
               <input
@@ -358,7 +354,7 @@ export default function ControlPanel({
                 min={axis.min}
                 max={axis.max}
                 step={axis.step}
-                value={otokarAxes[otokarKey][index]}
+                value={gantryAxes[otokarKey][index]}
                 disabled={animate}
                 onChange={(e) => handleOtokarChange(index, e.target.value)}
               />

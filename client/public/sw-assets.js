@@ -18,8 +18,8 @@
  *
  * TWO STRATEGIES, because the URLs come in two kinds.
  *
- *   Versioned (?v=... , the Otokar meshes): cache-first, never revalidated.
- *   The version string IS the cache key, so bumping OTOKAR_ASSET_VERSION
+ *   Versioned (?v=... , the inspection meshes): cache-first, never revalidated.
+ *   The version string IS the cache key, so bumping the mesh version
  *   changes the URL and misses the cache by construction. There is no way for
  *   a stale mesh to be served for a version that asked for something else.
  *
@@ -32,7 +32,7 @@
  *   rather than never taking effect.
  */
 
-const CACHE = 'matisse-assets-v1';
+const CACHE = 'matisse-assets-v2';
 
 // Only these. Anything not matching goes straight to the network untouched.
 const ASSET_RE = /\/(meshes|assets|draco)\/.*\.(glb|gltf|bin|wasm|js|stl|png|webp|jpe?g|hdr|ogg)$/i;
@@ -58,7 +58,7 @@ self.addEventListener('activate', (event) => {
 });
 
 function isAsset(url) {
-  // Match on pathname, not the whole href: the Otokar URLs carry ?v=... and a
+  // Match on pathname, not the whole href: the inspection mesh URLs carry ?v=... and a
   // test against the full string would never see the extension.
   return ASSET_RE.test(url.pathname);
 }

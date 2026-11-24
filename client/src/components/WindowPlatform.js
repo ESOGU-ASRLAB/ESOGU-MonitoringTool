@@ -25,9 +25,9 @@ function Part({ file, color, metalness = 0.55, roughness = 0.42, door = false })
 
 // The three CAD parts share one metre-scale, Z-up frame. The two door leaves
 // meet at local y=1.31; their -x side faces the Kawasaki's inspection rail.
-export default function WindowPlatform() {
+export default function WindowPlatform({ name }) {
   return (
-    <group rotation={[-Math.PI / 2, 0, 0]}>
+    <group name={name} rotation={[-Math.PI / 2, 0, 0]}>
       <Suspense fallback={null}>
         <Part file="platform.stl" color="#aeb8bf" />
         <Part file="windowlessdoor.optimized.stl" color="#d9e0e4" metalness={0.32} door />

@@ -8,7 +8,7 @@ import { Anchor, Callout, DocSidebar, SpecTable } from './docKit';
  * Technical guide, laid out like the Node.js / GitHub docs: a sticky table of
  * contents on the left, one long page of sections on the right, each heading
  * linkable (the layout pieces are in docKit.js, shared with the VR page). The
- * Otokar axis table is generated from otokarAxes.js, so the guide cannot drift
+ * inspection axis table is generated from the runtime axis definitions, so the guide cannot drift
  * from what the twin actually runs.
  */
 const LOGO = `${process.env.PUBLIC_URL}/assets/logo/`;
@@ -18,7 +18,7 @@ const SECTIONS = [
   { id: 'labs', title: 'ESOGU laboratories' },
   { id: 'ur10e', title: 'UR10e' },
   { id: 'kawasaki', title: 'Kawasaki RS005L' },
-  { id: 'otokar', title: 'Inspection cell' },
+  { id: 'inspection-cell', title: 'Inspection cell' },
   { id: 'confidentiality', title: 'Confidentiality and model use' },
   { id: 'credits', title: 'Credits and licences' },
 ];
@@ -46,8 +46,8 @@ export default function Documentation() {
           <p className="doc-kicker">MATISSE IFARLAB-EDIH Monitoring Tool</p>
           <h1>Technical guide</h1>
           <p className="doc-lead">
-            A 3D digital twin of two robot cells: the IFARLAB workcell at Eskişehir Osmangazi
-            University and the Otokar bus-body inspection cell developed within MATISSE. This guide
+            This 3D digital twin includes the IFARLAB workcell at Eskişehir Osmangazi
+            University and a bus-body inspection cell developed within MATISSE. This guide
             describes the robots it models and the terms under which the industrial models may be
             used.
           </p>
@@ -57,9 +57,8 @@ export default function Documentation() {
         <p>
           MATISSE is a European collaborative research project on model-based digital twins for the
           early verification and validation of industrial systems. Eskişehir Osmangazi University
-          (ESOGU) and Otokar take part as partners; this tool is ESOGU's digital-twin demonstrator,
-          bringing a university robot cell and an industrial inspection use case into one live,
-          inspectable model.
+          (ESOGU) developed this demonstrator to bring a university robot cell and an industrial
+          inspection use case into one interactive model.
         </p>
         <p>
           Project website: <a href="https://matisse-kdt.eu/" target="_blank" rel="noopener noreferrer">matisse-kdt.eu</a>
@@ -92,15 +91,11 @@ export default function Documentation() {
         </p>
         <SpecTable rows={KAWASAKI_SPECS} />
 
-        <Anchor id="otokar">
-          <img className="doc-h2-logo is-wide" src={`${LOGO}logo2.png`} alt="" />
-          Inspection cell
-        </Anchor>
+        <Anchor id="inspection-cell">Inspection cell</Anchor>
         <p>
           Two 5-axis portal (gantry) robots on parallel runways straddle a bus body in white. Each
-          carries a camera head (Basler ace, Intel RealSense D455, SICK DT35) on a chain nested
-          axis 1, 2, 3, 4, 5 and the camera. Axis limits and speeds follow Otokar's trajectory
-          documentation:
+          carries a sensor head with Basler ace, Intel RealSense D455 and SICK DT35 components.
+          The table shows the axis ranges and speeds used in the simulation.
         </p>
         <table className="doc-table is-grid">
           <thead>
@@ -124,22 +119,28 @@ export default function Documentation() {
         </ul>
 
         <Anchor id="confidentiality">Confidentiality and model use</Anchor>
-        <Callout kind="danger" title="Confidential industrial data">
-          The Otokar cell (the gantry robots, the bus body and their placement data) is derived
-          from Otokar's own engineering CAD, made available to ESOGU within the MATISSE project
-          under a confidentiality agreement between the MATISSE consortium, ESOGU and Otokar.
+        <Callout kind="danger" title="Unauthorised use and redistribution">
+          Third-party models, textures and logos remain subject to their individual licences and
+          confidentiality agreements. Extracting, copying, reusing, reselling or redistributing
+          these assets outside the permitted terms requires prior permission from the relevant
+          rights holder.
+        </Callout>
+        <Callout kind="note" title="Confidential industrial data">
+          The inspection cell's gantry robots, bus body and placement data derive from engineering
+          CAD shared with ESOGU for MATISSE under a confidentiality agreement.
         </Callout>
         <ul>
           <li>The models may be used only for the MATISSE project and its authorised demonstrations.</li>
           <li>They may not be extracted, copied, redistributed, reverse-engineered or used to reproduce the equipment.</li>
           <li>The source STEP files are not part of the repository; only the converted meshes needed to render the cell are shipped, and they carry the same restrictions.</li>
-          <li>Screenshots or recordings showing the Otokar cell outside the project require the partners' approval.</li>
+          <li>Screenshots or recordings showing the inspection cell outside the project require the partners' approval.</li>
           <li>The UR10e and Kawasaki meshes come from their public ROS description packages under those packages' own licences.</li>
         </ul>
 
         <Anchor id="credits">Credits and licences</Anchor>
         <ul>
-          <li>Factory hall: Blender model, exported to glTF.</li>
+          <li>The factory hall uses <strong>Warehouse</strong> by <strong>Zeps3D</strong>, purchased under the Fab Standard License and integrated into the scene. <a href="https://www.fab.com/listings/65f86256-7368-493b-9d76-cf006c6a17f2" target="_blank" rel="noopener noreferrer">Warehouse listing</a></li>
+          <li>The Fab Standard License permits project integration under its terms and prohibits standalone resale or redistribution. Verify that the licence or separate permission covers public hosting or distribution of source Blender files or converted GLB files. <a href="https://www.fab.com/eula" target="_blank" rel="noopener noreferrer">Fab Standard License</a></li>
           <li>Props (forklift, fire extinguisher, first-aid kit, exit sign, traffic cone, wet-floor sign) from <a href="https://poly.pizza" target="_blank" rel="noopener noreferrer">Poly Pizza</a> under CC-BY 3.0 and CC0; authors are listed in <code>client/public/assets/props/CREDITS.md</code>.</li>
           <li>UR10e: <a href="https://github.com/UniversalRobots/Universal_Robots_ROS2_Description" target="_blank" rel="noopener noreferrer">Universal_Robots_ROS2_Description</a>.</li>
           <li>Robot and company names and logos belong to their respective owners and are used for identification only.</li>

@@ -251,7 +251,7 @@ export function createCoordinatedMove(from, to, specs) {
  * `tilt` (axis 4) and `roll` (axis 5) still aim the head by hand: the camera
  * mesh's own forward axis was never characterised against the STEP data, so
  * these turn the head convincingly toward the region without claiming to be a
- * lookAt solve. See docs/otokar-cad-notes.md.
+ * lookAt solve. See docs/inspection-cell-cad-notes.md.
  */
 export const OTOKAR_INSPECTION_PROGRAMS = {
   robot1: {
@@ -309,17 +309,17 @@ export const OTOKAR_INSPECTION_PROGRAMS = {
      * variety is in what the head does there. Each station runs the next of
      * these in turn, as [axis index, value] steps about the station pose:
      *
-     *   pan      the camera turns on its own axis through 180 deg, sweeping
+     *   pan      the camera turns on its own axis through a limited 50 deg sweep, sweeping
      *            the roof panel from one cant rail to the other
      *   nod      the head nods through the roof's curve, front to back
      *   rise     the column lifts the head towards the roof and back
      *   orbit    pan and nod together, tracing a ring on the roof
      */
     patterns: [
-      [['pan left', { 4: -90 }], ['pan right', { 4: 90 }], ['pan back', { 4: 0 }]],
+      [['pan left', { 4: -25 }], ['pan right', { 4: 25 }], ['pan back', { 4: 0 }]],
       [['nod forward', { 3: 64 }], ['nod back', { 3: 80 }], ['nod forward', { 3: 66 }], ['level', { 3: 72 }]],
       [['rise', { 1: 2660, 3: 78 }], ['hold at the roof', { 1: 2660, 3: 64 }], ['lower', { 1: 2540 }], ['level', {}]],
-      [['orbit 1', { 3: 80, 4: 60 }], ['orbit 2', { 3: 64, 4: -60 }], ['orbit 3', { 3: 80, 4: -60 }], ['orbit 4', { 3: 64, 4: 60 }], ['level', {}]],
+      [['orbit 1', { 3: 80, 4: 20 }], ['orbit 2', { 3: 64, 4: -20 }], ['orbit 3', { 3: 80, 4: -20 }], ['orbit 4', { 3: 64, 4: 20 }], ['level', {}]],
     ],
   },
 };

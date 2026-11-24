@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+
 
 /*
  * The Otokar gantries' camera heads ("camera-mount" nodes), found in the live
@@ -22,13 +22,11 @@ function attached(object, scene) {
   return false;
 }
 
-const scratch = new THREE.Vector3();
+
 
 export function trackHeads(scene, now, cache) {
   if (now - (cache.at ?? -Infinity) < REFRESH && cache.heads) return cache.heads;
   cache.at = now;
-  const found = scene.getObjectsByProperty('name', 'camera-mount').filter((o) => attached(o, scene));
-  const height = new Map(found.map((o) => [o, o.getWorldPosition(scratch).y]));
-  cache.heads = found.sort((a, b) => height.get(a) - height.get(b)).slice(0, 2);
+  cache.heads = ['robot1-cad-frame', 'robot2-cad-frame'].map((id) => scene.getObjectByName(id)?.getObjectByName('camera-mount')).map((head) => head && attached(head, scene) ? head : null);
   return cache.heads;
 }

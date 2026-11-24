@@ -39,7 +39,7 @@ export const DRONE_PATROLS = Object.freeze([
 ]);
 
 // All in the gantries' signal yellow, the one yellow already in the hall.
-const DRONE_COLOR = ACCENT.signalRed.color;
+const DRONE_COLOR = ACCENT.hazardAmber.color;
 
 /*
  * The escort: a larger drone riding over the buses as they trade bays

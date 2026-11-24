@@ -27,7 +27,7 @@ import { FLOOR_Z_MM } from './otokarCellGeometry';
  * these are the heaviest meshes in the scene, so they are removed, not hidden.
  *
  * Geometry, axis limits and the bus clearances come from Otokar's own CAD and
- * trajectory deck -- see docs/otokar-cad-notes.md.
+ * trajectory deck -- see docs/inspection-cell-cad-notes.md.
  */
 
 /*
