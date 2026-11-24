@@ -51,7 +51,7 @@ function Answer({ answer, onFocus, ui }) {
   </div>;
 }
 
-export default function DigitalGuide({ guide, inVR, liveStatus, animate }) {
+export default function DigitalGuide({ guide, inVR, liveStatus, animate, children }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('chat');
   const [query, setQuery] = useState('');
@@ -84,7 +84,7 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate }) {
         setOpen(false);
         if (resumeAfterChat.current && session?.paused) pause();
         resumeAfterChat.current = false;
-        launcherRef.current?.focus();
+        requestAnimationFrame(() => launcherRef.current?.focus());
       }
       else if (active && !session?.paused) pause();
     };
@@ -105,7 +105,7 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate }) {
     setOpen(false);
     if (resumeAfterChat.current && session?.paused) guide.pause();
     resumeAfterChat.current = false;
-    launcherRef.current?.focus();
+    requestAnimationFrame(() => launcherRef.current?.focus());
   };
   const focus = (id) => { setOpen(false); setRouteOpen(false); guide.go(id, 'focus'); };
   const ask = (question) => {
@@ -121,13 +121,23 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate }) {
   const startTour = () => { setOpen(false); setSettingsOpen(false); setRouteOpen(false); guide.start(); };
   const filtered = topics.filter((topic) => normalize(`${topic.title} ${topic.group} ${topic.aliases.join(' ')}`).includes(normalize(filter)));
 
-  if (inVR) return null;
+  const viewControls = (
+    <div className="view-controls" role="group" aria-label="3D view controls">
+      {children}
+      {!inVR && !session && !open && (
+        <div className="digital-guide guide-launchers" lang={language} data-guide-ui>
+          <button className="guide-auto-button" type="button" onClick={startTour}>
+            <Icon name="play" />{ui.autoTour}
+          </button>
+          <button ref={launcherRef} className="guide-chat-button" type="button" onClick={openChat} aria-expanded={open} aria-controls="asrlab-guide-panel">
+            <Icon name="chat" /><span>{ui.guide}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
 
-  return <div className={`digital-guide${open ? ' chat-open' : ''}`} lang={language} data-guide-ui>
-    {!session && <div className="guide-launchers">
-      <button className="guide-auto-button" type="button" onClick={startTour}><Icon name="play" />{ui.autoTour}</button>
-      <button ref={launcherRef} className="guide-chat-button" type="button" onClick={openChat} aria-expanded={open} aria-controls="asrlab-guide-panel"><GuideAvatar small /><span>{ui.guide}</span><Icon name="chat" /></button>
-    </div>}
+  return <>{viewControls}{!inVR && <div className="digital-guide" lang={language} data-guide-ui>
 
     {session && !open && <section className="guide-tour" aria-label={ui.tour} aria-busy={guide.active && !guide.cameraReady} data-shot={guide.request?.shot}>
       <div className="guide-tour-progress" role="progressbar" aria-label={ui.progress} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((index + (session.phase === 'complete' ? 1 : narration.progress)) / TOUR_STOPS.length * 100)}><span style={{ width: `${(index + (session.phase === 'complete' ? 1 : narration.progress)) / TOUR_STOPS.length * 100}%` }} /></div>
@@ -179,5 +189,5 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate }) {
         <form className="guide-form" onSubmit={(event) => { event.preventDefault(); ask(query); }}><label className="guide-sr-only" htmlFor="guide-question">{ui.placeholder}</label><input ref={inputRef} id="guide-question" value={query} maxLength={600} onChange={(event) => setQuery(event.target.value)} placeholder={ui.placeholder} autoComplete="off" /><button type="submit" disabled={!query.trim()}>{ui.ask}</button></form>
       </> : <div className="guide-topic-browser" id="guide-topics-content" role="tabpanel" aria-labelledby="guide-topics-tab"><label className="guide-sr-only" htmlFor="guide-topic-filter">{ui.search}</label><input id="guide-topic-filter" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder={ui.search} /><div className="guide-topic-list">{filtered.map((topic) => <button type="button" key={topic.id} onClick={() => focus(topic.id)}><Icon name="play" /><div>{topic.title}<small>{topic.group}</small></div></button>)}{!filtered.length && <p className="guide-empty">{ui.empty}</p>}</div></div>}
     </section>}
-  </div>;
+  </div>}</>;
 }

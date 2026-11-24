@@ -962,8 +962,6 @@ export default function DigitalTwin({ liveStatus }) {
             </XR>
           </Canvas>
 
-          <DigitalGuide guide={guide} inVR={inVR} liveStatus={liveStatus} animate={animate} />
-
           {!inVR && infoRobot && (
             <RobotInfoCard robotId={infoRobot} context={infoContext} onClose={closeInfo} />
           )}
@@ -983,7 +981,7 @@ export default function DigitalTwin({ liveStatus }) {
           )}
 
           {/* Manual equivalents of the mouse gestures (rotate / zoom) */}
-          <div className="view-controls" aria-label="3D view controls">
+          <DigitalGuide guide={guide} inVR={inVR} liveStatus={liveStatus} animate={animate}>
             <button
               type="button"
               className={`walk-toggle${walkingMode ? " active" : ""}`}
@@ -1082,7 +1080,7 @@ export default function DigitalTwin({ liveStatus }) {
                 +
               </button>
             </div>
-          </div>
+          </DigitalGuide>
         </div>
       </div>
     </div>

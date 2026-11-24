@@ -120,8 +120,9 @@
   }
 }
 
-/* Manual rotate/zoom controls, mirroring the mouse gestures */
+/* View controls and guide actions share one toolbar. */
 .view-controls {
+  --view-button-size: 32px;
   position: absolute;
   top: 12px;
   right: 12px;
@@ -131,15 +132,22 @@
   align-items: center;
   gap: 6px;
   padding: 8px;
+  width: min(170px, calc(100% - 24px));
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  touch-action: pan-y;
   background: rgba(255, 255, 255, 0.85);
   border-radius: 10px;
   backdrop-filter: blur(10px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+.view-controls > * { flex-shrink: 0; }
+
 .walk-toggle {
   width: 100%;
-  min-height: 32px;
+  min-height: var(--view-button-size);
   border: 1px solid #1e3a5f;
   border-radius: 6px;
   background: #eef5fb;
@@ -164,8 +172,9 @@
 
 .view-dpad {
   display: grid;
-  grid-template-columns: 32px 32px 32px;
-  grid-template-rows: 32px 32px 32px;
+  width: 100%;
+  grid-template-columns: 1fr var(--view-button-size) 1fr;
+  grid-template-rows: repeat(3, var(--view-button-size));
   grid-template-areas:
     '.    up    .'
     'left .     right'
@@ -175,7 +184,7 @@
 
 .view-btn-up { grid-area: up; }
 .view-btn-left { grid-area: left; }
-.view-btn-right { grid-area: right; }
+.view-btn-right { grid-area: right; justify-self: end; }
 .view-btn-down { grid-area: down; }
 
 .view-zoom {
@@ -192,8 +201,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: var(--view-button-size);
+  height: var(--view-button-size);
   border: 1px solid #000000;
   border-radius: 6px;
   background: #ffffff;
@@ -217,6 +226,10 @@
 .view-btn:disabled:hover {
   background: #ffffff;
   color: #000000;
+}
+
+@media (max-width: 650px) {
+  .view-controls { width: min(136px, calc(100% - 24px)); }
 }
 
 /* ---- Mobile: sidebar becomes a slide-in drawer ---- */

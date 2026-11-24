@@ -4,14 +4,10 @@
 .digital-guide button { cursor: pointer; }
 .digital-guide button:disabled { opacity: .4; cursor: default; }
 .digital-guide button:focus-visible, .digital-guide input:focus-visible, .digital-guide select:focus-visible, .digital-guide summary:focus-visible { outline: 3px solid #0a9ea1; outline-offset: 3px; }
-.guide-launchers { position: absolute; right: 18px; bottom: 20px; z-index: 12; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-.chat-open .guide-launchers { display: none; }
+.guide-launchers { display: grid; width: 100%; gap: 6px; }
 .guide-auto-button, .guide-chat-button { display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid transparent; border-radius: 12px; box-shadow: 0 5px 20px #05233326; }
 .guide-auto-button { padding: 11px 18px; color: #092e3a; background: var(--guide-mint); font-size: .875rem !important; font-weight: 750 !important; }
 .guide-auto-button:hover { background: #9ef2df; }
-.guide-chat-button { padding: 9px 15px 9px 8px; background: var(--guide-navy); color: #fff; text-align: left; }
-.guide-chat-button span { font-weight: 700; }
-.guide-chat-button small { display: block; color: #bcdddf; font-size: .75rem; font-weight: 400; }
 .guide-avatar { width: 76px; height: 76px; flex: 0 0 auto; }
 .guide-avatar svg { width: 100%; height: 100%; }
 .guide-avatar.small { width: 46px; height: 46px; }
@@ -107,8 +103,6 @@
 .guide-camera-mode button[aria-pressed=true] { background: #d9f2ed; color: #096958; font-weight: 700; }
 .guided-view .view-dpad, .guided-view .view-zoom, .guided-view .walk-hint { display: none; }
 @media (max-width: 650px) {
-  .guide-launchers { right: 12px; bottom: 12px; gap: 7px; }
-  .guide-chat-button { font-size: .875rem !important; }
   .guide-tour { width: calc(100% - 16px); left: 8px; bottom: 8px; max-height: calc(100% - 62px); border-radius: 13px; }
   .guide-tour-heading { padding: 6px 8px 0; gap: 5px; }
   .guide-tour-heading .guide-avatar { width: 26px; height: 26px; }
@@ -128,9 +122,36 @@
 /* Corporate controls share the navigation's blue, slate and white palette. */
 .guide-auto-button { background: #eaf1fd; color: #2059bb; border: 1px solid #cedcf4; border-radius: 9px; font-weight: 600 !important; box-shadow: 0 3px 12px #172e4d12; }
 .guide-auto-button:hover { background: #dfeafb; }
-.guide-chat-button { background: #fff; color: #18314f; border: 1px solid #ccd7e6; border-radius: 9px; box-shadow: 0 3px 12px #172e4d18; }
-.guide-chat-button span { font-size: .875rem; font-weight: 600; }
-.guide-chat-button .guide-avatar.small { width: 36px; height: 36px; }
+.guide-launchers > button {
+  min-width: 0;
+  height: var(--view-button-size);
+  gap: 5px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 12px !important;
+  font-weight: 600;
+  line-height: 1.05;
+}
+.guide-launchers > button > svg { width: 14px; height: 14px; flex: none; }
+.guide-launchers .guide-auto-button { position: relative; border-color: #a4b9e4; }
+@media (prefers-reduced-motion: no-preference) {
+  .guide-launchers .guide-auto-button::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    box-shadow: 0 0 0 3px #4c82df80, 0 0 12px 2px #4c82df66;
+    opacity: 0;
+    pointer-events: none;
+    animation: guide-tour-pulse 1.5s ease-in-out 3;
+  }
+  .guide-launchers .guide-auto-button:is(:hover, :focus-visible)::after { visibility: hidden; }
+}
+@keyframes guide-tour-pulse {
+  50% { opacity: 1; }
+}
+.guide-chat-button { background: #fff; color: #18314f; border: 1px solid #ccd7e6; box-shadow: 0 3px 12px #172e4d18; }
+.guide-chat-button:hover { background: #f1f5fc; }
 .guide-panel, .guide-tour, .guide-route { background: #fff; border-color: #ccd7e6; border-radius: 11px; box-shadow: 0 8px 28px #17315a20; }
 .guide-panel-heading { background: #f4f7fc; color: #17315a; border-bottom: 1px solid #dce5f2; }
 .guide-panel-heading .guide-icon-button { color: #365278; }
