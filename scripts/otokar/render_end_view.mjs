@@ -16,7 +16,7 @@ const loader = resolve(ROOT, 'client/node_modules/three/examples/jsm/loaders/GLT
 const dracoLoader = resolve(ROOT, 'client/node_modules/three/examples/jsm/loaders/DRACOLoader.js');
 const dracoRoot = resolve(ROOT, 'client/node_modules/three/examples/jsm/libs/draco/gltf');
 const bufferUtils = resolve(ROOT, 'client/node_modules/three/examples/jsm/utils/BufferGeometryUtils.js');
-const meshRoot = resolve(ROOT, 'client/public/meshes/otokar');
+const meshRoot = resolve(ROOT, 'client/public/meshes/bus-inspection');
 
 const html = `<!doctype html><html><body style="margin:0;background:#d9dde0"><script type="importmap">{"imports":{"three":"/three.module.js"}}</script><script type="module">
 import * as THREE from '/three.module.js';
@@ -44,11 +44,11 @@ function robot(id,p){
  const p5=new THREE.Group(); p5.position.fromArray(p.a5.map(v=>v*MM)); p4o.add(p5);
  const a5=new THREE.Group(); p5.add(a5); const p5o=new THREE.Group(); p5o.position.fromArray(p.a5.map(v=>-v*MM)); a5.add(p5o);
  const cam=new THREE.Group(); cam.position.fromArray(p.cam.map(v=>v*MM)); cam.rotation.z=id==='robot2'?Math.PI:0; p5o.add(cam);
- const base='/meshes/otokar/'+id+'/hi/';
- add(root,base+'axis1.glb',colors.axis1); add(a1,base+'axis1_carriage.glb',colors.carriage); add(a2,base+'axis2.glb',colors.axis2); add(a3,base+'axis3.glb',colors.axis3); add(chain,base+'axis4.glb',colors.axis4); add(p4o,base+'axis5.glb',colors.axis5); add(cam,'/meshes/otokar/shared/hi/camera.glb',colors.camera);
+ const base='/meshes/bus-inspection/'+id+'/hi/';
+ add(root,base+'axis1.glb',colors.axis1); add(a1,base+'axis1_carriage.glb',colors.carriage); add(a2,base+'axis2.glb',colors.axis2); add(a3,base+'axis3.glb',colors.axis3); add(chain,base+'axis4.glb',colors.axis4); add(p4o,base+'axis5.glb',colors.axis5); add(cam,'/meshes/bus-inspection/shared/hi/camera.glb',colors.camera);
 }
 robot('robot1',r1P); robot('robot2',r2P);
-const busRoot=new THREE.Group(); busRoot.rotation.x=-Math.PI/2; busRoot.position.set((-12724.986+1160.4634+9556)*MM,(2757.4-1643.6612-1251)*MM,(-1368+1646.2384-172)*MM); cell.add(busRoot); add(busRoot,'/meshes/otokar/bus/hi/body.glb',colors.bus);
+const busRoot=new THREE.Group(); busRoot.rotation.x=-Math.PI/2; busRoot.position.set((-12724.986+1160.4634+9556)*MM,(2757.4-1643.6612-1251)*MM,(-1368+1646.2384-172)*MM); cell.add(busRoot); add(busRoot,'/meshes/bus-inspection/bus/hi/body.glb',colors.bus);
 const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(1); renderer.setSize(1280,900); document.body.appendChild(renderer.domElement);
 const camera=new THREE.PerspectiveCamera(48,1280/900,.05,100); camera.position.set(-3.78,3.4,21.5); camera.lookAt(-3.78,2.2,-3.8);
 await Promise.all(pending); renderer.render(scene,camera); window.__ready=true;
@@ -62,7 +62,7 @@ const server=createServer((req,res)=>{
     if(req.url==='/DRACOLoader.js'){const b=readFileSync(dracoLoader,'utf8').replaceAll("from 'three'","from '/three.module.js'");res.writeHead(200,{'content-type':'text/javascript'});return res.end(b);}
     if(req.url==='/utils/BufferGeometryUtils.js'){const b=readFileSync(bufferUtils,'utf8').replaceAll("from 'three'","from '/three.module.js'");res.writeHead(200,{'content-type':'text/javascript'});return res.end(b);}
     if(req.url.startsWith('/draco/')){const b=readFileSync(resolve(dracoRoot,req.url.slice('/draco/'.length)));res.writeHead(200,{'content-type':req.url.endsWith('.wasm')?'application/wasm':'text/javascript'});return res.end(b);}
-    if(req.url.startsWith('/meshes/otokar/')){const b=readFileSync(resolve(ROOT,'client/public',req.url.slice(1)));res.writeHead(200,{'content-type':'model/gltf-binary'});return res.end(b);}
+    if(req.url.startsWith('/meshes/bus-inspection/')){const b=readFileSync(resolve(ROOT,'client/public',req.url.slice(1)));res.writeHead(200,{'content-type':'model/gltf-binary'});return res.end(b);}
     res.writeHead(404).end();
   } catch(e){res.writeHead(500).end(String(e));}
 });
@@ -74,4 +74,4 @@ page.on('response',r=>{if(r.status()>=400)errors.push(`HTTP ${r.status()} ${r.ur
 await page.goto(`http://127.0.0.1:${port}/`,{waitUntil:'load',timeout:30000});
 try { await page.waitForFunction('window.__ready===true',null,{timeout:30000}); }
 catch(e) { console.log(`Page problems:\n  ${errors.join('\n  ')}`); throw e; }
-const out=resolve(ROOT,'docs/otokar-end-view.png'); await page.screenshot({path:out}); console.log(`Screenshot: ${out}`); if(errors.length)console.log(`Page problems:\n  ${errors.join('\n  ')}`); await browser.close(); server.close();
+const out=resolve(ROOT,'docs/inspection-cell-end-view.png'); await page.screenshot({path:out}); console.log(`Screenshot: ${out}`); if(errors.length)console.log(`Page problems:\n  ${errors.join('\n  ')}`); await browser.close(); server.close();

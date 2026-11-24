@@ -10,9 +10,13 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
-const DEST = resolve(ROOT, 'client/public/meshes/otokar');
+const DEST = resolve(ROOT, 'client/public/meshes/bus-inspection');
 
 const source = JSON.parse(readFileSync(resolve(HERE, 'placements.json'), 'utf8'));
+const publicText = (value) => value?.replace(/\bOtokar\b/gi, 'the industrial partner')
+  .replace(/\bOtokarGantryRobot\.js\b/g, 'the gantry renderer')
+  .replaceAll('meshes/otokar', 'meshes/bus-inspection')
+  .replaceAll('build_otokar_meshes.sh', 'the mesh build script');
 
 // Which GLBs each source file produces, mirroring the JOBS table in
 // build_otokar_meshes.sh.
@@ -40,8 +44,8 @@ for (const [stem, spec] of Object.entries(source.sources)) {
         present: existsSync(resolve(DEST, rel)),
         source: `${stem}.stp`,
         matrix: spec.matrix,
-        provenance: spec.provenance,
-        evidence: spec.evidence,
+        provenance: publicText(spec.provenance),
+        evidence: publicText(spec.evidence),
       });
     }
   }
@@ -51,7 +55,7 @@ mkdirSync(DEST, { recursive: true });
 const out = resolve(DEST, 'placements.json');
 writeFileSync(out, JSON.stringify({
   frame: source.frame,
-  note: source.note,
+  note: 'Native-to-installed transforms used in the inspection cell meshes. Matrices are row-major 4x4 in mm.',
   generated: new Date().toISOString().slice(0, 10),
   entries,
 }, null, 2) + '\n');

@@ -26,7 +26,7 @@ page.on('console', (message) => {
 });
 page.on('requestfailed', (request) => errors.push(`request failed: ${request.url()} ${request.failure()?.errorText}`));
 page.on('response', (response) => {
-  if (response.url().includes('/meshes/otokar/')) meshes.push([response.status(), response.url()]);
+  if (response.url().includes('/meshes/bus-inspection/')) meshes.push([response.status(), response.url()]);
   if (response.status() >= 400) errors.push(`HTTP ${response.status()}: ${response.url()}`);
 });
 await page.goto(process.env.OTOKAR_URL || 'http://localhost:3003/', { waitUntil: 'domcontentloaded', timeout: 15000 });
@@ -36,7 +36,7 @@ for (let i = 0; i < 12; i++) {
   console.log(`After ${(i + 1) * 5}s: ${meshes.length} Otokar mesh responses, ${errors.length} errors`);
   if (meshes.some(([, url]) => url.includes('/bus/')) && meshes.some(([, url]) => url.includes('/axis5.glb'))) break;
 }
-const screenshot = resolve(ROOT, 'docs/otokar-runtime-audit.png');
+const screenshot = resolve(ROOT, 'docs/inspection-cell-runtime-audit.png');
 console.log(`Canvas: ${JSON.stringify(await page.locator('canvas').count())}`);
 console.log(`Otokar mesh responses (${meshes.length}):`);
 for (const [status, url] of meshes) console.log(`  ${status} ${url}`);

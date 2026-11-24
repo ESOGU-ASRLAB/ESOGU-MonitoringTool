@@ -33,27 +33,17 @@ const saturation = (hex) => {
   return max === 0 ? 0 : (max - min) / max;
 };
 
-/*
- * WHAT THE VIEWER ACTUALLY SEES.
- *
- * Every rule above works in albedo -- the colour as authored. The screen shows
- * albedo multiplied by the light reaching it and then pushed through a tone
- * curve, and those two orderings are not the same. Two bus liveries measured
- * 1.63:1 apart in albedo and arrived as the same white, because both landed
- * past the point where ACES has any range left.
- *
- * This is the Narkowicz fit of the ACES filmic curve the renderer applies,
- * against the rig in LIGHTING, for a surface facing the key light. It is an
- * approximation -- it ignores the surface's angle, its roughness and what the
- * environment map happens to put behind it -- but it is the right order of
- * magnitude, and it catches the failure that albedo checks cannot see.
- */
-const acesFilmic = (x) => {
-  const a = 2.51; const b = 0.03; const c = 2.43; const d = 0.59; const e = 0.14;
-  return Math.min(1, Math.max(0, (x * (a * x + b)) / (x * (c * x + d) + e)));
+// Neutral-value approximation of Three's AgX curve. The sum of the broad
+// light levels provides a repeatable highlight stress test for the palette.
+const agx = (linear) => {
+  const exposure = Math.log2(Math.max(1e-10, linear));
+  const x = Math.min(1, Math.max(0, (exposure + 12.47393) / 16.499999));
+  const curve = 15.5 * x ** 6 - 40.14 * x ** 5 + 31.96 * x ** 4 - 6.868 * x ** 3
+    + 0.4298 * x ** 2 + 0.1191 * x - 0.00232;
+  return Math.min(1, Math.max(0, curve) ** 2.2);
 };
 const TOTAL_LIGHT = LIGHTING.key + LIGHTING.environment + LIGHTING.ambient + LIGHTING.hemisphere;
-const rendered = (hex) => acesFilmic(luminance(hex) * TOTAL_LIGHT * LIGHTING.exposure);
+const rendered = (hex) => agx(luminance(hex) * TOTAL_LIGHT * LIGHTING.exposure);
 
 let failures = 0;
 const fail = (msg) => { console.log('  FAIL ' + msg); failures += 1; };

@@ -53,7 +53,7 @@ names and silently misroutes Import.insert.
                 translation silently stood in for a rotation -- leaving the arm
                 and camera pointing away from the body -- and bbox adjacency
                 checks could not detect it. Provenance for every matrix is
-                recorded in client/public/meshes/otokar/placements.json.
+                recorded in client/public/meshes/bus-inspection/placements.json.
   PLACEMENT_SRC free text describing where PLACEMENT came from; echoed into the
                 stats so a baked mesh can always be traced back to its source.
 """

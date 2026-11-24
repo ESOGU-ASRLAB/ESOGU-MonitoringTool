@@ -1,7 +1,6 @@
-# Raw vendor CAD (Otokar MATISSE STEP models + source presentations).
-# Confidential engineering data -- see README "Otokar MATISSE cell asset
-# sourcing". Only the derived, decimated GLBs under
-# client/public/meshes/otokar/ are committed.
+# Confidential CAD and source presentations. See "Inspection cell asset
+# sourcing" in the README. Display meshes live under
+# client/public/meshes/bus-inspection/.
 raw-cad/
 
 node_modules/

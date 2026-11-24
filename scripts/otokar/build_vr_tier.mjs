@@ -9,7 +9,7 @@
 // every lo part the cell uses, welds it and simplifies it with meshoptimizer,
 // bounded by error rather than a ratio (`maxError` of the part's own size,
 // default 0.0015 = 0.15%: 18 mm over the 12 m body, 2 mm on a 1.3 m arm stage),
-// and writes it Draco-compressed to meshes/otokar/<group>/vr/<part>.glb, the
+// and writes it Draco-compressed to meshes/bus-inspection/<group>/vr/<part>.glb, the
 // path OtokarMesh builds for lod 'vr'. Same frame and units as lo, so the cell
 // mounts it unchanged; the headset profile picks it (xrSession.js).
 
@@ -20,7 +20,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '../..');
-const BASE = path.join(ROOT, 'client/public/meshes/otokar');
+const BASE = path.join(ROOT, 'client/public/meshes/bus-inspection');
 const MAX_ERROR = Number(process.argv[2]) || 0.0015;
 // Exported but not mounted since the telescopic split (axis3_fixed/_middle/_outer).
 const SKIP = new Set(['axis3.glb']);

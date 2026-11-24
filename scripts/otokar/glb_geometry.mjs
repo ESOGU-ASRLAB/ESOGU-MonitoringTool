@@ -11,7 +11,7 @@ const draco3d = require('draco3d');
 const decoderModule = await draco3d.createDecoderModule({});
 
 export function readOtokarGeometry(group, part, lod = 'hi') {
-  const file = resolve(ROOT, `client/public/meshes/otokar/${group}/${lod}/${part}.glb`);
+  const file = resolve(ROOT, `client/public/meshes/bus-inspection/${group}/${lod}/${part}.glb`);
   return readGeometryFile(file);
 }
 

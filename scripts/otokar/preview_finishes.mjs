@@ -9,7 +9,7 @@ import {createInspector,ROOT} from './scene_inspection.mjs';
 
 const descriptors=[];
 const inspector=createInspector({'./OtokarMesh': props=>{
-  const index=descriptors.push({url:`/meshes/otokar/${props.group}/${props.lod}/${props.part}.glb`,part:props.part,material:props.material})-1;
+  const index=descriptors.push({url:`/meshes/bus-inspection/${props.group}/${props.lod}/${props.part}.glb`,part:props.part,material:props.material})-1;
   return {type:'group',props:{name:`asset-${index}`}};
 }});
 const root=new THREE.Group();
@@ -86,6 +86,6 @@ try{
   const page=await browser.newPage({viewport:{width:1600,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(`http://127.0.0.1:${server.address().port}`,{waitUntil:'load'});
   await page.waitForFunction('window.__ready===true',null,{timeout:60000});
-  const out=resolve(ROOT,'docs/otokar-finishes-comparison.png');await page.screenshot({path:out});console.log(out);
+  const out=resolve(ROOT,'docs/inspection-cell-finishes-comparison.png');await page.screenshot({path:out});console.log(out);
   if(errors.length)throw new Error(errors.join('\n'));
 }finally{if(browser)await browser.close();server.close();}

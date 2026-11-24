@@ -9,7 +9,7 @@ import { readGlbBox, measureIfarlab, ROOT } from './scene_inspection.mjs';
 import { resolve } from 'node:path';
 import { IFARLAB_OFFSET } from '../../client/src/components/cellLayout.js';
 
-const MESH = resolve(ROOT, 'client/public/meshes/otokar');
+const MESH = resolve(ROOT, 'client/public/meshes/bus-inspection');
 const CAD_POSE = { a1: 0, a2: 0, a3: 0 };
 const HOME = { robot1: [0, 600, 1800], robot2: [0, 3350, 1800] };
 const CELL_ORIGIN = [-3.92, 1.368, -5.88]; // keep in sync with OtokarCell.js

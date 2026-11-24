@@ -61,7 +61,7 @@ if (!cameraResult.ok) {
   await page.waitForTimeout(1200);
 }
 
-const screenshot = resolve(ROOT, 'docs/otokar-end-view.png');
+const screenshot = resolve(ROOT, 'docs/inspection-cell-end-view.png');
 await page.screenshot({ path: screenshot, fullPage: false, timeout: 120000 });
 console.log(`Camera: ${JSON.stringify(cameraResult)}`);
 console.log(`Screenshot: ${screenshot}`);

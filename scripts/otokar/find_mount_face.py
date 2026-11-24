@@ -8,7 +8,7 @@ on EKSEN1), not the whole assembly's bbox centre -- centroid-matching a
 STACKED joint (one part standing on top of another) puts them offset by half
 each part's own height instead of touching face-to-face. See the
 AXIS2_FRAME_CORRECTION_MM comment for how the result was used, and
-docs/otokar-cad-notes.md for the full writeup.
+docs/inspection-cell-cad-notes.md for the full writeup.
 
 Run with freecadcmd and STP_IN=<path to the .stp being inspected>. Crops to
 the installed copy (Y within +/-6000mm) the same way convert.py does, and

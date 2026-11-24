@@ -1,16 +1,16 @@
-# Otokar MATISSE cell — CAD provenance and verification notes
+# MATISSE cell — CAD provenance and verification notes
 
-Working notes for the STEP → GLB conversion behind the Otokar MATISSE cell
+Working notes for the STEP → GLB conversion behind the MATISSE cell
 in the facility scene. Written so the
 next person does not have to re-derive any of it from the raw CAD.
 
 **Source data is confidential.** The `.stp` files and the two source
-presentations belong to Otokar and are not committed — see
-[README](../README.md#otokar-matisse-cell-asset-sourcing).
+presentations belong to the industrial partner and are not committed — see
+[README](../README.md#inspection-cell-asset-sourcing).
 
 ## 1. What the source files actually contain
 
-Thirteen STEP files, ~360 MB total, in `raw-cad/otokar/` (git-ignored):
+Thirteen STEP files, ~360 MB total, in the confidential CAD directory under `raw-cad/` (git-ignored):
 
 | File | Parts (faces > 0) | Faces | Role |
 |---|---|---|---|
@@ -56,7 +56,7 @@ is converted with its native-Y rail rotated into the shared installed frame.
 
 Robot2_EKSEN1 is converted with its native-Y rail rotated into the shared
 installed frame. Robot2_EKSEN2..5 use explicit matrices in
-`scripts/otokar/placements.json`, derived from matching Robot1 envelopes and
+`placements.json`, derived from matching Robot1 envelopes and
 the customer end-view mirror plane. All Robot2 outputs now ship through the
 same STEP → GLB pipeline; the runtime renders Robot2's own rail and complete
 chain rather than reusing Robot1 geometry or hiding a sibling rail.
@@ -72,7 +72,7 @@ on the body itself and cross-check against the root part `16N37D-1__01092026`
 centred on the origin (300 × 297 × 124 mm). `Robot1_Kamera.stp` holds identical
 hardware placed 3.9 m off in X with no relation to that robot's own axis-5
 flange. Both robots therefore share the origin-centred mesh
-(`meshes/otokar/shared/`), mounted by transform.
+(`meshes/bus-inspection/shared/`), mounted by transform.
 
 ## 2. Verification against the presentation figures
 
@@ -98,13 +98,13 @@ it deliberately does not use the letters.
 
 **Still unverified:** that PPTX slide order maps to CAD file number for axes 2
 and 3 (axes 4 and 5 are confirmed by part name). The travels in the table are
-applied on that assumption and marked as such in `OtokarGantryRobot.js`.
+applied on that assumption and marked as such in the gantry renderer.
 
 ### RETRACTED: "the cell is two portals on one runway"
 
 **This section previously claimed each robot is a two-legged portal straddling
 the body, with both robots riding one shared runway. That is wrong, and the
-scene is still built on it. Confirmed against Otokar's own slides
+scene is still built on it. Confirmed against the industrial partner's slides
 (2026-09-23): the cell is TWO INDEPENDENT PARALLEL RAILS, one per robot. Each
 robot is a SINGLE-COLUMN gantry on its own rail. The two robots are mirror
 images with their arms pointing INWARD, and the bus sits between the rails.**
@@ -121,7 +121,7 @@ The retracted claim rested on this table, and specifically on reading
 `2_Konstruksiyon_SYM` is **not a second leg. It is not a structure at all.** It
 is the unplaced master copy of `2_Eksen_Sabit_SYM`'s own column — the
 master/placed split described in section 1(b). The evidence, from
-`scripts/otokar/extract_part.py`:
+`extract_part.py`:
 
 - it is listed as a *child of* `2_Eksen_Sabit_SYM`;
 - its seven children (`Profil_150x150x4150`, `2_Eksen_Taban_Plaka_SYM`,
@@ -139,7 +139,7 @@ Two columns were never there. One column, one rail, one robot.
 - `BODY_CENTRELINE_IN_ROBOT_MM` places the bus between the two rail reference
   faces; `clearance_table.mjs` measures all three deck clearances at 0.00 mm
   delta on both sides.
-- `OTOKAR_ROBOT_HOME` and `OtokarCell.js` now park both independent carriages at
+- The inspection cell's default poses now park both independent carriages at
   a1 = 0 and render both rails plus each robot's complete converted chain.
 - The deck's "Robot 2's X values are defined relative to Robot 1's zero" means
   the two robots share **one world datum**, not one rail.
@@ -148,17 +148,17 @@ Two columns were never there. One column, one rail, one robot.
 
 The warehouse shell (`Factory.js`) measures **x −16.39 … +16.39**, **z −24.73
 … +24.73**, ridge at 10.17 m, lowest roof beams at 5.31 m. Those bounds were
-read off the glTF with `scripts/otokar/glb_bbox.mjs`; an earlier version of
+read off the glTF with `glb_bbox.mjs`; an earlier version of
 this cell was placed by eye at x = −20 and sat 3.6 m outside the west wall,
 because a comment elsewhere describing the building's corners as "~30 m out"
 is the *diagonal*, not the half width.
 
-`scripts/otokar/verify_cell_fit.mjs` replays the scene's whole transform chain
+The layout check replays the scene's whole transform chain
 over the converted bounding boxes and reports the margins. Run it after
 changing any placement constant:
 
 ```
-node scripts/otokar/verify_cell_fit.mjs
+npm --prefix client run inspection:check-layout
 ```
 
 It is what caught Robot 2's meshes landing outside the shell — a screenshot
@@ -171,8 +171,8 @@ chain runs in a floor trench.
 ### Datum faces used to place the bus
 
 The deck's three body clearances are all measured *from the rail*, so the
-rail-side half of each is read out of the CAD (`scripts/otokar/query_part.py`)
-rather than retyped. These are in `otokarCellGeometry.js`:
+rail-side half of each is read out of the CAD (`query_part.py`)
+rather than retyped. These values are used by the inspection cell geometry:
 
 | Datum | Value | How it was read |
 |---|---|---|
@@ -191,7 +191,7 @@ is used.
 ## 2.5 Completeness audit: are the cable carriers actually there?
 
 Prompted by a reasonable-looking hypothesis -- that the energy-chain/cable
-carrier parts, visually prominent in Otokar's own reference photos, had been
+carrier parts, visually prominent in the industrial partner's reference photos, had been
 silently dropped by the fastener-name filter alongside real fasteners.
 Checked directly rather than assumed:
 
@@ -238,7 +238,7 @@ numbers are what back this entry now, not the adjacency check alone.
 
 **Root cause.** `Robot1_EKSEN1.stp` and `Robot1_EKSEN2.stp` (and, by
 extension, every EKSEN*.stp pair) are independent STEP exports that do **not**
-share a common origin. `OtokarGantryRobot.js`'s transform chain only ever
+share a common origin. The gantry renderer's transform chain only ever
 applied the live SLIDER offset between axes -- for axis 1 -> axis 2, an
 X-only translation -- on the assumption that the two files' frames already
 agreed on every other axis. They do not: axis 2's own mounting plate
@@ -254,7 +254,7 @@ world positions in a browser (`document.body`-appended debug log reading
 console listener silently missed messages logged this early in page load in
 this environment, which cost real time before switching to the DOM).
 
-**Fix.** `AXIS2_FRAME_CORRECTION_MM` in `OtokarGantryRobot.js` adds a constant
+**Fix.** `AXIS2_FRAME_CORRECTION_MM` in the gantry renderer adds a constant
 Y/Z offset to the `axis-1-carriage` group, on top of (not replacing) the
 existing X/slider calibration:
 
@@ -267,7 +267,7 @@ existing X/slider calibration:
   centroid-matching for Z too (giving -358mm) and it visibly did not close the
   gap -- centroid-matching a stacked joint offsets the parts by roughly half
   of each one's own height, which is exactly the wrong operation for a
-  "stands on top of" relationship. `scripts/otokar/find_mount_face.py` is the
+  "stands on top of" relationship. `find_mount_face.py` is the
   tool that found the actual bottom/top faces to fix this: it lists a STEP
   file's lowest-Z named solids (crop-filtered to the installed copy, fasteners
   dropped by size) instead of using the whole assembly's bbox centre, which
@@ -295,7 +295,7 @@ carriage instead of floating free of it.
   a case, though it is now a minor cosmetic issue rather than the dominant
   symptom.
 
-`node scripts/otokar/inspect_meshes.mjs` loads every installed GLB by itself
+`npm --prefix client run inspection:inspect-meshes` loads every installed GLB by itself
 and prints its hi/lo local bbox centres, then its world bbox and parent chain
 for both portals -- useful for confirming axis 1 through camera all exist
 under `Z -> Y -> X -> AX -> AZ -> camera`, but it does not catch the
@@ -326,7 +326,7 @@ on the rail's own 16.207m span) had never actually been checked against where
 the carriage sits in EKSEN1's own frame.
 
 **Root cause: the same bug as Y/Z, just in the axis nobody had audited.**
-`OtokarGantryRobot.js` moved axis 2 in X *only* via the live a1 slider term
+The gantry renderer moved axis 2 in X *only* via the live a1 slider term
 (`(a1 - CAD_POSE.a1) * MM`), which encodes the carriage's *travel* along the
 rail, not the fixed offset between EKSEN1's and EKSEN2's unrelated file
 origins -- exactly the gap Y and Z already needed a constant correction for.
@@ -334,7 +334,7 @@ There was no equivalent constant for X; `AXIS2_FRAME_CORRECTION_MM` only had
 `y`/`z` keys, and the code assumed X needed none.
 
 **Also found while checking this: the carriage was never rendered.**
-`OtokarGantryRobot.js` only ever draws two things from axis 1's file: the
+The gantry renderer only ever draws two things from axis 1's file: the
 static `axis1` rail (`showRails`) and, moving with the a1 slider, the `axis2`
 mesh (the vertical column, from `Robot1_EKSEN2.stp`). The physical carriage
 block that actually rides the rail and carries the column --
@@ -374,7 +374,7 @@ correct behaviour, not a new defect.)
 
 ## 3. Conversion pipeline
 
-`scripts/otokar/build_otokar_meshes.sh` — needs FreeCAD 1.1 and npx on PATH.
+The inspection mesh build needs FreeCAD 1.1 and npx on PATH.
 
 ```
 STEP ──FreeCAD Import──> filter ──tessellate──> GLB ──gltf-transform──> GLB
@@ -403,9 +403,8 @@ reasoning as the `RoomEnvironment` choice in `Scene.js`.
 ## 4. Re-running the conversion
 
 ```bash
-bash scripts/otokar/build_otokar_meshes.sh                 # everything
-bash scripts/otokar/build_otokar_meshes.sh Robot1_EKSEN3   # one part
+npm --prefix client run inspection:build-meshes                        # all parts
+npm --prefix client run inspection:build-meshes -- Robot1_EKSEN3  # one part
 ```
 
-Paths at the top of the script assume the repo layout; `raw-cad/otokar/` must
-be populated first.
+Set `INSPECTION_RAW_CAD` to the directory containing the approved STEP files. Run the commands from the repository root.

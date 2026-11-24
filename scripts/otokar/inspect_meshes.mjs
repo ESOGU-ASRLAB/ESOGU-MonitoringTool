@@ -20,14 +20,14 @@ const PIVOTS = {
 };
 const CAMERA_MOUNT = [1902.8, -2258.2, -1010.0];
 const meshPath = (group, part) =>
-  resolve(ROOT, `client/public/meshes/otokar/${group}/hi/${part}.glb`);
+  resolve(ROOT, `client/public/meshes/bus-inspection/${group}/hi/${part}.glb`);
 
 const fmt = (v) => v.toArray().map((n) => n.toFixed(3)).join(', ');
 const fmtPoint = (v) => v.map((n) => n.toFixed(3)).join(', ');
 
 function attachMesh(parent, group, part, label) {
   const geometryBox = readGlbBox(meshPath(group, part));
-  const loBox = readGlbBox(resolve(ROOT, `client/public/meshes/otokar/${group}/lo/${part}.glb`));
+  const loBox = readGlbBox(resolve(ROOT, `client/public/meshes/bus-inspection/${group}/lo/${part}.glb`));
   const size = geometryBox.getSize(new THREE.Vector3());
   const centre = geometryBox.getCenter(new THREE.Vector3());
   const geometry = new THREE.BoxGeometry(...size.toArray()).translate(...centre.toArray());
@@ -100,7 +100,7 @@ cell.rotation.y = CELL_ROTATION_Y;
 const meshes = [addRobot(cell, 'robot1', true), addRobot(cell, 'robot2', false)];
 cell.updateMatrixWorld(true);
 
-console.log('Otokar GLB frame audit (hi-res, home pose)');
+console.log('Inspection cell GLB frame audit (hi-res, home pose)');
 console.log('Expected CAD->Three map: (x, y, z) -> (x, z, -y)');
 console.log('GLB local-center audit: before=source assembly frame; after=current GLB (no bbox recentering)');
 for (const robot of meshes) {

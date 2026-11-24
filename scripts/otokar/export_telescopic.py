@@ -170,7 +170,7 @@ for rid, stages in ((1, stages1), (2, stages2)):
                 q = matrix.multiply(p)
                 positions.extend([q.x * .001, q.y * .001, q.z * .001])
             indices = [i for face in faces for i in face]
-            path = os.path.join(root, 'client/public/meshes/otokar/robot%d' % rid, tier, part + '.glb')
+            path = os.path.join(root, 'client/public/meshes/bus-inspection/robot%d' % rid, tier, part + '.glb')
             write_glb(path, positions, indices)
             print('EXPORTED', path, len(faces), flush=True)
         manifest['stages'].append(entry)
@@ -178,6 +178,6 @@ for rid, stages in ((1, stages1), (2, stages2)):
 for doc in (doc1, doc2):
     FreeCAD.closeDocument(doc.Name)
 
-with open(os.path.join(root, 'client/public/meshes/otokar/telescopic.json'), 'w') as f:
+with open(os.path.join(root, 'client/public/meshes/bus-inspection/telescopic.json'), 'w') as f:
     json.dump(manifest, f, indent=2)
 print('WROTE telescopic.json', flush=True)

@@ -16,7 +16,7 @@ const OFFSET = bus.BUS_OFFSET_MM;
 
 const mm = (v) => v * 1000;
 const glb = (rel) => {
-  const f = resolve(ROOT, `client/public/meshes/otokar/${rel}.glb`);
+  const f = resolve(ROOT, `client/public/meshes/bus-inspection/${rel}.glb`);
   return existsSync(f) ? readGlbBox(f) : null;
 };
 

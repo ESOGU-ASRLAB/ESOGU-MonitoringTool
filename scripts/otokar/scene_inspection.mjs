@@ -35,7 +35,7 @@ export function readGlbBox(file) {
 }
 
 export function boundsMesh({ group, part, lod = 'hi', ...props }) {
-  const path = resolve(ROOT, `client/public/meshes/otokar/${group}/${lod}/${part}.glb`);
+  const path = resolve(ROOT, `client/public/meshes/bus-inspection/${group}/${lod}/${part}.glb`);
   const box = readGlbBox(path);
   const size = box.getSize(new THREE.Vector3());
   const centre = box.getCenter(new THREE.Vector3());

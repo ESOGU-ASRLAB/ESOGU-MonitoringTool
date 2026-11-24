@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
-# STEP -> decimated, Draco-compressed GLB for the Otokar MATISSE cell.
+# STEP to decimated, Draco-compressed GLB for the inspection cell.
 #
 # Two LOD tiers are produced per part: "hi" for the close/default view and
 # "lo" for the 16 m wide overview, where a rail carriage is a few pixels tall.
 #
-# Usage: build_otokar_meshes.sh [name ...]   (default: all robot parts)
 set -euo pipefail
+
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  printf '%s\n' 'Usage from the repository root: npm --prefix client run inspection:build-meshes -- [part ...]' \
+    'Set INSPECTION_RAW_CAD to the directory containing the approved STEP files.'
+  exit 0
+fi
 
 SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$SCRIPTS/../.." && pwd)"
-SRC="${OTOKAR_RAW_CAD:-$REPO/raw-cad/otokar}"
-DEST="$REPO/client/public/meshes/otokar"
+SRC="${INSPECTION_RAW_CAD:-${OTOKAR_RAW_CAD:-$REPO/raw-cad/otokar}}"
+DEST="$REPO/client/public/meshes/bus-inspection"
 TMP="${TMPDIR:-/tmp}/otokar-mesh-build"
 
 # Override either of these if the tools live elsewhere.
@@ -24,7 +29,7 @@ if [ ! -x "$FC" ] && ! command -v "$FC" >/dev/null 2>&1; then
 fi
 if [ ! -d "$SRC" ]; then
   echo "raw CAD directory not found: $SRC" >&2
-  echo "Populate it with Otokar's .stp files, or set OTOKAR_RAW_CAD." >&2
+  echo "Populate it with the approved STEP files, or set INSPECTION_RAW_CAD." >&2
   exit 1
 fi
 
@@ -36,12 +41,12 @@ fi
 # it against the geometry. It is not a fastener, but it also turned out not to
 # be axis 1's real cable carrier either: every "_Kettenglied" instance in
 # Robot1_EKSEN1.stp sits at Y 6556-14878mm, entirely outside the +/-6000mm crop
-# band that keeps the installed copy (see docs/otokar-cad-notes.md), so this
+# band that keeps the installed copy (see docs/inspection-cell-cad-notes.md), so this
 # change is a naming-hygiene fix with no visible effect on the current models,
 # not a fix for a missing chain. The real, installed cable carrier is a
 # different, unfiltered part (Kablo_Traktoru / Kablo_Tavasi_Komple, ~16 m
 # long) that was already being kept -- see the completeness note in
-# docs/otokar-cad-notes.md.
+# docs/inspection-cell-cad-notes.md.
 export DROP_NAME_RE='civata|somun|saplama|pim_|_pim|imbus|alyan|rondela|washer|screw|bolt|feder|dowel'
 
 # The axis-2 cable chain. EKSEN2's ROOT is what gets written, so its children
@@ -106,7 +111,7 @@ tier_cfg() {
 # axis (the "_SYM" instances). Cropping on part centroid keeps the installed
 # one. Robot1's machine runs along CAD X (rail at Y ~= +3160 mm), Robot2's runs
 # along CAD Y (rail at X ~= +135 mm), so they need opposite crops. Verified by
-# rendering each part set -- see docs/otokar-cad-notes.md.
+# rendering each part set -- see docs/inspection-cell-cad-notes.md.
 CROP_R1="-99000,99000,-6000,6000,-99000,99000"
 # The camera head is exported in its own local frame, centred on the origin,
 # in Robot2_Kamera.stp. Robot1_Kamera.stp holds the same hardware but placed

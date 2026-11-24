@@ -4,7 +4,7 @@
 #
 # build_otokar_meshes.sh ends every job with weld -> simplify -> draco, and
 # everything it produced is Draco-compressed and small. But three groups of
-# meshes in client/public/meshes/otokar carry no compression at all and were
+# meshes in client/public/meshes/bus-inspection carry no compression at all and were
 # clearly written by some other path:
 #
 #   bus/{hi,lo}/body.glb                       4 009 722 triangles, 68.6 MB
@@ -28,7 +28,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SRC="$ROOT/client/public/meshes/otokar"
+SRC="$ROOT/client/public/meshes/bus-inspection"
 OUT="${1:-$ROOT/.tmp/recompress}"
 GT="${GLTF_TRANSFORM:-npx --yes @gltf-transform/cli@4.5.0}"
 TMP="$(mktemp -d)"
