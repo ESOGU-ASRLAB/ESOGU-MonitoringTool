@@ -1,5 +1,13 @@
 # MATISSE IFARLAB-EDIH Monitoring Tool
 
+> [!WARNING]
+> **Unauthorised use and redistribution.** Third-party models, textures and logos
+> remain subject to their individual licences and confidentiality agreements.
+> Extracting, copying, reusing, reselling or redistributing these assets outside
+> the permitted terms requires prior permission from the relevant rights holder.
+> See [asset licensing](#licensing-for-purchased-3d-assets-stl--glb) and
+> [inspection cell asset sourcing](#inspection-cell-asset-sourcing).
+
 ![App screenshot](app.png)
 
 ### v2 — factory-enabled workcell view
@@ -27,9 +35,50 @@ The project is a small monorepo with two independent Node projects:
 - **Demo animation** — a scripted, collision-aware "scan" motion for both arms plus rail sliding, driven by direct Three.js ref mutation (not React state) so it stays smooth at 60 fps.
 - **Gazebo-accurate environment** — the floor fencing, cabinet, table, conveyor, chassis and AGV rail are the actual meshes from the original Gazebo world (`ifarlab.sdf`), positioned using the world's real coordinate frame and the robots' real spawn poses from the ROS 2 launch files, not guesswork.
 - **Manual camera controls** — an on-screen rotate/zoom button cluster (top-right of the viewport) that does the same thing as left-click-drag (orbit) and scroll (zoom), for anyone who doesn't want to use the mouse gestures.
-- **Otokar MATISSE body-control cell** — added next to the IFARLAB workcell, inside the same factory building (a 2.5 m aisle apart, both fitting one camera view): two 5-axis portal/gantry robots sharing one 16 m runway and straddling a bus body, rendered from Otokar's own STEP models with the kinematic chain nested axis 1 → 2 → 3 → 4 → 5 → camera head. Axis limits (16 000 / 3 350 / 1 800 mm plus the two rotary axes) are transcribed from Otokar's trajectory deck and cross-checked against the CAD, not estimated; the bus body is positioned by the three measured clearances from the same source. **Otokar R1 / R2** tabs in the control panel drive the axes, and a **Show Otokar MATISSE cell** toggle unmounts the whole cell (rather than merely hiding it) since these are the heaviest meshes in the scene. A single **Show other buses and lifts** toggle keeps every other filler prop (parked/hanging buses, the yellow lift rigs) available but off by default, so only the two workcells show on load. Two mesh detail tiers are generated and swapped automatically by camera distance.
-- **Otokar demo animation** — "Play demo animation" drives both gantries through a fixed inspection sequence (front wall → rear wall → underbody → roof, the order Otokar's own deck lists) using real trapezoidal velocity profiles built from each axis's actual accel/cruise-speed/decel figures, not an eased lerp. `createCoordinatedMove` (`otokarMotion.js`) synchronises all five axes to arrive together each leg the way a real multi-axis controller runs a programmed move: the axis that needs the longest at its own rates sets the leg's duration, and every other axis is re-solved to take exactly that long by capping its cruise speed, never its accel/decel. Covered by a standalone test suite (`node --test scripts/otokar/motion.test.mjs`) that doesn't need a browser.
+- **Bus-body inspection cell.** Two five-axis gantry robots on parallel runways inspect a bus body. The simulation shows the camera heads scanning the underbody and roof.
+- **Inspection demo animation.** The gantries coordinate their axes using trapezoidal velocity profiles. Run `npm --prefix client run inspection:test-motion` to check the motion logic.
 - **Responsive** — the control panel becomes a slide-in drawer on mobile, the navbar collapses to just a logo + Home link, and the layout adapts down to phone widths.
+
+## Factory appearance
+
+The hall uses neutral cladding and steel, satin sealed concrete, and restrained
+lamp reflections. `scenePalette.js` coordinates both desktop and VR finishes,
+lighting, lamp emission and postprocessing. The floor's wear map keeps a high
+minimum roughness so worn areas do not become glossy. Floating cell-name
+overlays are removed. The Digital Twin Assistant identifies each scenario.
+Run `npm --prefix client run inspection:check-palette` to check material and colour separation.
+
+## Digital guide and narrated tour
+
+The Digital Twin Assistant uses the navbar's EN / TR preference. Its guided
+tour starts at the live monitoring station beside the bus inspection area, visits the four
+simulated use cases and the bus inspection, then returns to a wide factory view.
+
+In a WebXR session, point a controller at **Guided tour** and press the trigger.
+The headset uses the same stops and captions, with short fades between views.
+Pause and close are available on the caption card. Free walking resumes when
+the tour ends or is closed.
+
+Tour clips are served with the site. The English voice uses
+[Piper LJSpeech](https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/ljspeech/high)
+and the Turkish voice uses [Zerre TTS](https://huggingface.co/erkint/zerre-tts).
+Browser speech is available for topics without a prepared recording.
+
+Only the monitoring station's UR10e and Kawasaki follow the API's MongoDB
+joint and rail data. The four demonstrations run separately. Dual robot
+inspection uses the same aluminium chassis model as Pick & Place.
+
+The factory uses matte concrete with control joints, coated panel and steel
+finishes, overhead working light and daylight fill. Desktop and VR share the
+material palette, industrial HDR environment and AgX tone mapping. The desktop
+also uses contact occlusion. See scenePalette.js.
+
+Validation:
+
+```sh
+npm --prefix client test -- --watchAll=false --runInBand
+npm --prefix client run build
+```
 
 ## Tech stack
 
@@ -74,66 +123,24 @@ The PlantUML source behind the diagram above is [`docs/sequence-diagram.puml`](d
 
 The STL meshes under `client/public/meshes/` come directly from the two robots' real ROS description packages (`Universal_Robots_ROS2_Description` for the UR10e, and the project's own `mobile_manipulator_description` for the Kawasaki + AGV + facility). Joint offsets and axes were taken from the packages' `.xacro` files, not eyeballed — see the comments at the top of `UR10eRobot.js` and `KawasakiRobot.js` for the exact joint table. The facility/environment layout in `EnvironmentElements.js` reconstructs the original `ifarlab.sdf` Gazebo world: every static prop's raw STL coordinates already encode its true position in that world's shared frame, and the robots' spawn poses were taken from `whole_ifarlab_gazebo.launch.py`, so the whole scene lines up without hand-placed guesswork. A few small furniture pieces (chassis, table, conveyor) have no matching xacro/launch entry in the source repo, so their placement is a best-effort reading of their own raw coordinates rather than a verified one — see the comments in `EnvironmentElements.js` for exactly which pieces that applies to.
 
-### Otokar MATISSE cell asset sourcing
+### Inspection cell asset sourcing
 
-> **Confidential vendor data.** The source CAD for this cell is Otokar's
-> commercial engineering data for the MATISSE project. The `.stp` files and the
-> two source presentations are **not committed** — they live in `raw-cad/`,
-> which is git-ignored. Only the derived, decimated display meshes under
-> `client/public/meshes/otokar/` are in the repository. Before sharing either
-> the raw CAD or the derived meshes outside this project, clear it with Otokar:
-> the GLBs are decimated but they are still recognisable geometry of an
-> unreleased vehicle body and a production inspection cell.
+> **Confidential industrial data.** The source engineering CAD and derived
+> display meshes are subject to MATISSE confidentiality terms. Obtain prior
+> approval from the relevant rights holder before sharing these assets or
+> publishing recordings of the inspection cell outside authorised demonstrations.
 
-The cell is built from 13 STEP files (~360 MB): five axis assemblies plus a
-camera head per robot, and the bus body. Browsers have no STEP loader and those
-sizes are nowhere near web-shippable, so they are converted offline by
-[`scripts/otokar/build_otokar_meshes.sh`](scripts/otokar/build_otokar_meshes.sh):
-
-```
-STEP ──FreeCAD Import──> filter ──tessellate──> GLB ──gltf-transform──> GLB
-                            │                          weld
-                            ├─ drop datum planes/axes   simplify (meshoptimizer)
-                            ├─ drop fasteners by name   draco
-                            ├─ drop parts below the LOD size floor
-                            └─ crop to the installed assembly copy
-```
-
-Requires **FreeCAD 1.1+** (`freecadcmd` on `PATH` or `FREECADCMD` set) and
-`npx`. Run it after populating `raw-cad/otokar/`:
-
-```bash
-bash scripts/otokar/build_otokar_meshes.sh                 # everything
-bash scripts/otokar/build_otokar_meshes.sh Robot1_EKSEN3   # one part
-```
-
-Two LOD tiers are produced per part (`hi/` and `lo/`). The whole cell is about
-**10.5 MB at high detail and 2.2 MB at low**, and the scene uses whichever tier
-suits the camera distance.
-
-Only Robot 1's axis files are converted. The two robots are the same machine —
-identical face counts — and physically two carriages on one runway, so both
-render from that one set and differ only in their axis-1 value. Robot 2's
-exports are also the ones whose mirrored-duplicate crop does not resolve; see
-[`docs/otokar-cad-notes.md`](docs/otokar-cad-notes.md).
+Keep approved source STEP files in the git-ignored `raw-cad/` directory.
+The offline conversion workflow uses Bash, FreeCAD 1.1+ and `npx` to produce
+Draco-compressed GLBs. The viewer uses detail levels suited to desktop and VR.
 
 After changing any placement constant, re-run the fit check, which replays the
 scene's transform chain over the converted meshes and reports the margins to
 the building's walls and roof:
 
 ```bash
-node scripts/otokar/verify_cell_fit.mjs
+npm --prefix client run inspection:check-layout
 ```
-
-As with the ROS-sourced meshes, the numbers in the code come from source data
-rather than eyeballing, and where they could not be verified that is said out
-loud. Axis 1's 16 000 mm travel is confirmed exactly against the STEP geometry,
-and axes 4 and 5 are confirmed rotary by their NABTESCO reducers; the axis-2 /
-axis-3 mapping is inferred from presentation slide order and is flagged as such
-in `otokarAxes.js`, in `OtokarGantryRobot.js`, and with a `?` marker on the
-affected sliders in the UI. The full cross-check, including the discrepancy
-between the deck's Z/Y/X axis letters and the CAD frame, is in
-[`docs/otokar-cad-notes.md`](docs/otokar-cad-notes.md).
 
 Draco decoding uses a **self-hosted** decoder in `client/public/draco/` (copied
 from the `three` package) rather than the gstatic CDN, so the viewer keeps
@@ -141,24 +148,15 @@ working on a shop floor without reliable outbound internet.
 
 ### Licensing for purchased 3D assets (STL / GLB)
 
-This repo includes paid 3D assets purchased from marketplace platforms (for example, Fab). Those files are used under the applicable product license for each purchased model, and the license terms must be checked before redistribution, public hosting, or reuse outside the project scope.
+The factory hall uses **Warehouse** by **Zeps3D**, purchased under the Fab
+Standard License. [Warehouse listing](https://www.fab.com/listings/65f86256-7368-493b-9d76-cf006c6a17f2)
 
-For the purchased models currently used in this project, the relevant license is the product's **Fab Standard License** as published on the marketplace listing and linked in the vendor's terms page: https://www.fab.com/eula
+The Fab Standard License allows incorporation of the asset into a project under
+its terms and prohibits standalone resale or redistribution. Verify that the
+license or separate permission covers any public hosting or distribution of
+source Blender files or converted GLB files. [Fab Standard License](https://www.fab.com/eula)
 
-Notes:
-
-- `*.stl`, `*.glb`, `*.gltf`, and similar mesh files are not automatically covered by an open-source license unless the source marketplace explicitly says so.
-- Commercial use, redistribution, and publication must remain consistent with the specific asset license attached to the purchased listing.
-- If a model is used in a public demo, client delivery, or publication, keep the original purchase record and the listing URL in the project documentation.
-- This repo does not redistribute the raw purchased asset pack as a separate public download unless the marketplace license explicitly allows it.
-- This is a project-level compliance note and not legal advice; for final legal clearance, confirm the exact license terms for each asset in the store listing and purchase receipt.
-
-Recommended practice for this project:
-
-- keep a record of each marketplace listing URL and purchase receipt;
-- store asset provenance in the same folder or documentation as the model files;
-- do not re-upload vendor meshes to a public file-sharing site unless the license explicitly permits it;
-- ensure any customer-facing deployment uses only the set of assets covered by the purchased license.
+Other third-party assets retain their own licence terms.
 
 ## Project structure
 
@@ -170,27 +168,10 @@ monitoring-tool/
 │   └── .env                      MONGODB_URI, DB_NAME, COLLECTION_NAME, PORT (not committed)
 │
 ├── docs/
-│   ├── sequence-diagram.puml     PlantUML source for the architecture diagram
-│   └── otokar-cad-notes.md       Otokar STEP provenance + the axis-table cross-check
+│   └── sequence-diagram.puml     PlantUML source for the architecture diagram
 │
-├── raw-cad/                      Vendor CAD — GIT-IGNORED, see licensing note above
-│   └── otokar/                   Otokar's .stp files + the two source presentations
-│
-├── scripts/otokar/               Offline STEP → GLB conversion + placement checks
-│   ├── build_otokar_meshes.sh    Driver: tessellate, decimate, Draco-compress (needs FreeCAD 1.1+)
-│   ├── convert.py                FreeCAD-side import/filter/tessellate
-│   ├── glbwrite.py               Minimal indexed-POSITION GLB writer
-│   ├── probe.py / layout.py      Analysis helpers used for the CAD cross-check
-│   ├── query_part.py             Reads a named part's datum faces out of a STEP
-│   ├── audit_cad.py              Full per-axis part inventory (completeness audits)
-│   ├── glb_bbox.mjs              World-space bbox of a GLB, no renderer needed
-│   ├── roof_height.mjs           Real roof/truss clearance at a given x/z band
-│   ├── scene_inspection.mjs      Runs the actual JSX scene graph offline (Babel + a
-│   │                             minimal React/R3F shim), no browser or WebGL needed
-│   ├── measure_ifarlab.mjs       IFARLAB cell's world-space bbox via scene_inspection
-│   ├── verify_cell_fit.mjs       Checks the placed cell fits inside the building
-│   └── motion.test.mjs           `node --test scripts/otokar/motion.test.mjs`
-│                                 and coordinated-move unit tests, no browser needed
+├── raw-cad/                      Confidential CAD and source presentations (git-ignored)
+├── scripts/                      Offline asset conversion, layout checks and motion tests
 │
 └── client/                       React app
     ├── public/
@@ -201,11 +182,7 @@ monitoring-tool/
     │       ├── rs005l/           Kawasaki RS005L arm + gripper
     │       ├── ota/              AGV (OTA) mobile base + wheels
     │       ├── environment/      Facility props (fencing, cabinet, ifarlab_ray rail)
-    │       └── otokar/           Otokar cell GLBs, two LOD tiers each
-    │           ├── robot1/{hi,lo}/  axis1…axis5
-    │           ├── robot2/{hi,lo}/  axis1…axis5
-    │           ├── shared/{hi,lo}/  camera head (both robots)
-    │           └── bus/{hi,lo}/     bus body
+    │       └── bus-inspection/   Inspection cell GLBs for desktop and VR
     └── src/
         ├── App.js / App.css      App shell: Navbar + page + Footer
         ├── components/
@@ -217,12 +194,7 @@ monitoring-tool/
         │   ├── AGVBase.js         OTA mobile base + wheels
         │   ├── RailAnimator.js    Drives rail sliding during demo mode (ref-based, no re-render)
         │   ├── EnvironmentElements.js  Static workcell/facility meshes
-        │   ├── ControlPanel.js / .css  Sidebar UI (both cells: joints, gantry axes, toggles)
-        │   ├── otokarAxes.js      Otokar axis table + verification status (single source of truth)
-        │   ├── OtokarMesh.js      Draco GLB loader for the Otokar meshes
-        │   ├── OtokarCell.js      The whole Otokar cell as one placeable group
-        │   ├── OtokarGantryRobot.js    One gantry robot, parametric on robotId
-        │   └── OtokarBusBody.js        Bus body, placed by the three measured clearances
+        │   └── ControlPanel.js / .css  Sidebar UI (joints, gantry axes, toggles)
         └── pages/
             └── DigitalTwin.js / .css   Main page: layout, SSE client, camera, cell placement
 ```
@@ -300,35 +272,10 @@ Each document in the `joint_states` collection looks like:
 
 If no document has `_id: "latest"`, both `server.js` and `debug.js` fall back to the most recent document by `ts`.
 
-### Otokar cell telemetry — proposed, not implemented
+### Inspection cell animation
 
-The Otokar gantries are **manual/demo only**: they are driven from the control
-panel, and nothing in `api/` or the Mongo schema was changed for them. If they
-are ever wired to live data, the shape that fits the existing pipeline is two
-more top-level arrays alongside `ur10e` and `kawasaki`:
-
-```jsonc
-{
-  "otokarRobot1": [/* 5 numbers: [axis1_mm, axis2_mm, axis3_mm, axis4_rad, axis5_rad] */],
-  "otokarRobot2": [/* same */]
-}
-```
-
-Two differences from the existing arrays are worth calling out before anyone
-implements this:
-
-- **Mixed units.** Indices 0–2 are linear axes; sending them in millimetres
-  matches `otokarAxes.js` and the machine's own controller, and avoids a
-  metres/millimetres conversion on the client. Indices 3–4 are rotary and
-  would follow the existing convention: radians in Mongo, converted to degrees
-  in `server.js`.
-- **Length 5, not 7.** `DigitalTwin.js`'s `joint_states` listener validates the
-  existing fields with `length === 6` checks, so it needs its own guard for
-  these rather than reusing that one.
-
-This would also mean swapping the cell's props from panel state to stream
-state in `DigitalTwin.js`, the same way `jointAngles`/`kawasakiAngles` already
-work — including the "demo animation wins over live data" rule.
+The inspection gantries use simulated motion. The MongoDB stream supplies joint
+and rail data to the monitoring station's UR10e and Kawasaki.
 
 ## Using the app
 
