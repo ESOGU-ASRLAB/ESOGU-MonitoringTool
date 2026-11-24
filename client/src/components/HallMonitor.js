@@ -5,21 +5,23 @@ import { inspection, ifarlab } from './inspectionState';
 import { runWhileVisible } from './pageActivity';
 
 const SCREENS = [
-  { page: 'hall', centre: [-5.7, 6.03, -24.28] },
-  { page: 'cells', centre: [5.7, 6.03, -24.28] },
+  { page: 'hall', centre: [-5.6, 6.03, -24.12] },
+  { page: 'cells', centre: [5.6, 6.03, -24.12] },
 ];
-const WIDTH = 2.65;
+const WIDTH = 3.22;
 const HEIGHT = WIDTH * 9 / 16;
-const BEZEL = 0.028;
-const DEPTH = 0.065;
+const BEZEL = 0.035;
+const DEPTH = 0.075;
 const PX_W = 960;
 const PX_H = 540;
 const FONT = 'system-ui, sans-serif';
-const BG = '#1b1e20';
-const RULE = '#3e4547';
-const INK = '#e0e4e2';
-const MUTED = '#a4adad';
-const ACTIVE = '#93b0a4';
+const EDGE = 36;
+const BG = '#102032';
+const CARD = '#1a3048';
+const INK = '#f4f8ff';
+const MUTED = '#bfcedf';
+const ACTIVE = '#7be1f3';
+const COMPLETE = '#9ce5bd';
 
 function text(ctx, copy, x, y, { size = 25, weight = 500, color = INK, align = 'left' } = {}) {
   ctx.fillStyle = color;
@@ -29,55 +31,64 @@ function text(ctx, copy, x, y, { size = 25, weight = 500, color = INK, align = '
   ctx.fillText(copy, x, y);
 }
 
-function rule(ctx, y) {
-  ctx.fillStyle = RULE;
-  ctx.fillRect(30, y, 900, 2);
+function panel(ctx, x, y, width, height, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, 12);
+  ctx.fill();
 }
 
 function drawHeader(ctx, title) {
   ctx.fillStyle = BG;
   ctx.fillRect(0, 0, PX_W, PX_H);
-  text(ctx, title, 30, 48, { size: 37, weight: 650 });
-  text(ctx, 'MATISSE', 930, 48, { size: 25, weight: 600, color: MUTED, align: 'right' });
-  rule(ctx, 83);
+  ctx.fillStyle = '#21466a';
+  ctx.fillRect(0, 0, PX_W, 96);
+  ctx.fillStyle = ACTIVE;
+  ctx.fillRect(0, 96, PX_W, 4);
+  text(ctx, title, EDGE, 48, { size: 44, weight: 700 });
+  text(ctx, 'Simulation', PX_W - EDGE, 48, { size: 25, color: MUTED, align: 'right' });
 }
 
 function drawOverview(ctx) {
   drawHeader(ctx, 'Production overview');
-  text(ctx, 'Station', 30, 118, { color: MUTED });
-  text(ctx, 'State', 930, 118, { color: MUTED, align: 'right' });
-  rule(ctx, 144);
-
   [
     ['Bus body inspection', inspection.status],
     ['UR10e pick & place', ifarlab.ur],
-    ['Kawasaki chassis inspection', ifarlab.kawasaki],
+    ['Kawasaki inspection', ifarlab.kawasaki],
   ].forEach(([name, state], index) => {
-    const y = 195 + index * 99;
-    text(ctx, name, 30, y, { size: 31, weight: 550 });
-    text(ctx, state, 930, y, { size: 25, color: state === 'IDLE' ? MUTED : ACTIVE, align: 'right' });
-    rule(ctx, y + 49);
+    const y = 126 + index * 128;
+    panel(ctx, EDGE, y, PX_W - 2 * EDGE, 102, CARD);
+    const color = state === 'IDLE' ? MUTED : (state === 'COMPLETE' ? COMPLETE : ACTIVE);
+    ctx.fillStyle = color;
+    ctx.fillRect(EDGE + 17, y + 24, 6, 54);
+    text(ctx, name, EDGE + 39, y + 51, { size: 38, weight: 600 });
+    text(ctx, state, PX_W - EDGE - 23, y + 51, { size: 29, weight: 700, color, align: 'right' });
   });
-  text(ctx, 'Simulation', 30, 491, { size: 22, color: MUTED });
 }
 
 function drawCounters(ctx) {
   drawHeader(ctx, 'Workcell counters');
   const progress = THREE.MathUtils.clamp(inspection.progress, 0, 1);
-  text(ctx, 'Bus inspection', 30, 139, { size: 31, weight: 600 });
-  text(ctx, `${Math.round(progress * 100)}%`, 930, 139, { size: 38, weight: 600, align: 'right' });
-  ctx.fillStyle = RULE;
-  ctx.fillRect(30, 179, 900, 10);
+  panel(ctx, EDGE, 126, PX_W - 2 * EDGE, 172, CARD);
+  text(ctx, 'Bus inspection', 62, 170, { size: 39, weight: 650 });
+  text(ctx, `${Math.round(progress * 100)}%`, 898, 170, { size: 51, weight: 750, color: ACTIVE, align: 'right' });
+  ctx.fillStyle = '#355069';
+  ctx.fillRect(62, 213, 836, 14);
   ctx.fillStyle = ACTIVE;
-  ctx.fillRect(30, 179, 900 * progress, 10);
-  text(ctx, `Body ${String(inspection.cycle).padStart(3, '0')}   /   ${inspection.defects} findings`, 30, 222, { color: MUTED });
-  rule(ctx, 267);
-  text(ctx, 'Boxes transferred', 30, 324, { size: 31 });
-  text(ctx, String(ifarlab.picks), 930, 324, { size: 38, weight: 600, align: 'right' });
-  rule(ctx, 382);
-  text(ctx, 'Chassis bays checked', 30, 433, { size: 31 });
-  text(ctx, String(ifarlab.scans), 930, 433, { size: 38, weight: 600, align: 'right' });
-  text(ctx, `${ifarlab.findings} findings`, 30, 485, { color: MUTED });
+  ctx.fillRect(62, 213, 836 * progress, 14);
+  text(ctx, `Body ${String(inspection.cycle).padStart(3, '0')}   /   ${inspection.defects} findings`, 62, 261, { size: 27, color: MUTED });
+
+  const counters = [
+    ['Boxes moved', ifarlab.picks],
+    ['Chassis bays checked', ifarlab.scans, `${ifarlab.findings} findings`],
+  ];
+  counters.forEach(([label, value, detail], index) => {
+    const x = EDGE + index * 454;
+    panel(ctx, x, 326, 434, 178, CARD);
+    text(ctx, label, x + 25, 374, { size: 31, weight: 600, color: MUTED });
+    text(ctx, String(value), x + 25, 451, { size: 64, weight: 750 });
+    if (detail) text(ctx, detail, x + 410, 451, { size: 26, color: MUTED, align: 'right' });
+  });
 }
 
 function WorkcellDisplay({ page, centre }) {
@@ -115,14 +126,14 @@ function WorkcellDisplay({ page, centre }) {
         <boxGeometry args={[WIDTH + BEZEL * 2, HEIGHT + BEZEL * 2, DEPTH]} />
         <meshStandardMaterial color="#242625" roughness={0.67} metalness={0.1} />
       </mesh>
-      <mesh position={[0, 0, DEPTH / 2 + 0.002]}>
+      <mesh position={[0, 0, DEPTH / 2 + 0.006]}>
         <planeGeometry args={[WIDTH, HEIGHT]} />
-        <meshStandardMaterial color="#101212" roughness={0.38} metalness={0}
-          emissive="#ffffff" emissiveMap={texture} emissiveIntensity={0.68} />
+        <meshStandardMaterial color="#08111b" roughness={0.58} metalness={0}
+          emissive="#ffffff" emissiveMap={texture} emissiveIntensity={1.18} />
       </mesh>
       {[-0.9, 0.9].map((x) => (
-        <mesh key={x} position={[x, 0.03, -0.11]}>
-          <boxGeometry args={[0.07, HEIGHT - 0.12, 0.17]} />
+        <mesh key={x} position={[x, 0.03, -0.2]}>
+          <boxGeometry args={[0.07, HEIGHT - 0.12, 0.34]} />
           <meshStandardMaterial {...METAL.galvanised} />
         </mesh>
       ))}

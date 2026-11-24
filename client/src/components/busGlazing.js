@@ -69,15 +69,16 @@ function glazingAtlas(frame, pane) {
 }
 
 export function createBusGlazing() {
-  const map = glazingAtlas('#181c1d', '#3b484a');
+  const map = glazingAtlas('#191e22', '#35424a');
   map.colorSpace = THREE.SRGBColorSpace;
-  const roughnessMap = glazingAtlas('#a6a6a6', '#383838');
+  const roughnessMap = glazingAtlas('#a6a6a6', '#484848');
   return new THREE.MeshPhysicalMaterial({
     name: 'bus-tinted-glazing',
     map,
     roughnessMap,
     roughness: 1,
     metalness: 0,
-    ior: 1.5,
+    ior: 1.52,
+    specularIntensity: 0.88,
   });
 }

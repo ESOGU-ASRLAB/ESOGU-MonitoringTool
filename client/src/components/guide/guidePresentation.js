@@ -1,7 +1,6 @@
 import { TOPIC_BY_ID, TOUR_STOPS } from './guideContent.js';
 
-// Short visitor-facing copy. The original knowledge base remains available
-// behind optional details; spoken tours use only these concise sentences.
+// Short visitor-facing copy for tour narration and assistant answers.
 const entry = (title, lines, extra = '') => ({ title, lines, extra });
 export const PRESENTATIONS = {
   welcome: {
@@ -140,7 +139,6 @@ export function getGuideTopic(id, language = 'en') {
     cache.set(key, { ...original, ...copy, language: lang, group: GROUPS[original.group]?.[lang] || original.group,
       intro: copy.lines.slice(0, 2).join(' '), detail: ['digital-twin', 'dual-inspection'].includes(id) ? copy.lines.slice(-1)[0] : lang === 'tr' ? original.detail : copy.extra || copy.lines.slice(2).join(' '),
       summary: copy.lines[0], narration: copy.lines.join(' '),
-      sources: original.sources.map((source) => ({ ...source, label: lang === 'tr' ? source.label : source.kind === 'brief' ? 'ASRLab equipment brief' : source.file || 'Project documentation' })),
     });
   }
   return cache.get(key);

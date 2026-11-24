@@ -8,11 +8,16 @@
 > See [asset licensing](#licensing-for-purchased-3d-assets-stl--glb) and
 > [inspection cell asset sourcing](#inspection-cell-asset-sourcing).
 
-![App screenshot](app.png)
+![Factory dashboard with robot telemetry and the Walk, Guided tour and Digital Twin Assistant controls grouped on the right](docs/factory-dashboard.png)
 
-### v2 — factory-enabled workcell view
+<details>
+<summary>Earlier interface screenshots</summary>
 
-![Factory-enabled app screenshot v2](factory-v2.png)
+![Early workcell view](app.png)
+
+![Factory-enabled workcell view](factory-v2.png)
+
+</details>
 
 A browser-based **3D digital twin** for a two-robot workcell (a Universal Robots **UR10e** and a Kawasaki **RS005L** mounted on an AGV). It renders both robots from their real CAD/URDF mesh geometry, drives them either from **live telemetry stored in MongoDB Atlas** or from **manual on-screen controls**, and reproduces the original Gazebo simulation environment (safety fencing, cabinet, table, conveyor, AGV floor rail) around them.
 

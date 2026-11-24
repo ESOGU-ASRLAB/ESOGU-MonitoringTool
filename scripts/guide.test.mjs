@@ -25,11 +25,27 @@ test('the visitor tour contains only four use cases plus bus inspection', () => 
     for (const question of GUIDE_UI[language].suggestions) {
       const answer = answerGuide(question, { language });
       assert.ok(answer.items.length);
-      assert.ok(answer.items.every((item) => TOUR_STOPS.includes(item.id)));
+      assert.ok(answer.items.every((item) => !item.sceneTopic || TOUR_STOPS.includes(item.sceneTopic)));
     }
   }
   assert.equal(TOPIC_SHOT_PLANS['pick-place'][0].shot, 'pickPlace');
   assert.equal(GUIDE_DETAILS.monitoringGripper.root, 'cell-monitoring');
+});
+
+test('chat answers the named robot and remembers it for a follow-up', () => {
+  const reply = answerGuide('Hi, what is the UR-10e?');
+  assert.deepEqual(reply.items.map(({ id }) => id), ['ur10e']);
+  assert.match(reply.items[0].intro, /six-axis collaborative robot arm.*two-finger gripper/);
+  assert.equal(reply.items[0].sceneTopic, 'pick-place');
+  const followUp = answerGuide('How much can it lift?', { previousTopic: reply.topicId });
+  assert.match(followUp.items[0].intro, /12\.5 kg/);
+  const turkish = answerGuide('UR10e nedir?', { language: 'tr' });
+  assert.match(turkish.items[0].intro, /altı eksenli.*iki parmaklı/);
+  const straightAnswer = answerGuide('What is the VGC10?');
+  assert.deepEqual(straightAnswer.items.map(({ id }) => id), ['vacuum']);
+  assert.match(straightAnswer.items[0].intro, /suction cups/);
+  assert.equal(straightAnswer.items[0].sceneTopic, undefined);
+  assert.doesNotMatch(JSON.stringify(answerGuide('screwdriving')), /\bcomponents\/|\.jsx?\b/);
 });
 
 test('pick-and-place close-up chooses the held box rather than an old box on the table', () => {

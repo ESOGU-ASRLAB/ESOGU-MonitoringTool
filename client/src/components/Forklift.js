@@ -68,9 +68,9 @@ const CAB = {
  * front posts, tail and reversing lamps on the counterweight.
  */
 const FORKLIFT_LAMPS = [
-  ...[-0.36, 0.36].map((x) => ({ kind: 'head', position: [x, 1.86, -0.68], size: [0.12, 0.1, 0.05], facing: [0, 0, -1] })),
-  ...[-0.46, 0.46].map((x) => ({ kind: 'tail', position: [x, 0.95, 1.74], size: [0.1, 0.12, 0.03], facing: [0, 0, 1] })),
-  ...[-0.3, 0.3].map((x) => ({ kind: 'reverse', position: [x, 0.95, 1.74], size: [0.08, 0.08, 0.03], facing: [0, 0, 1] })),
+  ...[-0.36, 0.36].map((x) => ({ kind: 'head', position: [x, 1.86, -0.68], size: [0.12, 0.1, 0.05] })),
+  ...[-0.46, 0.46].map((x) => ({ kind: 'tail', position: [x, 0.95, 1.74], size: [0.1, 0.12, 0.03] })),
+  ...[-0.3, 0.3].map((x) => ({ kind: 'reverse', position: [x, 0.95, 1.74], size: [0.08, 0.08, 0.03] })),
 ];
 
 const LINE_OFFSET = 1.75;

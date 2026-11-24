@@ -1,4 +1,4 @@
-import React, { Suspense, useMemo, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import { SoftShadows } from '@react-three/drei';
 import * as THREE from 'three';
@@ -9,14 +9,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 const TILE_METERS = 10; // matches the bold section line spacing
 const CELL_METERS = 1;
 const PIXELS_PER_METER = 64;
-// The emissive ceiling tubes in the warehouse mesh cannot light nearby PBR
-// surfaces by themselves. These broad, shadowless fills give the four workcells
-// and the bus bays the soft light a real row of factory fixtures produces.
-const FACTORY_FIXTURES = [
-  [6.2, 7.3, 9.5], [6.2, 7.3, 2.5],
-  [12.8, 7.3, 9.5], [12.8, 7.3, 2.5],
-  [-5.5, 7.3, -13], [5.5, 7.3, -13],
-];
+const FactoryFixtureBanks = lazy(() => import('./FactoryFixtureBanks'));
 
 function useGridTexture() {
   return useMemo(() => {
@@ -129,6 +122,7 @@ export default function Scene({
 }) {
   const gridTexture = useGridTexture();
   const floorSize = floorSizeProp || 80;
+  const fixtureBanks = interior && realism;
   gridTexture.repeat.set(floorSize / TILE_METERS, floorSize / TILE_METERS);
 
   return (
@@ -153,24 +147,13 @@ export default function Scene({
       )}
 
       <ambientLight color={ROOM.ambient} intensity={interior ? LIGHTING.ambient : 0.55} />
-      {/* The overhead rows supply a broad key and the shadow direction. */}
+      {/* The shared overhead key casts the main shadow pass. */}
       <directionalLight
         color={ROOM.lamp}
-        position={interior ? [2, 20, 4] : [8, 14, 6]}
-        intensity={interior ? LIGHTING.key : 1.2}
+        position={interior ? [0, 20, 4] : [8, 14, 6]}
+        intensity={fixtureBanks ? LIGHTING.desktopKey : (interior ? LIGHTING.key : 1.2)}
         castShadow={castShadows}
-        /*
-         * THE SHADOW CAMERA USED TO MISS MOST OF THE BUILDING. It was an
-         * orthographic box +/-10 m around the origin with far at 30, while the
-         * hall runs to x +/-16 and z +/-24. Everything outside that box -- all
-         * three parked buses at z 15 to -17, the workers around them, the
-         * whole east end -- cast and received nothing, which is why those
-         * objects read as pasted onto the floor rather than standing on it.
-         *
-         * +/-20 covers the occupied floor, and 2048 over that span gives about
-         * 2 cm per texel, against 4 cm over the old smaller box: a contact
-         * shadow with an edge rather than a grey smudge.
-         */
+        /* Extend along the 49 m hall to keep the end bays in the shadow map. */
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
         shadow-normalBias={0.03}
@@ -179,16 +162,18 @@ export default function Scene({
         shadow-camera-far={60}
         shadow-camera-left={-20}
         shadow-camera-right={20}
-        shadow-camera-top={20}
-        shadow-camera-bottom={-20}
+        shadow-camera-top={interior ? 27 : 20}
+        shadow-camera-bottom={interior ? -27 : -20}
       />
       {/* Sky bounce above, floor bounce below. The lower colour is the floor's
           own tone, so light coming back up off the concrete carries it. */}
       <hemisphereLight args={[ROOM.skyBounce, ROOM.groundBounce, interior ? LIGHTING.hemisphere : 0.4]} />
-      {interior && <directionalLight color={ROOM.daylight} position={[16, 7, -6]} intensity={0.44} />}
-      {interior && realism && FACTORY_FIXTURES.map((position, index) => (
-        <pointLight key={index} position={position} color={ROOM.lamp} intensity={26} distance={12} decay={2} />
-      ))}
+      {interior && <directionalLight color={ROOM.daylight} position={[16, 6, -6]} intensity={LIGHTING.daylight} />}
+      {fixtureBanks && (
+        <Suspense fallback={null}>
+          <FactoryFixtureBanks />
+        </Suspense>
+      )}
 
       {showGrid && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>

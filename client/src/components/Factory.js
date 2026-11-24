@@ -11,9 +11,8 @@ import * as THREE from 'three';
  * meters, so unlike the STL facility props in EnvironmentElements it needs no
  * axis-flip group and no unit rescale.
  *
- * The repaired materials and lamp radiance use the shared factory palette.
- * The emissive map is black except over the ceiling tubes and window panes,
- * so adjusting it preserves the surrounding ceiling and shelving finishes.
+ * The repaired materials use the shared factory palette. An emissive mask
+ * keeps the radiance on the ceiling tubes and window panes.
  */
 const FACTORY_URL = process.env.PUBLIC_URL + '/assets/factory/warehouse_blender.blend.glb';
 
@@ -72,6 +71,8 @@ const CONVERTED_SCALE = 1 / 2.02157;
 // (identical UV layout, so it lines up on the new geometry) and re-attached.
 const EMISSIVE_URL = process.env.PUBLIC_URL + '/assets/factory/details_Emissive.png';
 const DETAILS_MATERIAL_INDEX = 3;
+// The converted export packs both side walls' clerestory panes in Node4.
+const CLERESTORY_NODE = 'Node4';
 
 function collectMaterials(root) {
   const materials = [];
@@ -178,6 +179,21 @@ function WarehouseModel() {
 
       mat.needsUpdate = true;
     }
+
+    const clerestory = scene.getObjectByName(CLERESTORY_NODE);
+    const details = clerestory?.material;
+    if (!clerestory?.isMesh || details?.name !== CONVERTED_MATERIAL_NAMES[DETAILS_MATERIAL_INDEX]) return;
+
+    const windowFinish = details.clone();
+    windowFinish.name = 'warehouse-clerestory';
+    windowFinish.emissive.set(ROOM.daylight);
+    windowFinish.emissiveIntensity = LIGHTING.windowEmission;
+    windowFinish.roughness = 0.64;
+    clerestory.material = windowFinish;
+    return () => {
+      clerestory.material = details;
+      windowFinish.dispose();
+    };
   }, [scene, materials, converted, emissiveMap]);
 
   // Apply the same rack and pallet finishes in both viewer modes.

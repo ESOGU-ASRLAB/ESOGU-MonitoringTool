@@ -32,7 +32,7 @@ function currentPage() {
  */
 const PARTNERS = [
   { name: 'Eskişehir Osmangazi University', src: 'logo3.png', href: 'https://www.ogu.edu.tr/' },
-  { name: 'ASRLab', src: 'asrlab.webp', href: 'https://srlab.ogu.edu.tr/' },
+  { name: 'ASRLab', src: 'asrlab-emblem.png', href: 'https://srlab.ogu.edu.tr/' },
   { name: 'IFARLAB', src: 'ifarlab.webp', href: 'https://ifarlab.ogu.edu.tr/' },
 ];
 

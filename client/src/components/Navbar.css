@@ -99,6 +99,11 @@ a.partner-link:hover {
   width: auto;
 }
 
+.partner-logo[src$="/asrlab-emblem.png"] {
+  clip-path: circle(44%);
+  transform: scale(1.15);
+}
+
 
 /* ---- Primary navigation: soft pills, the current page tinted ---- */
 

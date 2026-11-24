@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import GuideAvatar from './GuideAvatar';
-import { REFERENCE_TOPICS, TOUR_STOPS } from './guideContent';
+import { TOUR_STOPS } from './guideContent';
 import { answerGuide, normalize } from './guideAnswers';
 import { getGuideTopics } from './guidePresentation';
 import { GUIDE_UI } from './guideLanguage';
@@ -26,27 +26,14 @@ function TopicAnswer({ item, onFocus, compact, ui }) {
   return <article className="guide-answer-topic">
     <h4>{item.title}</h4>
     <p>{compact ? item.summary : item.intro}</p>
-    <div className="guide-answer-actions">
-      <button type="button" className="guide-text-button" onClick={() => onFocus(item.id)}><Icon name="play" />{ui.show}</button>
-      <details className="guide-answer-details">
-        <summary>{ui.details}</summary>
-        <div className="guide-detail-content">
-          {REFERENCE_TOPICS.includes(item.id) && <small className="guide-model-tag reference">{ui.reference}</small>}
-          <p>{item.detail}</p>
-          {item.sources?.length > 0 && <div className="guide-sources"><strong>{ui.sources}</strong><ul>{item.sources.map((source) => <li key={source.label}>{source.href ? <a href={source.href} target="_blank" rel="noreferrer">{source.label}</a> : source.label}</li>)}</ul></div>}
-        </div>
-      </details>
-    </div>
+    {item.sceneTopic && <button type="button" className="guide-text-button" onClick={() => onFocus(item.sceneTopic)}><Icon name="play" />{ui.show}</button>}
   </article>;
 }
 
 function Answer({ answer, onFocus, ui }) {
-  const [expanded, setExpanded] = useState(false);
-  const items = expanded ? answer.items : answer.items.slice(0, 3);
   return <div className="guide-answer">
     {answer.intro && <p>{answer.intro}</p>}
-    {items.map((topic) => <TopicAnswer key={topic.id} item={topic} onFocus={onFocus} compact={answer.items.length > 1} ui={ui} />)}
-    {answer.items.length > 3 && <button type="button" className="guide-more-button" aria-expanded={expanded} onClick={() => setExpanded((old) => !old)}>{expanded ? ui.less : `${ui.more} (${answer.items.length - 3})`}</button>}
+    {answer.items.map((topic) => <TopicAnswer key={topic.id} item={topic} onFocus={onFocus} compact={answer.items.length > 1} ui={ui} />)}
     {answer.extra && <p className="guide-live-note">{answer.extra}</p>}
   </div>;
 }
@@ -113,7 +100,7 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate, childre
     if (!value) return;
     const options = { previousTopic: previousTopic.current, liveStatus, animate };
     const answer = answerGuide(value, { ...options, language });
-    previousTopic.current = answer.focusId || previousTopic.current;
+    previousTopic.current = answer.topicId || previousTopic.current;
     setMessages((old) => [...old.slice(-39), { question: value, options }]);
     setQuery('');
   };
@@ -182,7 +169,12 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate, childre
       {session && <div className="guide-paused-banner">{session.phase === 'complete' ? ui.focusComplete : ui.paused}<button type="button" onClick={() => { setOpen(false); if (session.paused) guide.pause(); }}>{ui.returnTour}</button></div>}
       {tab === 'chat' ? <>
         <div className="guide-messages" id="guide-chat-content" role="tabpanel" aria-labelledby="guide-chat-tab">
-          {messages.length === 0 && <><div className="guide-welcome"><h3>{ui.welcome}</h3><p>{ui.welcomeText}</p><button type="button" className="guide-auto-button" onClick={startTour}><Icon name="play" />{ui.autoTour}</button></div><div className="guide-suggestions">{ui.suggestions.map((text) => <button type="button" key={text} onClick={() => ask(text)}>{text}</button>)}</div></>}
+          {messages.length === 0 && <>
+            <p className="guide-welcome">{ui.welcomeText}</p>
+            <div className="guide-suggestions">
+              {ui.suggestions.map((text) => <button type="button" key={text} onClick={() => ask(text)}>{text}</button>)}
+            </div>
+          </>}
           {messages.map((message, i) => <React.Fragment key={i}><div className="guide-user-message">{message.question}</div><Answer answer={answers[i]} onFocus={focus} ui={ui} /></React.Fragment>)}
           <div ref={endRef} />
         </div>

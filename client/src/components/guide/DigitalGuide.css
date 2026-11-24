@@ -32,33 +32,19 @@
 .guide-tabs button { flex: 1; border: 0; border-bottom: 3px solid transparent; padding: 11px 4px; background: none; font-size: .875rem; color: #516674; }
 .guide-tabs button[aria-selected=true] { color: var(--guide-teal); border-bottom-color: var(--guide-teal); font-weight: 700; }
 .guide-messages { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 14px; scrollbar-width: thin; font-size: .875rem; }
-.guide-welcome { padding: 0 2px 16px; }
-.guide-welcome h3 { font-size: 1.125rem; margin: 0 0 8px; line-height: 1.4; }
-.guide-welcome p { margin: 0 0 14px; }
+.guide-welcome { margin: 0 0 10px; }
 .guide-suggestions { display: grid; gap: 8px; }
 .guide-suggestions button { padding: 10px 12px; background: white; border: 1px solid #c9dde0; border-radius: 10px; text-align: left; font-size: .875rem; color: #224756; }
 .guide-suggestions button:hover { border-color: var(--guide-teal); background: #e8f6f3; }
 .guide-user-message { margin: 18px 0 10px 30px; background: #d8f3ec; border-radius: 12px 12px 3px 12px; padding: 10px 14px; overflow-wrap: anywhere; }
 .guide-answer { background: #fff; border: 1px solid #dce8ed; border-radius: 12px; padding: 14px; overflow-wrap: anywhere; }
 .guide-answer p { margin: 0 0 12px; }
+.guide-answer p:last-child { margin-bottom: 0; }
 .guide-answer-topic + .guide-answer-topic { border-top: 1px solid #e1ecee; padding-top: 12px; margin-top: 12px; }
 .guide-answer-topic h4 { font-size: .9375rem; margin: 0 0 6px; }
-.guide-model-tag { display: inline-block; background: #e4f6f0; color: #116b58; border-radius: 5px; font-size: .75rem; padding: 3px 7px; margin-bottom: 10px; }
-.guide-model-tag.reference { background: #fff1d8; color: #7c4d12; }
-.guide-answer li { margin: 8px 0; }
 .guide-text-button { display: inline-flex; align-items: center; gap: 5px; color: #086b6c; background: #e8f6f2; border: 1px solid #a7d8cc; padding: 6px 9px; border-radius: 7px; font-size: .8125rem !important; }
 .guide-text-button svg { width: 14px; height: 14px; }
-.guide-answer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
-.guide-answer-details { display: contents; }
-.guide-answer-details > summary { cursor: pointer; font-size: .75rem; color: #587280; padding: 6px 0; }
-.guide-detail-content { flex-basis: 100%; color: #4d6571; font-size: .8125rem; }
-.guide-answer-details:not([open]) > .guide-detail-content { display: none; }
-.guide-more-button { width: 100%; margin-top: 14px; border: 0; border-top: 1px solid #dfebed; padding: 10px 0 0; background: none; color: #087778; font-size: .8125rem !important; }
 .guide-empty { color: #587280; padding: 8px; }
-.guide-sources { margin-top: 12px; font-size: .8125rem; color: #536b77; }
-.guide-sources summary { cursor: pointer; }
-.guide-sources ul { padding-left: 18px; }
-.guide-sources a { color: #176e7b; }
 .guide-live-note { padding: 10px; background: #edf5fd; border-radius: 8px; }
 .guide-form { flex: 0 0 auto; border-top: 1px solid #dce6e9; display: flex; padding: 12px; gap: 8px; background: white; }
 .guide-form input, .guide-topic-browser > input, .guide-settings select { border: 1px solid #bfd1d6; border-radius: 8px; padding: 10px; background: white; color: #183947; min-width: 0; }
@@ -81,7 +67,6 @@
 .guide-tour-heading > .guide-icon-button { width: 28px; height: 28px; }
 .guide-route-button { flex-shrink: 0; border: 0; color: #536f7d; background: transparent; font-size: .75rem !important; padding: 4px; }
 .guide-caption { margin: 6px 12px 7px; font-size: 1rem; line-height: 1.4; }
-.guide-reference-note { color: #805819 !important; }
 .guide-tour-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 10px 7px; }
 .guide-playback { display: flex; align-items: center; gap: 3px; }
 .guide-resume-button, .guide-ask-button { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: .8125rem !important; border: 1px solid #d4e2e7; background: white; color: #244b5a; padding: 5px 8px; border-radius: 7px; white-space: nowrap; }
@@ -143,7 +128,7 @@
     box-shadow: 0 0 0 3px #4c82df80, 0 0 12px 2px #4c82df66;
     opacity: 0;
     pointer-events: none;
-    animation: guide-tour-pulse 1.5s ease-in-out 3;
+    animation: guide-tour-pulse 2.4s ease-in-out infinite;
   }
   .guide-launchers .guide-auto-button:is(:hover, :focus-visible)::after { visibility: hidden; }
 }

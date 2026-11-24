@@ -276,7 +276,7 @@ function busMaterials(paint, realistic) {
   const shell = realistic
     ? new THREE.MeshPhysicalMaterial({
       color: paint.body, metalness: 0.04, roughness: 0.36,
-      clearcoat: 0.42, clearcoatRoughness: 0.22, flatShading: true,
+      clearcoat: 0.32, clearcoatRoughness: 0.30, flatShading: true,
     })
     : new THREE.MeshStandardMaterial({
       color: paint.body, metalness: 0.05, roughness: 0.3, flatShading: true,
@@ -294,9 +294,9 @@ function busMaterials(paint, realistic) {
  * reversing lamps on the flat rear (x = -4.43).
  */
 const BUS_LAMPS = [
-  ...[-0.92, 0.92].map((z) => ({ kind: 'head', position: [4.15, 0.78, z], size: [0.04, 0.13, 0.34], facing: [1, 0, 0] })),
-  ...[-1.0, 1.0].map((z) => ({ kind: 'tail', position: [-4.44, 1.05, z], size: [0.03, 0.26, 0.14], facing: [-1, 0, 0] })),
-  ...[-0.98, 0.98].map((z) => ({ kind: 'reverse', position: [-4.44, 0.82, z], size: [0.03, 0.1, 0.12], facing: [-1, 0, 0] })),
+  ...[-0.92, 0.92].map((z) => ({ kind: 'head', position: [4.15, 0.78, z], size: [0.04, 0.13, 0.34] })),
+  ...[-1.0, 1.0].map((z) => ({ kind: 'tail', position: [-4.44, 1.05, z], size: [0.03, 0.26, 0.14] })),
+  ...[-0.98, 0.98].map((z) => ({ kind: 'reverse', position: [-4.44, 0.82, z], size: [0.03, 0.1, 0.12] })),
 ];
 
 /*

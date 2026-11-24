@@ -1,6 +1,6 @@
-import { OTOKAR_AXES } from './otokarAxes';
-import { ifarlab, inspection } from './inspectionState';
-import { readTelemetry } from './robotTelemetry';
+import { OTOKAR_AXES } from './otokarAxes.js';
+import { ifarlab, inspection } from './inspectionState.js';
+import { readTelemetry } from './robotTelemetry.js';
 
 /*
  * WHAT EACH MACHINE IS, AND WHAT IT IS DOING NOW.

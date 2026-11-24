@@ -126,7 +126,7 @@ export const GUIDE_TOPICS = [
     [BRIEF, source('Sahnedeki kapı CAD düzeneği', 'components/WindowPlatform.js')], false),
 
   topic('busInspection', 'Otobüs gövde kontrolü', 'Otobüs kontrolü', 'busInspection',
-    ['otobüs gövde', 'bus body', 'portal', 'gantry', 'gövde kontrol', 'r1', 'r2'],
+    ['otobüs gövde', 'bus body', 'portal', 'gantry', 'gövde kontrol'],
     'Bu hücrede otobüs gövdesi ve iki beş eksenli portal robot bulunur. Her robot kendi paralel rayı üzerinde çalışır; gövde iki rayın arasındadır.',
     'Her robotta üç doğrusal ve iki döner eksen, kamera başlığını hedef yüzeye taşır. Eksen hareketleri, kaynak hız ve ivme değerlerinden oluşturulan eşzamanlı hareket profilleriyle canlandırılır. Güncel programın aktif taramaları birinci robotta alt gövde, ikinci robotta tavan üzerindedir. Gövde kontrol hareketleri simülasyondur.',
     ['Ray ekseni robotu gövde boyunca taşır.', 'Kol ve döner bilek kamerayı kontrol yüzeyine yönlendirir.', 'İki portal, farklı bölgelerdeki tarama görevlerini yürütür.'],
@@ -134,7 +134,7 @@ export const GUIDE_TOPICS = [
     [source('Gövde kontrol hücresi', 'Inspection cell', '/docs#inspection-cell'), source('Gövde kontrol hareket profilleri', 'Inspection motion profiles')]),
 
   topic('underbody', 'R1 · Alt gövde taraması', 'Otobüs kontrolü', 'underbody',
-    ['alt gövde', 'alt takım', 'underbody', 'floor pan', 'robot 1', 'taban tarama'],
+    ['r1', 'alt gövde', 'alt takım', 'underbody', 'floor pan', 'robot 1', 'taban tarama'],
     'Birinci portal robot, otobüsün tabanının altına uzanarak alt gövde taramasını gösterir. Kol alçak konuma gelir ve kamera yukarı bakacak şekilde yönlendirilir.',
     'Robot gövde boyunca hareket ederken tarama ışınları, ilerleme ve örnek bulgu işaretleri görevi görünür kılar. Bunlar sunum için üretilen simülasyon geri bildirimleridir; gerçek araçta ölçülmüş hata veya üretim kabul sonucu olarak değerlendirilmez. Bu açı, kamera ile taban arasındaki ilişkiyi yandan görmenizi sağlar.',
     ['Kol tabanın altına kontrollü biçimde uzanır.', 'Kamera yukarı yönelir; ray üzerinde tarama hareketi başlar.', 'Görsel ilerleme ve bulgu işaretleri kontrol sürecini anlatır.'],
@@ -142,7 +142,7 @@ export const GUIDE_TOPICS = [
     [source('R1 tarama görevi', 'Inspection motion profiles', '/docs#inspection-cell'), source('Tarama geri bildirimleri', 'components/BodyInspection.js')]),
 
   topic('roof', 'R2 · Tavan taraması', 'Otobüs kontrolü', 'roof',
-    ['tavan', 'roof', 'robot 2', 'kabin', 'tavan tarama'],
+    ['r2', 'tavan', 'roof', 'robot 2', 'kabin', 'tavan tarama'],
     'İkinci portal robot pencere bandından kabin içine uzanır ve kamerayı iç tavan yüzeyine çevirir. Böylece dışarıdan erişimi zor bir bölge için robot destekli kontrol senaryosu gösterilir.',
     'Programda kamera yön değiştirme, yükselme ve tavan üzerinde halka biçimli tarama hareketleri bulunur. Kamera başlığında Basler ace, Intel RealSense D455 ve SICK DT35 bileşenleri proje tanıtımında listelenir. Ekrandaki tarama ve bulgu çizimleri bu bileşenlerden alınan gerçek ölçüm verileri değildir.',
     ['Robot kolu pencere bandındaki girişten içeri yönlenir.', 'Kamera başlığı yukarı dönerek tavanı hedefler.', 'Yükselme ve tarama hareketleriyle tavan kontrolü canlandırılır.'],
@@ -190,7 +190,6 @@ export const TOPIC_SHOT_PLANS = {
 for (const [id, shot] of [['gripper', 'gripper'], ['vacuum', 'vacuum'], ['quick-changer', 'quickChanger'], ['visionary', 'visionary'], ['sensingcam', 'sensingcam']]) {
   TOPIC_SHOT_PLANS[id] = [{ sentence: 0, shot, label: 'Ekipman sergisi · ön detay' }, { sentence: 2, shot: `${shot}Rear`, label: 'Arka yüz ve bağlantılar' }];
 }
-export const REFERENCE_TOPICS = ['vacuum', 'quick-changer', 'sensingcam'];
 export const TOUR_STOPS = ['digital-twin', 'pick-place', 'screwdriving', 'dual-inspection', 'door-assembly', 'busInspection'];
 export const GUIDE_SUGGESTIONS = [
   'Bu projede neler yapıldı?', 'Otobüs gövdesi nasıl inceleniyor?',
