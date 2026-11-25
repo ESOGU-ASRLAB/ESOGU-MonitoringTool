@@ -1,5 +1,6 @@
 import React from 'react';
 import * as THREE from 'three';
+import { ACCENT } from './scenePalette';
 
 /*
  * MACHINE GUARDING, AS IT IS BUILT: square posts, a top and bottom rail, and
@@ -34,8 +35,10 @@ const MESH_W = LENGTH - 2 * POST;
 const MESH_H = HEIGHT - GAP - RAIL;
 const TILE = 0.2; // metres of mesh per texture repeat
 
-// Powder-coated steel, a dark graphite rather than black.
-const powder = new THREE.MeshStandardMaterial({ color: '#2b2f33', metalness: 0.25, roughness: 0.5 });
+// Safety-yellow uprights with dark powder-coated infill and crossbars.
+const upright = new THREE.MeshStandardMaterial({ name: 'guard-upright', ...ACCENT.guardYellow });
+const frame = { color: '#24292b', metalness: 0.03, roughness: 0.56 };
+const crossbar = new THREE.MeshStandardMaterial({ name: 'guard-crossbar', ...frame });
 
 function wireMaterial() {
   const size = 256;
@@ -57,7 +60,7 @@ function wireMaterial() {
   // Drawn after the solid scene and kept out of the depth buffer, so the
   // contact shadows (N8AO) work on the posts and on what is behind the mesh.
   return new THREE.MeshStandardMaterial({
-    color: '#2b2f33', map: texture, metalness: 0.25, roughness: 0.5,
+    ...frame, map: texture,
     transparent: true, depthWrite: false, side: THREE.DoubleSide,
   });
 }
@@ -75,10 +78,10 @@ export default function MeshFencePanel({ bounds, position = [0, 0, 0], rotation 
     <group position={position} rotation={rotation}>
       <group position={[(x0 + x1) / 2, (y0 + y1) / 2, 0]} rotation={[0, 0, alongX ? 0 : Math.PI / 2]}>
         {[-1, 1].map((side) => (
-          <mesh key={side} geometry={postGeometry} material={powder} position={[side * (LENGTH - POST) / 2, 0, HEIGHT / 2]} castShadow receiveShadow />
+          <mesh key={side} geometry={postGeometry} material={upright} position={[side * (LENGTH - POST) / 2, 0, HEIGHT / 2]} castShadow receiveShadow />
         ))}
         {[HEIGHT - RAIL / 2, GAP - RAIL / 2].map((z) => (
-          <mesh key={z} geometry={railGeometry} material={powder} position={[0, 0, z]} castShadow receiveShadow />
+          <mesh key={z} geometry={railGeometry} material={crossbar} position={[0, 0, z]} castShadow receiveShadow />
         ))}
         <mesh geometry={meshGeometry} material={wires} position={[0, 0, GAP + MESH_H / 2]} rotation={[Math.PI / 2, 0, 0]} />
       </group>

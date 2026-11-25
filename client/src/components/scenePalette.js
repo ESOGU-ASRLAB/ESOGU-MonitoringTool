@@ -6,25 +6,25 @@
  * the model's scale and the renderer's AgX display transform.
  */
 export const LIGHTING = Object.freeze({
-  environment: 0.64,
-  ambient: 0.13,
-  hemisphere: 0.38,
+  environment: 0.59,
+  ambient: 0.105,
+  hemisphere: 0.34,
   key: 1.38,
   desktopKey: 0.96,
-  fixtureBanks: 0.95,
-  clerestory: 1.65,
+  fixtureBanks: 1.04,
+  clerestory: 1.95,
   daylight: 0.38,
   desktopDaylight: 0.21,
   exposure: 1,
   lampEmission: 1.8,
-  windowEmission: 1.45,
+  windowEmission: 2.35,
 });
 
 export const ARCHITECTURE = Object.freeze({
-  floor: Object.freeze({ color: '#96999b', metalness: 0, roughness: 0.95 }),
-  roof: Object.freeze({ color: '#b6b6ad', metalness: 0, roughness: 0.82 }),
-  wall: Object.freeze({ color: '#d6d6ce', metalness: 0, roughness: 0.79 }),
-  steel: Object.freeze({ color: '#6f7474', metalness: 0, roughness: 0.68 }),
+  floor: Object.freeze({ color: '#94928c', metalness: 0, roughness: 0.92 }),
+  roof: Object.freeze({ color: '#aaa89d', metalness: 0, roughness: 0.76 }),
+  wall: Object.freeze({ color: '#d0cdc4', metalness: 0, roughness: 0.79 }),
+  steel: Object.freeze({ color: '#4b4f4d', metalness: 0.04, roughness: 0.68 }),
   details: Object.freeze({ color: '#838681', metalness: 0, roughness: 0.73 }),
 });
 
@@ -39,6 +39,7 @@ export const PAINT = Object.freeze({
 export const ACCENT = Object.freeze({
   signalRed: Object.freeze({ color: '#ad4542', metalness: 0.05, roughness: 0.5 }),
   hazardAmber: Object.freeze({ color: '#bf8b2c', metalness: 0.05, roughness: 0.58 }),
+  guardYellow: Object.freeze({ color: '#d8aa26', metalness: 0.03, roughness: 0.56 }),
   brandBlue: Object.freeze({ color: '#003054', metalness: 0.05, roughness: 0.46 }),
 });
 

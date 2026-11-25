@@ -129,13 +129,37 @@ export function CableTrays() {
   );
 }
 
-/*
- * WORKWEAR. The worker model wears a black leather jacket, which no plant
- * would; under the realistic look its top becomes a luminous-yellow work
- * jacket (EN ISO 20471), keeping the cloth's folds from the normal map. The
- * material is shared by every worker and visitor, so this is the one place.
- */
-const HI_VIS = '#cbd52f';
+const HI_VIS = '#b9c431';
+const TAPE = new THREE.Color('#b7bdbd');
+
+// Rest-pose coordinates let the tape follow the cloth as the skeleton moves.
+function workwearTape(shader) {
+  shader.uniforms.uWorkwearTape = { value: TAPE };
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', '#include <common>\nvarying vec2 vJacketRest;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvJacketRest = position.xy;');
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>', `#include <common>
+      varying vec2 vJacketRest;
+      uniform vec3 uWorkwearTape;`)
+    .replace('#include <map_fragment>', `#include <map_fragment>
+      float chest = vJacketRest.y;
+      float waistBand = min(abs(chest - 1.047), abs(chest - 1.163));
+      float verticalBand = abs(abs(vJacketRest.x) - (0.102 + 0.07 * (chest - 1.16)));
+      float verticalAA = max(fwidth(verticalBand) * 0.5, 0.001);
+      float waistAA = max(fwidth(chest) * 0.5, 0.001);
+      float waist = 1.0 - smoothstep(0.022 - waistAA, 0.022 + waistAA, waistBand);
+      float strap = (1.0 - smoothstep(0.021 - verticalAA, 0.021 + verticalAA, verticalBand))
+        * smoothstep(1.143, 1.163, chest);
+      float tape = max(waist, strap);
+      float fabric = 1.0;
+      #ifdef USE_MAP
+        fabric = 0.80 + 0.25 * clamp(sampledDiffuseColor.r * 14.0, 0.0, 1.0);
+      #endif
+      diffuseColor.rgb = mix(diffuse, uWorkwearTape, tape) * fabric;`)
+    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor *= mix(1.0, 0.81, tape);');
+}
+
 export function Workwear() {
   const realistic = useRealism();
   const { scene } = useGLTF(WORKER_URL);
@@ -149,22 +173,27 @@ export function Workwear() {
     // The jacket's own roughness and metalness maps are a leather's -- glossy
     // -- and they scale whatever roughness is set, so they go too: woven
     // polyester is matt, or it reads as wet plastic under the hall's lamps.
-    const kept = ['map', 'roughnessMap', 'metalnessMap', 'roughness', 'metalness'];
+    const kept = ['roughnessMap', 'metalnessMap', 'roughness', 'metalness', 'onBeforeCompile'];
     const saved = tops.map((material) => ({
-      material, color: material.color.clone(), ...Object.fromEntries(kept.map((key) => [key, material[key]])),
+      material,
+      color: material.color.clone(),
+      normalScale: material.normalScale.clone(),
+      ...Object.fromEntries(kept.map((key) => [key, material[key]])),
     }));
     tops.forEach((material) => {
-      material.map = null;
       material.roughnessMap = null;
       material.metalnessMap = null;
       material.color.set(HI_VIS);
+      material.normalScale.setScalar(0.42);
       material.roughness = 0.9;
       material.metalness = 0;
+      material.onBeforeCompile = workwearTape;
       material.needsUpdate = true;
     });
-    return () => saved.forEach(({ material, color, ...rest }) => {
+    return () => saved.forEach(({ material, color, normalScale, ...rest }) => {
       Object.assign(material, rest);
       material.color.copy(color);
+      material.normalScale.copy(normalScale);
       material.needsUpdate = true;
     });
   }, [scene, realistic]);

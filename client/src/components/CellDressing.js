@@ -1,6 +1,7 @@
 import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useRealism } from './realismContext';
+import { ACCENT } from './scenePalette';
 
 /*
  * What every real robot cell has and the CAD of this one does not: the
@@ -97,7 +98,7 @@ function materials() {
     sign: new THREE.MeshStandardMaterial({ map: warningSign(), roughness: 0.5, metalness: 0 }),
     pole: new THREE.MeshStandardMaterial({ color: '#8f969b', metalness: 0.6, roughness: 0.35 }),
     cap: new THREE.MeshStandardMaterial({ color: '#2a2d30', metalness: 0.2, roughness: 0.5 }),
-    footing: new THREE.MeshStandardMaterial({ color: '#6a7277', metalness: 0.68, roughness: 0.42 }),
+    footing: new THREE.MeshStandardMaterial(ACCENT.guardYellow),
     bolt: new THREE.MeshStandardMaterial({ color: '#333b40', metalness: 0.7, roughness: 0.38 }),
     sensorCase: new THREE.MeshStandardMaterial({ color: '#d4aa39', metalness: 0.25, roughness: 0.48 }),
     sensorFace: new THREE.MeshStandardMaterial({ color: '#22292c', metalness: 0.2, roughness: 0.45 }),

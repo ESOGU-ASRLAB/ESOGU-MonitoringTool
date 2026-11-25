@@ -55,6 +55,8 @@ const EMISSIVE_URL = process.env.PUBLIC_URL + '/assets/factory/details_Emissive.
 const DETAILS_MATERIAL_INDEX = 3;
 // The converted export packs both side walls' clerestory panes in Node4.
 const CLERESTORY_NODE = 'Node4';
+const CONVERTED_ROOF = 'mat0';
+const CONVERTED_CLADDING = 'mat1';
 
 function collectMaterials(root) {
   const materials = [];
@@ -98,10 +100,32 @@ const FLOOR_MATERIAL_NAMES = ['floor', 'mat0'];
  */
 export const SHUTTER_OPENINGS = Object.freeze({ inner: 3.21, outer: 8.69, top: 3.63, wallZ: -24.2 });
 
-function cutShutterOpenings(material) {
+// Corrugation on the roof and end cladding follows metres in the model.
+// Fade subpixel ribs before they become visible bands when the camera moves.
+function profileSheetMetal(shader, roof) {
+  const axis = roof ? 'z' : 'x';
+  const acrossRibs = roof ? 'vec3(0.0, 0.0, 1.0)' : 'vec3(1.0, 0.0, 0.0)';
+  const sheetArea = roof ? 'step(6.65, vShutterWorld.y)' : 'step(24.0, abs(vShutterWorld.z))';
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <map_fragment>', `#include <map_fragment>
+      float sheetArea = ${sheetArea};
+      float ribCoord = vShutterWorld.${axis} / ${roof ? '0.27' : '0.25'};
+      float ribPhase = ribCoord * 6.2831853;
+      float rib = 0.5 + 0.5 * cos(ribPhase);
+      float ribVisibility = sheetArea * (1.0 - smoothstep(0.3, 0.85, fwidth(ribCoord)));
+      diffuseColor.rgb *= ${roof ? '1.0' : '(1.0 - 0.36 * sheetArea)'};
+      diffuseColor.rgb *= 1.0 - ribVisibility * (0.065 * rib + 0.16 * pow(rib, 7.0));`)
+    .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      float ribSlope = -0.52 * sin(ribPhase) * pow(rib, 6.0) * ribVisibility;
+      normal = normalize(normal - ribSlope * (mat3(viewMatrix) * ${acrossRibs}));`);
+}
+
+function prepareWarehouseMaterial(material) {
   if (material.userData.shutterCut) return;
   material.userData.shutterCut = true;
   const { inner, outer, top, wallZ } = SHUTTER_OPENINGS;
+  const roof = material.name === CONVERTED_ROOF;
+  const cladding = material.name === CONVERTED_CLADDING;
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
@@ -114,8 +138,9 @@ varying vec3 vShutterWorld;`)
       .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
         if (vShutterWorld.z < ${wallZ.toFixed(3)} && vShutterWorld.y < ${top.toFixed(3)}
             && abs(vShutterWorld.x) > ${inner.toFixed(3)} && abs(vShutterWorld.x) < ${outer.toFixed(3)}) discard;`);
+    if (roof || cladding) profileSheetMetal(shader, roof);
   };
-  material.customProgramCacheKey = () => 'shutter-openings';
+  material.customProgramCacheKey = () => `warehouse-finish-${roof ? 'roof' : cladding ? 'cladding' : 'plain'}`;
   material.needsUpdate = true;
 }
 
@@ -130,7 +155,7 @@ function WarehouseModel() {
     scene.traverse((obj) => {
       if (!obj.isMesh) return;
       const objMaterials = Array.isArray(obj.material) ? obj.material : [obj.material];
-      objMaterials.forEach(cutShutterOpenings);
+      objMaterials.forEach(prepareWarehouseMaterial);
       obj.castShadow = false;
       obj.receiveShadow = objMaterials.some((mat) => FLOOR_MATERIAL_NAMES.includes(mat?.name));
     });
