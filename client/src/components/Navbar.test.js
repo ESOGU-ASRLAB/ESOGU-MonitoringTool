@@ -75,6 +75,24 @@ test('the app preference overrides legacy chatbot language and survives page rem
   expect(container.querySelector('.navbar-language [lang="en"]').getAttribute('aria-pressed')).toBe('true');
 });
 
+test('tour settings keep camera controls and discard a saved narration speed', () => {
+  const settingsKey = 'asrlab-guide-settings';
+  localStorage.setItem(settingsKey, JSON.stringify({ muted: true, rate: 1.3 }));
+  render();
+  expect(guide.settings.muted).toBe(true);
+  expect(JSON.parse(localStorage.getItem(settingsKey)).rate).toBeUndefined();
+
+  const settingsButton = '[aria-label="Tour settings"]';
+  click('.guide-auto-button');
+  expect(container.querySelector(settingsButton)).toBeNull();
+
+  act(() => guide.go('pick-place'));
+  click(settingsButton);
+  expect(container.querySelector('.guide-settings select')).toBeNull();
+  const cameraControls = '[role="group"][aria-label="Camera view"]';
+  expect(container.querySelectorAll(`${cameraControls} button`)).toHaveLength(3);
+});
+
 test('asking Mira opens chat from Explore, uses the visible subject and resumes only an interrupted tour', () => {
   render();
   click('.guide-chat-button');

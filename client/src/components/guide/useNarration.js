@@ -7,7 +7,7 @@ export function splitNarration(text) {
   return String(text).match(/[^.!?]+(?:[.!?]+|$)/g)?.map((line) => line.trim()).filter(Boolean) || [];
 }
 
-export function useNarration({ text, sessionKey, enabled, paused, muted, rate, voiceURI, language = 'en', onEnd, beforeSentence }) {
+export function useNarration({ text, sessionKey, enabled, paused, muted, voiceURI, language = 'en', onEnd, beforeSentence }) {
   const [sentence, setSentence] = useState(0);
   const [speaking, setSpeaking] = useState(false);
   const [voices, setVoices] = useState([]);
@@ -65,7 +65,7 @@ export function useNarration({ text, sessionKey, enabled, paused, muted, rate, v
       // Let the camera reach this sentence's subject before submitting any
       // audio, so even the first syllable belongs to the view on screen.
       if (canSpeak.current && !canSpeak.current(index)) { setSpeaking(false); return; }
-      const duration = Math.max(2400, line.split(/\s+/).length * 430 / rate);
+      const duration = Math.max(2400, line.split(/\s+/).length * 430);
       let done = false;
       const advance = () => {
         if (!alive || done) return;
@@ -91,7 +91,6 @@ export function useNarration({ text, sessionKey, enabled, paused, muted, rate, v
         utterance.voice = available.find((voice) => voice.voiceURI === voiceURI)
           || available.find((voice) => /natural|neural|enhanced|premium|online/i.test(voice.name))
           || available.find((voice) => voice.lang === utterance.lang) || available[0] || null;
-        utterance.rate = rate;
         utterance.onstart = () => {
           if (!alive) return;
           setSpeaking(true);
@@ -137,7 +136,7 @@ export function useNarration({ text, sessionKey, enabled, paused, muted, rate, v
       watchdog = setTimeout(fallbackToSpeech, 2500);
       clip.then((buffer) => {
         if (!alive || !waiting) return;
-        stopClip = playGuideClip(buffer, rate, () => {
+        stopClip = playGuideClip(buffer, () => {
           stopClip = null;
           advance();
         });
@@ -158,7 +157,7 @@ export function useNarration({ text, sessionKey, enabled, paused, muted, rate, v
         synth?.cancel();
       }
     };
-  }, [text, sessionKey, enabled, paused, muted, rate, voiceURI, language, speechSupported, fallback]);
+  }, [text, sessionKey, enabled, paused, muted, voiceURI, language, speechSupported, fallback]);
 
   const recorded = hasGuideClips(language);
   return {

@@ -168,7 +168,10 @@ export default function Scene({
       {/* Sky bounce above, floor bounce below. The lower colour is the floor's
           own tone, so light coming back up off the concrete carries it. */}
       <hemisphereLight args={[ROOM.skyBounce, ROOM.groundBounce, interior ? LIGHTING.hemisphere : 0.4]} />
-      {interior && <directionalLight color={ROOM.daylight} position={[16, 6, -6]} intensity={LIGHTING.daylight} />}
+      {interior && (
+        <directionalLight color={ROOM.daylight} position={[16, 6, -6]}
+          intensity={fixtureBanks ? LIGHTING.desktopDaylight : LIGHTING.daylight} />
+      )}
       {fixtureBanks && (
         <Suspense fallback={null}>
           <FactoryFixtureBanks />

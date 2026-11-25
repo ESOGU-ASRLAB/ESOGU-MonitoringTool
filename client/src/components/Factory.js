@@ -38,15 +38,9 @@ const FACTORY_URL = process.env.PUBLIC_URL + '/assets/factory/warehouse_blender.
  *   - names were flattened to mat0..mat3 / Node0..Node27, and the whole scene
  *     came out 2.02157x oversized.
  *
- * Everything below repairs those five things at load time. It is deliberately
- * gated behind isConvertedExport(): a proper `File > Export > glTF 2.0` from
- * Blender keeps its real material names, colours and emissive strength, so the
- * shim sees nothing to fix and no-ops, and the asset can be swapped in by
- * changing FACTORY_URL alone.
- *
- * The one thing it cannot recover is the roughness maps -- rewiring those needs
- * the textures extracted out to their own files, which a correct re-export
- * makes unnecessary. Flat roughness is the visible cost of staying on this file.
+ * The embedded wall, steel and details roughness maps are bound in the GLB.
+ * The shim repairs the remaining material factors for the converted export.
+ * A native Blender export with its own material names bypasses the shim.
  */
 const CONVERTED_MATERIAL_NAMES = ['mat0', 'mat1', 'mat2', 'mat3'];
 
@@ -54,18 +48,6 @@ const CONVERTED_MATERIAL_NAMES = ['mat0', 'mat1', 'mat2', 'mat3'];
 // axes between the two exports (the pallets disagree only because the converter
 // baked their node rotations into the vertices).
 const CONVERTED_SCALE = 1 / 2.02157;
-
-/*
- * Colour and finish for mat0..mat3 (floor, wall, beams, details) now come from
- * ARCHITECTURE in scenePalette.js, applied below.
- *
- * Roughness matters here as much as colour, and it is the reason the shell
- * used to read as flat however it was lit: the converter dropped the roughness
- * maps -- they are still inside the file, but no material references them --
- * so every surface arrived at the default 1.0, uniformly and perfectly matte.
- * A sealed floor and a steel truss do not scatter light the same way, and with
- * one value for both there was no highlight anywhere to place the building by.
- */
 
 // The converter dropped this map; it is extracted back out of the first export
 // (identical UV layout, so it lines up on the new geometry) and re-attached.
@@ -169,7 +151,9 @@ function WarehouseModel() {
       const surface = [ARCHITECTURE.roof, ARCHITECTURE.wall, ARCHITECTURE.steel, ARCHITECTURE.details][slot];
       mat.color.set(surface.color);
       mat.metalness = surface.metalness;
-      mat.roughness = surface.roughness;
+      mat.roughness = mat.roughnessMap ? 1 : surface.roughness;
+      // The embedded images carry roughness in all three channels.
+      mat.metalnessMap = null;
 
       if (slot === DETAILS_MATERIAL_INDEX) {
         mat.emissive.set(ROOM.lamp);
@@ -189,6 +173,7 @@ function WarehouseModel() {
     windowFinish.emissive.set(ROOM.daylight);
     windowFinish.emissiveIntensity = LIGHTING.windowEmission;
     windowFinish.roughness = 0.64;
+    windowFinish.roughnessMap = null;
     clerestory.material = windowFinish;
     return () => {
       clerestory.material = details;

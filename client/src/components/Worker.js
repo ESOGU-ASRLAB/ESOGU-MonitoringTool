@@ -5,6 +5,7 @@ import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils';
 import * as THREE from 'three';
 import { limb, solveTwoBone } from './limbIK';
 import TeachPendant from './TeachPendant';
+import { useRealism } from './realismContext';
 
 export const WORKER_URL = process.env.PUBLIC_URL + '/assets/worker/walking_female.glb';
 
@@ -44,6 +45,18 @@ export function settleMaterials(scene) {
       material.needsUpdate = true;
     }
   });
+}
+
+export function useWorkerShadows(figure) {
+  const desktop = useRealism();
+  useEffect(() => {
+    figure.traverse((part) => {
+      // Omit the soft cutout hair cards from the worker's shadow silhouette.
+      if (part.isSkinnedMesh && !SOFT_ALPHA_MATERIALS.has(part.material.name)) {
+        part.castShadow = desktop;
+      }
+    });
+  }, [desktop, figure]);
 }
 
 /*
@@ -177,6 +190,7 @@ function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveR
     settleMaterials(scene);
     return cloneSkeleton(scene);
   }, [scene]);
+  useWorkerShadows(clone);
   const groupRef = useRef(null);
   const { actions } = useAnimations(animations, groupRef);
   const actionRef = useRef(null);

@@ -59,13 +59,16 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate, childre
   // without losing history or changing the historical connection status.
   const answers = useMemo(() => messages.map((message) => answerGuide(message.question, { ...message.options, language })), [messages, language]);
   const index = session ? TOUR_STOPS.indexOf(session.id) : 0;
+  const showVoiceNotice = narration.supported && !narration.hasLanguageVoice;
+  const hasSettings = guide.hasDetail || showVoiceNotice;
+  const showSettings = Boolean(session && hasSettings && settingsOpen);
 
   useEffect(() => { if (open && tab === 'chat') inputRef.current?.focus(); }, [open, tab]);
   useEffect(() => { if (open) endRef.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' }); }, [messages, open]);
   useEffect(() => {
     const escape = (event) => {
       if (event.key !== 'Escape') return;
-      if (settingsOpen) setSettingsOpen(false);
+      if (showSettings) setSettingsOpen(false);
       else if (routeOpen) setRouteOpen(false);
       else if (open) {
         setOpen(false);
@@ -77,7 +80,7 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate, childre
     };
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
-  }, [open, settingsOpen, routeOpen, active, pause, session?.paused]);
+  }, [open, showSettings, routeOpen, active, pause, session?.paused]);
 
   const openChat = () => {
     resumeAfterChat.current = guide.active && !session?.paused;
@@ -141,13 +144,13 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate, childre
           <button className="guide-resume-button" type="button" onClick={() => session.phase === 'complete' ? guide.go(item.id, session.mode) : guide.pause()}><Icon name={session.paused || session.phase === 'complete' ? 'play' : 'pause'} />{session.phase === 'complete' ? ui.replay : session.paused ? ui.resume : ui.pause}</button>
           <button className="guide-icon-button" type="button" onClick={guide.next} disabled={index === TOUR_STOPS.length - 1} aria-label={ui.next}><Icon name="next" /></button>
           <button className="guide-icon-button" type="button" onClick={() => setOption('muted', !settings.muted)} aria-label={settings.muted ? ui.unmute : ui.mute} aria-pressed={settings.muted}><Icon name={settings.muted ? 'muted' : 'sound'} /></button>
-          <button className="guide-icon-button" type="button" onClick={() => setSettingsOpen((old) => !old)} aria-label={ui.settings} aria-expanded={settingsOpen}><Icon name="settings" /></button>
+          {hasSettings && <button className="guide-icon-button" type="button" onClick={() => setSettingsOpen((old) => !old)} aria-label={ui.settings} aria-expanded={showSettings}><Icon name="settings" /></button>}
         </div>
         <button type="button" className="guide-ask-button" onClick={openChat} aria-label={ui.ask} title={ui.ask}><Icon name="chat" /><span>{ui.ask}</span></button>
       </div>
       {narration.speechError && <p className="guide-speech-note" role="status">{narration.speechError}</p>}
       {!narration.supported && <p className="guide-speech-note">{ui.noSpeech}</p>}
-      {settingsOpen && <div className="guide-settings">
+      {showSettings && <div className="guide-settings">
         {guide.hasDetail && <div className="guide-camera-mode">
           <span>{guide.cameraReady ? guide.shotLabel : ui.moving}</span>
           <div role="group" aria-label={ui.camera}>
@@ -156,8 +159,7 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate, childre
             <button type="button" aria-pressed={guide.cameraView === 'context'} onClick={() => guide.setCameraView('context')}>{guide.contextLabel}</button>
           </div>
         </div>}
-        <label>{ui.speed}<select value={settings.rate} onChange={(event) => setOption('rate', Number(event.target.value))}><option value="0.85">{ui.slow} · 0.85×</option><option value="1">{ui.normal} · 1×</option><option value="1.15">{ui.fast} · 1.15×</option><option value="1.3">{ui.faster} · 1.3×</option></select></label>
-        {narration.supported && !narration.hasLanguageVoice && <p>{ui.noVoice}</p>}
+        {showVoiceNotice && <p>{ui.noVoice}</p>}
       </div>}
     </section>}
 

@@ -35,6 +35,7 @@
  */
 export const IFARLAB_OFFSET = Object.freeze([6.18, 0, 11]);
 export const OTOKAR_PICK_OFFSET = Object.freeze([-3.4, 0, 15.2]);
+export const FORKLIFT_AISLE = Object.freeze({ x: -13.3, fromZ: -19.6, toZ: 0.4 });
 
 // Same x alignment, 7 m farther into the hall (-z/north in the opening view).
 // The measured fence bounds leave 2.23 m of clear space between the cells.

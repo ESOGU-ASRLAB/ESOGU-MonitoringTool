@@ -5,6 +5,7 @@ import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils';
 import * as THREE from 'three';
 import Prop, { PROP_BASE, fitted } from './Prop';
 import { MARKING } from './scenePalette';
+import { FORKLIFT_AISLE } from './cellLayout';
 import { WORKER_URL, settleMaterials } from './Worker';
 import { limb, solveTwoBone } from './limbIK';
 import VehicleLamps from './VehicleLamps';
@@ -25,7 +26,7 @@ import VehicleLamps from './VehicleLamps';
  * (x >= -8.6) -- and at the ends z = -19.0 against the south stack's face at
  * -19.9, and 0.9 against the north stack at 2.0.
  */
-const LANE_X = -13.3;
+const { x: LANE_X, fromZ: LINE_FROM_Z, toZ: LINE_TO_Z } = FORKLIFT_AISLE;
 const PALLET_S = -18.3; // pallet centre, south drop
 const PALLET_N = 0.2; // pallet centre, north drop
 const FORK_CENTRE = 1.25; // pallet centre ahead of the truck centre, on the forks
@@ -75,8 +76,6 @@ const FORKLIFT_LAMPS = [
 
 const LINE_OFFSET = 1.75;
 const LINE_WIDTH = 0.08;
-const LINE_FROM_Z = -19.6;
-const LINE_TO_Z = 0.4;
 
 const ease = (u) => (1 - Math.cos(Math.PI * u)) / 2;
 

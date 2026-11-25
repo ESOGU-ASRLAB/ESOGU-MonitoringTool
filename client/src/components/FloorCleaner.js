@@ -4,7 +4,7 @@ import { useAnimations, useGLTF } from '@react-three/drei';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils';
 import { POLYMER } from './scenePalette';
 import * as THREE from 'three';
-import { WORKER_URL, settleMaterials, walkPose, workerChains } from './Worker';
+import { WORKER_URL, settleMaterials, useWorkerShadows, walkPose, workerChains } from './Worker';
 import { limb, solveTwoBone } from './limbIK';
 
 /*
@@ -111,6 +111,7 @@ function CleanerModel() {
     settleMaterials(scene);
     return cloneSkeleton(scene);
   }, [scene]);
+  useWorkerShadows(operator);
   const groupRef = useRef(null);
   const { actions } = useAnimations(animations, groupRef);
   const chains = useMemo(() => workerChains(operator), [operator]);

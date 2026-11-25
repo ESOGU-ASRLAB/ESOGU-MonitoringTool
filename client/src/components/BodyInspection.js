@@ -102,7 +102,7 @@ const BEAM_FRAGMENT = `
     float facing = abs(dot(normalize(vNormalV), normalize(vViewV)));
     float soft = smoothstep(0.0, 0.55, facing);      // fade the silhouette edges
     float bands = 0.75 + 0.25 * sin((alongToLens * 18.0 + uTime * 3.0) * 3.14159);
-    gl_FragColor = vec4(uColor, falloff * soft * bands * 0.55);
+    gl_FragColor = vec4(uColor, falloff * soft * bands * 0.27);
   }
 `;
 const SPOT_FRAGMENT = `
@@ -113,10 +113,10 @@ const SPOT_FRAGMENT = `
     vec2 p = vUv * 2.0 - 1.0;
     float r = length(p);
     if (r > 1.0) discard;
-    float glow = pow(1.0 - r, 1.8) * 0.75;
+    float glow = pow(1.0 - r, 1.8) * 0.34;
     float sweep = sin(uTime * 2.2) * 0.85;
     float line = exp(-pow((p.x - sweep) * 38.0, 2.0)) * (1.0 - r * 0.6);
-    gl_FragColor = vec4(uColor * (1.0 + line), glow + line * 1.2);
+    gl_FragColor = vec4(uColor * (1.0 + line * 0.4), glow + line * 0.65);
   }
 `;
 const SPOT_VERTEX = `
@@ -158,7 +158,7 @@ function Beam({ beamRef, spotRef, ringRef }) {
       <mesh ref={ringRef} visible={false}>
         <ringGeometry args={[0.46, 0.5, 48]} />
         <meshBasicMaterial
-          color={SCAN_COLOR} transparent opacity={0.8} side={THREE.DoubleSide}
+          color={SCAN_COLOR} transparent opacity={0.38} side={THREE.DoubleSide}
           depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false}
         />
       </mesh>
@@ -262,7 +262,7 @@ export default function BodyInspection() {
       }
       const pulse = (now * 1.2 + i * 0.5) % 1;
       ringRef.current.scale.setScalar(0.7 + pulse * 0.9);
-      ringRef.current.material.opacity = 0.8 * (1 - pulse);
+      ringRef.current.material.opacity = 0.38 * (1 - pulse);
 
       // Coverage along the body's length.
       const bin = Math.floor(((spot.z - BODY.min.z) / (BODY.max.z - BODY.min.z)) * BINS);

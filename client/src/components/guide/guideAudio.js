@@ -31,12 +31,11 @@ export function loadGuideClip(language, sentence) {
   return cached.get(file);
 }
 
-export function playGuideClip(buffer, rate, onEnd) {
+export function playGuideClip(buffer, onEnd) {
   const context = audioContext();
   if (context.state !== 'running') throw new Error('Audio context is suspended');
   const source = context.createBufferSource();
   source.buffer = buffer;
-  source.playbackRate.value = rate;
   source.connect(context.destination);
   source.onended = () => {
     source.disconnect();

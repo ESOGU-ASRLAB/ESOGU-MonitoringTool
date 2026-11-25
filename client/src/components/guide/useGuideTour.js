@@ -8,7 +8,7 @@ import { useLanguage } from '../../LanguageContext';
 import { unlockGuideAudio } from './guideAudio';
 import { isMuted, onMuteChange } from '../vrAudio';
 
-const defaults = { muted: false, rate: 1, voiceURI: '' };
+const defaults = { muted: false, voiceURI: '' };
 const detailFor = (item) => GUIDE_DETAILS[item?.shot] ? item.shot : TOPIC_SHOT_PLANS[item?.id]?.find((entry) => GUIDE_DETAILS[entry.shot])?.shot;
 function shotFor(item, sentence, view) {
   const stage = TOPIC_SHOT_PLANS[item?.id]?.filter((entry) => entry.sentence <= sentence).slice(-1)[0];
@@ -22,7 +22,6 @@ function loadSettings() {
     const saved = JSON.parse(localStorage.getItem('asrlab-guide-settings')) || {};
     return {
       muted: typeof saved.muted === 'boolean' ? saved.muted : false,
-      rate: [0.85, 1, 1.15, 1.3].includes(saved.rate) ? saved.rate : 1,
       voiceURI: typeof saved.voiceURI === 'string' ? saved.voiceURI : '',
     };
   } catch { return defaults; }
