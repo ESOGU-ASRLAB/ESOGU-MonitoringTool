@@ -21,11 +21,11 @@ export const LIGHTING = Object.freeze({
 });
 
 export const ARCHITECTURE = Object.freeze({
-  floor: Object.freeze({ color: '#94928c', metalness: 0, roughness: 0.92 }),
-  roof: Object.freeze({ color: '#aaa89d', metalness: 0, roughness: 0.76 }),
-  wall: Object.freeze({ color: '#d0cdc4', metalness: 0, roughness: 0.79 }),
-  steel: Object.freeze({ color: '#4b4f4d', metalness: 0.04, roughness: 0.68 }),
-  details: Object.freeze({ color: '#838681', metalness: 0, roughness: 0.73 }),
+  floor: Object.freeze({ color: '#6c777d', metalness: 0, roughness: 0.92 }),
+  roof: Object.freeze({ color: '#c3c2bf', metalness: 0, roughness: 0.76 }),
+  wall: Object.freeze({ color: '#dee5e4', metalness: 0, roughness: 0.79 }),
+  steel: Object.freeze({ color: '#211200', metalness: 0.04, roughness: 0.68 }),
+  details: Object.freeze({ color: '#7b7d7d', metalness: 0, roughness: 0.73 }),
 });
 
 export const PAINT = Object.freeze({
