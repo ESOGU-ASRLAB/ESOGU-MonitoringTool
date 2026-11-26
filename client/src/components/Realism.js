@@ -53,7 +53,7 @@ export function HallFloor() {
       <planeGeometry args={[HALL_FLOOR.width, HALL_FLOOR.length]} />
       {/* The surface map stores height in red and roughness in green. */}
       <meshStandardMaterial name="hall-concrete" {...ARCHITECTURE.floor} map={albedo}
-        roughnessMap={surface} bumpMap={surface} bumpScale={0.006} aoMap={finish}
+        roughnessMap={surface} bumpMap={surface} bumpScale={0.003} aoMap={finish}
         onBeforeCompile={applyHallFloorFinish} />
     </mesh>
   );

@@ -1,66 +1,136 @@
 import React, { useEffect, useState } from 'react';
 import * as THREE from 'three';
+import { METAL } from './scenePalette';
 
-const SIGN = { width: 5.55, height: 2.12, depth: 0.06 };
-const CENTER = [0, 6.03, -24.12];
-const PX_W = 2048;
-const PX_H = Math.round(PX_W * SIGN.height / SIGN.width);
-const PAPER = '#f3f5f4';
-const BLUE = '#142e53';
+const LOGOS = process.env.PUBLIC_URL + '/assets/logo/';
+const WALL_Z = -23.75;
+const DEPTH = 0.16;
+const RIM = 0.035;
+const BLUE = '#0a4f86';
+const ACCENT = '#5aa9e6';
+const FONT = 'system-ui, sans-serif';
+const SIGNS = [
+  { id: 'matisse', label: 'MATISSE', logo: 'logo.svg', width: 4.6, height: 1.5, y: 7.65 },
+  { id: 'asrlab', label: 'ASRLab', logo: 'asrlab-wall.webp', width: 4.2, height: 1.3, y: 5.9 },
+  { id: 'ifarlab', label: 'IFARLAB', logo: 'ifarlab-wall.webp', width: 4.2, height: 1.3, y: 4.25 },
+];
 
-function makeFace() {
+function loadLogo(file) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = LOGOS + file;
+  });
+}
+
+function drawLab(ctx, label, image, width, height) {
+  const diameter = image ? height * 0.77 : 0;
+  const gap = image ? height * 0.21 : 0;
+  ctx.font = `750 ${Math.round(height * 0.41)}px ${FONT}`;
+  const labelWidth = Math.min(ctx.measureText(label).width, width * 0.88 - diameter - gap);
+  const left = (width - diameter - gap - labelWidth) / 2;
+  const centreY = height / 2;
+
+  ctx.fillStyle = '#f6f9ff';
+  if (image) {
+    const centreX = left + diameter / 2;
+    ctx.beginPath();
+    ctx.arc(centreX, centreY, diameter / 2, 0, Math.PI * 2);
+    ctx.fill();
+    const scale = (diameter - 12) / Math.max(image.width, image.height);
+    const [w, h] = [image.width * scale, image.height * scale];
+    ctx.drawImage(image, centreX - w / 2, centreY - h / 2, w, h);
+    ctx.fillRect(left + diameter + gap / 2, height * 0.24, 3, height * 0.52);
+  }
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, left + diameter + gap, centreY, labelWidth);
+}
+
+function makeFace(sign, image) {
   const canvas = document.createElement('canvas');
-  canvas.width = PX_W;
-  canvas.height = PX_H;
+  canvas.width = 1536;
+  canvas.height = Math.round(canvas.width * (sign.height - 2 * RIM) / (sign.width - 2 * RIM));
+  const { width, height } = canvas;
+  const band = Math.round(height * 0.045);
+  const faceHeight = height - band;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = PAPER;
-  ctx.fillRect(0, 0, PX_W, PX_H);
 
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
+  if (sign.id === 'matisse' && image) {
+    // Use the official wordmark silhouette in white on the blue face.
+    const scale = Math.min(width * 0.8 / image.width, faceHeight * 0.74 / image.height);
+    const [w, h] = [image.width * scale, image.height * scale];
+    ctx.drawImage(image, (width - w) / 2, (faceHeight - h) / 2, w, h);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.globalCompositeOperation = 'destination-over';
+  }
   ctx.fillStyle = BLUE;
-  ctx.font = '800 354px system-ui, sans-serif';
-  ctx.fillText('MATISSE', PX_W / 2, 370, PX_W - 156);
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = ACCENT;
+  ctx.fillRect(0, faceHeight, width, band);
+  if (sign.id !== 'matisse' || !image) {
+    drawLab(ctx, sign.label, image, width, faceHeight);
+  }
 
-  ctx.fillRect(0, 454, PX_W, PX_H - 454);
-  ctx.fillStyle = '#6e88a4';
-  ctx.fillRect(PX_W / 2 - 2, 529, 4, 184);
-  ctx.fillStyle = '#f6f8fb';
-  ctx.font = '800 224px system-ui, sans-serif';
-  ctx.fillText('ASRLab', PX_W * 0.25, 690, 868);
-  ctx.fillText('IFARLAB', PX_W * 0.75, 690, 868);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
   return texture;
 }
 
+function HangingSign({ sign, face, top }) {
+  const { id, width, height, y } = sign;
+  const cableLength = top - (y + height / 2);
+  return (
+    <group name={`factory-sign-${id}`} position={[0, y, 0]}>
+      <mesh>
+        <boxGeometry args={[width, height, DEPTH]} />
+        <meshStandardMaterial color="#48545e" metalness={0.55} roughness={0.51} />
+      </mesh>
+      <mesh position={[0, 0, DEPTH / 2 + 0.004]}>
+        <planeGeometry args={[width - 2 * RIM, height - 2 * RIM]} />
+        <meshStandardMaterial
+          map={face} roughness={0.58} metalness={0}
+          emissive="#ffffff" emissiveMap={face} emissiveIntensity={0.65}
+        />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * (width / 2 - 0.4), (height + cableLength) / 2, 0]}>
+          <cylinderGeometry args={[0.012, 0.012, cableLength, 8]} />
+          <meshStandardMaterial {...METAL.galvanised} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 export default function WallLogos() {
-  const [face, setFace] = useState(null);
+  const [faces, setFaces] = useState(null);
   useEffect(() => {
-    const texture = makeFace();
-    setFace(texture);
-    return () => texture.dispose();
+    let cancelled = false;
+    let textures;
+    Promise.all(SIGNS.map(({ logo }) => loadLogo(logo))).then((images) => {
+      if (cancelled) return;
+      textures = SIGNS.map((sign, index) => makeFace(sign, images[index]));
+      setFaces(textures);
+    });
+    return () => {
+      cancelled = true;
+      textures?.forEach((texture) => texture.dispose());
+    };
   }, []);
 
   return (
-    <group name="factory-identification-sign" position={CENTER}>
-      <mesh>
-        <boxGeometry args={[SIGN.width, SIGN.height, SIGN.depth]} />
-        <meshStandardMaterial color="#555851" metalness={0.35} roughness={0.57} />
-      </mesh>
-      {face && (
-        <mesh position={[0, 0, SIGN.depth / 2 + 0.008]}>
-          <planeGeometry args={[SIGN.width - 0.018, SIGN.height - 0.018]} />
-          <meshStandardMaterial map={face} roughness={0.82} metalness={0} />
-        </mesh>
-      )}
-      {[-2.28, 2.28].map((x) => (
-        <mesh key={x} position={[x, 0, -0.2]}>
-          <boxGeometry args={[0.07, 1.94, 0.34]} />
-          <meshStandardMaterial color="#464a48" metalness={0.2} roughness={0.7} />
-        </mesh>
-      ))}
+    <group name="factory-identification-sign" position={[0, 0, WALL_Z]}>
+      {faces && SIGNS.map((sign, index) => {
+        // The headline hangs from the roof and each lab board from the one above.
+        const above = SIGNS[index - 1];
+        const top = above ? above.y - above.height / 2 : 9.97;
+        return <HangingSign key={sign.id} sign={sign} face={faces[index]} top={top} />;
+      })}
     </group>
   );
 }

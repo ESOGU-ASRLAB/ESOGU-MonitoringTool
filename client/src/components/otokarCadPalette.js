@@ -54,8 +54,7 @@ export const OTOKAR_BODY_PALETTE = Object.freeze({ ...BODY_IN_WHITE });
  *                 the dark rail bed.
  *   SIGNAL RED    the drives: the axis-2 slide block riding the column, and the
  *                 wrist reducers. Red is what makes the axes legible.
- *   SATIN STEEL   the exposed linear guides and telescoping stages, the only
- *                 genuinely metallic surfaces on the machine.
+ *   SATIN STEEL   the exposed linear guides, telescoping stages and flange.
  *
  * THE CHAIN IS THE ONE THING HERE THAT IS NOT ITS REAL COLOUR. A polymer energy
  * chain is black, and it was black: `#141619`, the darkest value in the cell.
@@ -113,7 +112,7 @@ export const OTOKAR_ROBOT_MATERIALS = Object.freeze({
    * dielectric: a painted steel beam is metalness ~0.05 however glossy the
    * paint. The rail bed was at 0.45 and the carriage and arm at 0.25, so every
    * painted part on the machine was being lit as though it were bare metal.
-   * Only the linear guides and telescoping stages are, and they are at 0.9.
+   * The guides and flange use a separate satin-steel finish.
    *
    * Roughness then carries the difference between them, which it was not doing
    * either: everything sat between 0.42 and 0.55, near enough one value that
@@ -134,8 +133,8 @@ export const OTOKAR_ROBOT_MATERIALS = Object.freeze({
    * the heaviest thing on the rail and the arm is lighter gear above it.
    */
   arm: Object.freeze({ color: OTOKAR_ROBOT_LIVERY.armGrey, metalness: 0.05, roughness: 0.55 }),
-  // Ground and exposed: the only genuinely metallic surfaces on the machine.
-  slide: Object.freeze({ color: OTOKAR_ROBOT_LIVERY.satinSteel, metalness: 0.9, roughness: 0.2 }),
+  // A brushed finish spreads the bright HDR reflections across the metal.
+  slide: Object.freeze({ color: '#687378', metalness: 0.78, roughness: 0.52 }),
   wrist: Object.freeze({ color: OTOKAR_ROBOT_LIVERY.signalRed, metalness: 0.08, roughness: 0.48 }),
   rotary: Object.freeze({ color: OTOKAR_ROBOT_LIVERY.graphite, metalness: 0.05, roughness: 0.5 }),
   /*

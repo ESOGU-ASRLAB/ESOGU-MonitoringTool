@@ -113,7 +113,7 @@ function profileSheetMetal(shader, roof) {
       float ribPhase = ribCoord * 6.2831853;
       float rib = 0.5 + 0.5 * cos(ribPhase);
       float ribVisibility = sheetArea * (1.0 - smoothstep(0.3, 0.85, fwidth(ribCoord)));
-      diffuseColor.rgb *= ${roof ? '1.0' : '(1.0 - 0.36 * sheetArea)'};
+      diffuseColor.rgb *= ${roof ? '1.0' : '(1.0 - 0.14 * sheetArea)'};
       diffuseColor.rgb *= 1.0 - ribVisibility * (0.065 * rib + 0.16 * pow(rib, 7.0));`)
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
       float ribSlope = -0.52 * sin(ribPhase) * pow(rib, 6.0) * ribVisibility;

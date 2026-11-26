@@ -71,7 +71,7 @@ export function applyHallFloorFinish(shader) {
   shader.fragmentShader = shader.fragmentShader
     .replace('#include <map_fragment>', `#include <map_fragment>
       vec2 slabFinish = texture2D(aoMap, vAoMapUv).gb;
-      diffuseColor.rgb *= mix(0.72, 1.24, slabFinish.x);`)
+      diffuseColor.rgb = mix(diffuse, diffuseColor.rgb, 0.46) * mix(0.86, 1.10, slabFinish.x);`)
     .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
       roughnessFactor *= mix(0.86, 1.0, slabFinish.y);`);
 }

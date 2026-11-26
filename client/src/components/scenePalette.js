@@ -16,16 +16,16 @@ export const LIGHTING = Object.freeze({
   daylight: 0.38,
   desktopDaylight: 0.21,
   exposure: 1,
-  lampEmission: 1.8,
-  windowEmission: 2.35,
+  lampEmission: 2.6,
+  windowEmission: 2.85,
 });
 
 export const ARCHITECTURE = Object.freeze({
-  floor: Object.freeze({ color: '#6c777d', metalness: 0, roughness: 0.92 }),
-  roof: Object.freeze({ color: '#c3c2bf', metalness: 0, roughness: 0.76 }),
-  wall: Object.freeze({ color: '#dee5e4', metalness: 0, roughness: 0.79 }),
-  steel: Object.freeze({ color: '#211200', metalness: 0.04, roughness: 0.68 }),
-  details: Object.freeze({ color: '#7b7d7d', metalness: 0, roughness: 0.73 }),
+  floor: Object.freeze({ color: '#96999a', metalness: 0, roughness: 0.76 }),
+  roof: Object.freeze({ color: '#b1babd', metalness: 0, roughness: 0.76 }),
+  wall: Object.freeze({ color: '#e2e3e3', metalness: 0, roughness: 0.79 }),
+  steel: Object.freeze({ color: '#5a5e61', metalness: 0.04, roughness: 0.68 }),
+  details: Object.freeze({ color: '#81878a', metalness: 0, roughness: 0.73 }),
 });
 
 export const PAINT = Object.freeze({
@@ -91,7 +91,7 @@ export const ROOM = Object.freeze({
   background: '#c8c9c6',
   fog: '#c8c9c6',
   ambient: '#f5f4ef',
-  lamp: '#fff7ea',
+  lamp: '#fffbf5',
   daylight: '#edf3fa',
   skyBounce: '#f0f2f3',
   groundBounce: '#a3a39e',

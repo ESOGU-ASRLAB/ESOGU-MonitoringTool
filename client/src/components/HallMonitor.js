@@ -5,10 +5,10 @@ import { inspection, ifarlab } from './inspectionState';
 import { runWhileVisible } from './pageActivity';
 
 const SCREENS = [
-  { page: 'hall', centre: [-5.6, 6.03, -24.12] },
-  { page: 'cells', centre: [5.6, 6.03, -24.12] },
+  { page: 'hall', centre: [-5.1, 7.05, -24.12] },
+  { page: 'cells', centre: [5.1, 7.05, -24.12] },
 ];
-const WIDTH = 3.22;
+const WIDTH = 4.4;
 const HEIGHT = WIDTH * 9 / 16;
 const BEZEL = 0.035;
 const DEPTH = 0.075;
@@ -16,8 +16,8 @@ const PX_W = 960;
 const PX_H = 540;
 const FONT = 'system-ui, sans-serif';
 const EDGE = 36;
-const BG = '#102032';
-const CARD = '#1a3048';
+const BG = '#0b1720';
+const CARD = '#152738';
 const INK = '#f4f8ff';
 const MUTED = '#bfcedf';
 const ACTIVE = '#7be1f3';
@@ -41,7 +41,7 @@ function panel(ctx, x, y, width, height, color) {
 function drawHeader(ctx, title) {
   ctx.fillStyle = BG;
   ctx.fillRect(0, 0, PX_W, PX_H);
-  ctx.fillStyle = '#21466a';
+  ctx.fillStyle = '#17354c';
   ctx.fillRect(0, 0, PX_W, 96);
   ctx.fillStyle = ACTIVE;
   ctx.fillRect(0, 96, PX_W, 4);

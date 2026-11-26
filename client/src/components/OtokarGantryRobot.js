@@ -495,7 +495,7 @@ export default function OtokarGantryRobot({
                             >
                               <mesh name="camera-flange-adapter" position={[0, 0, .05]} rotation={[Math.PI / 2, 0, 0]} castShadow>
                                 <cylinderGeometry args={[.028, .028, .03, 20]} />
-                                <meshStandardMaterial color="#8b959b" metalness={.8} roughness={.38} />
+                                <meshStandardMaterial {...SLIDE} />
                               </mesh>
                               <OtokarMesh
                                 group="shared"
