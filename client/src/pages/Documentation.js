@@ -67,7 +67,7 @@ export default function Documentation() {
         <Anchor id="labs">ESOGU laboratories</Anchor>
         <div className="doc-labs">
           <LabCard logo="logo3.png" name="ESOGU" full="Eskişehir Osmangazi University" href="https://www.ogu.edu.tr/" />
-          <LabCard logo="asrlab.webp" name="ASRLab" full="ESOGU research laboratory" href="https://srlab.ogu.edu.tr/" />
+          <LabCard logo="asrlab-emblem.png" name="ASRLab" full="ESOGU research laboratory" href="https://srlab.ogu.edu.tr/" />
           <LabCard logo="ifarlab.webp" name="IFARLAB" full="Intelligent Factory and Robotics Laboratory" href="https://ifarlab.ogu.edu.tr/" />
         </div>
 
