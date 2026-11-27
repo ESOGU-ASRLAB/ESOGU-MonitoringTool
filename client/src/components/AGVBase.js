@@ -2,7 +2,8 @@ import React, { useMemo, Suspense } from 'react';
 import { useLoader } from '@react-three/fiber';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import * as THREE from 'three';
-import { ACCENT, METAL, POLYMER } from './scenePalette';
+import { ACCENT, METAL, POLYMER, SURFACE_FINISH } from './scenePalette';
+import { useRealism } from './realismContext';
 
 /*
  * OTA mobile base (AGV) that carries the Kawasaki RS005L arm.
@@ -31,6 +32,7 @@ const CASTER = { ...METAL.machined };
 
 function StlMesh({ url, position, rotation, material, castShadow = true, receiveShadow = true }) {
   const geometry = useLoader(STLLoader, url);
+  const desktop = useRealism();
   const prepared = useMemo(() => {
     if (!geometry.userData.__stlPrepared) {
       if (!geometry.attributes?.normal) geometry.computeVertexNormals();
@@ -48,7 +50,9 @@ function StlMesh({ url, position, rotation, material, castShadow = true, receive
       castShadow={castShadow}
       receiveShadow={receiveShadow}
     >
-      <meshStandardMaterial color={material.color} metalness={material.metalness} roughness={material.roughness} side={THREE.DoubleSide} />
+      {desktop && material === BODY
+        ? <meshPhysicalMaterial {...material} {...SURFACE_FINISH.robotCoat} side={THREE.DoubleSide} />
+        : <meshStandardMaterial {...material} side={THREE.DoubleSide} />}
     </mesh>
   );
 }

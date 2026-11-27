@@ -4,6 +4,7 @@ import { OrbitControls } from "@react-three/drei";
 import { XR } from "@react-three/xr";
 import * as THREE from "three";
 import "./DigitalTwin.css";
+import { useLanguage } from "../LanguageContext";
 import "../components/setupGltf";
 import UR10eRobot from "../components/UR10eRobot";
 import KawasakiRobot from "../components/KawasakiRobot";
@@ -31,9 +32,11 @@ import FloorCleaner from "../components/FloorCleaner";
 import GarageDoors from "../components/GarageDoors";
 import Yard from "../components/Yard";
 import BodyInspection from "../components/BodyInspection";
+import SceneLoading from "../components/SceneLoading";
 import BusShuttle from "../components/BusShuttle";
 import { BAY_A } from "../components/busRoute";
 import ControlPanel from "../components/ControlPanel";
+import ViewportControls, { ViewportIcon } from "../components/ViewportControls";
 import Scene from "../components/Scene";
 import OtokarCell from "../components/OtokarCell";
 import { OTOKAR_ROBOT_HOME } from "../components/otokarAxes";
@@ -57,13 +60,13 @@ import { VREntryDialog, VRRoster } from "../components/VisitorName";
 import TrainingStations from "../components/training/TrainingStations";
 import VRSoundscape from "../components/VRSoundscape";
 import { unlockAudio } from "../components/vrAudio";
-import { RobotHitBoxes, RobotInfoCard, RobotInfoPanel3D } from "../components/RobotInfo";
+import { EquipmentInfoCard, RobotHitBoxes, RobotInfoCard, RobotInfoPanel3D, equipmentTargets } from "../components/RobotInfo";
 import DigitalGuide from "../components/guide/DigitalGuide";
 import GuideCamera from "../components/guide/GuideCamera";
 import VRGuide from "../components/guide/VRGuide";
 import useGuideTour from "../components/guide/useGuideTour";
+import useFactoryCamera from "../components/useFactoryCamera";
 import OtokarPickPlace from "../components/OtokarPickPlace";
-import GuideFocusIndicator from "../components/guide/GuideFocusIndicator";
 
 /*
  * What a click on each robot resolves to: the part that moves, so the click
@@ -88,25 +91,14 @@ const FACTORY_CAMERA_BOUNDS = Object.freeze({
   maxZ: 23.75,
 });
 const WALK_EYE_HEIGHT = 1.75;
-/*
- * THE OPENING VIEW, for a presentation: from the front of the east cells,
- * 3.3 m up and a little further back, looking north-west and gently down over
- * all four IFARLAB cells, so every robot, the fences, the conveyors and the
- * operators read clearly, with the Otokar gantry, the buses and the far
- * wall's signs and screens behind. Recovered from a framing chosen by hand in
- * the browser: the four cell tags' anchors, the three signs and the two
- * screens fix it to about a pixel. That framing used the opening lens as it
- * is, so only the eye and target change.
- *
- * The target is on the line of sight in the aisle between the two rows, the
- * middle of the four cells, so orbiting turns about them; the headset's spawn
- * (8 m short of it, VRWalk.js) lands in the open front aisle.
- */
-const OPENING_EYE = [14.64, 3.33, 17.37];
+// Start in the walkway in front of the east workcells, facing down the
+// hall at the same eye height as the first-person walking controls.
+const OPENING_EYE = [14.64, WALK_EYE_HEIGHT, 17.37];
 const ORBIT_TARGET = [8.54, 2.5, 6.26];
 // Orbit lens: the opening field of view, and how wide zooming out may open it.
 const BASE_FOV = 42;
 const MAX_FOV = 62;
+const WALK_MAX_FOV = 72;
 // That view is framed on a canvas this wide (a 16:10 screen with the panel
 // open). A narrower canvas -- a smaller laptop, a 4:3 projector -- opens the
 // lens until the same width fits, so no cell is cut off at the sides.
@@ -244,7 +236,7 @@ function FactoryCameraController({
   }, [camera]);
 
   const zoomCamera = useCallback((deltaY) => {
-    camera.fov = THREE.MathUtils.clamp(camera.fov + deltaY * 0.035, 30, 65);
+    camera.fov = THREE.MathUtils.clamp(camera.fov + deltaY * 0.035, 30, WALK_MAX_FOV);
     camera.updateProjectionMatrix();
   }, [camera]);
 
@@ -253,8 +245,9 @@ function FactoryCameraController({
   const size = useThree((state) => state.size);
   const openingLens = useRef(null);
   useEffect(() => {
-    if (walkingMode || xrActive || guided || !size.height) return;
-    const fov = openingFov(size.width / size.height);
+    if (xrActive || guided || !size.height) return;
+    const framedFov = openingFov(size.width / size.height);
+    const fov = walkingMode ? Math.min(WALK_MAX_FOV, framedFov) : framedFov;
     if (openingLens.current == null || Math.abs(camera.fov - openingLens.current) < 0.01) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
@@ -286,6 +279,10 @@ function FactoryCameraController({
     direction.normalize();
 
     camera.position.y = WALK_EYE_HEIGHT;
+    if (camera.fov > WALK_MAX_FOV) {
+      camera.fov = WALK_MAX_FOV;
+      camera.updateProjectionMatrix();
+    }
     clampFactoryCamera(camera);
     camera.lookAt(
       camera.position.x + direction.x,
@@ -320,44 +317,41 @@ function FactoryCameraController({
   return null;
 }
 
+function SceneReadiness({ onReady, showFactory }) {
+  const finishedFrames = useRef(0);
+  useFrame(({ scene }) => {
+    if (!scene.getObjectByName("inspection-bus-body")) return;
+    if (showFactory && (!scene.environment || !scene.getObjectByName("hall-floor") ||
+        !scene.getObjectByName("factory-sign-asrlab"))) return;
+    if (++finishedFrames.current === 2) onReady();
+  });
+  return null;
+}
+
 export default function DigitalTwin({ liveStatus }) {
+  const { language } = useLanguage();
+  const tr = language === "tr";
   const [selectedRobot, setSelectedRobot] = useState("gantry1");
   const [jointAngles, setJointAngles] = useState([0, -90, 0, -90, 0, 0]);
-  /*
-   * The engine runs from the moment the page opens. The cell's whole point is
-   * the inspection sequence, and a still machine on first load reads as a
-   * broken one -- the sliders are there for anyone who wants to stop it and
-   * pose the arms by hand.
-   */
-  const [animate, setAnimate] = useState(true);
+  const [sceneReady, setSceneReady] = useState(false);
+  const markSceneReady = useCallback(() => setSceneReady(true), []);
   const [gripperOpen, setGripperOpen] = useState(0.5);
   const [showFactory, setShowFactory] = useState(true);
   const [kawasakiAngles, setKawasakiAngles] = useState([0, 20, -30, 0, 45, 0]);
   const [railPosition, setRailPosition] = useState(1.115); // UR10e's 7th-axis carriage, metres along its rail
   const [agvRailPosition, setAgvRailPosition] = useState(0.530401); // Kawasaki AGV's position along its floor rail
-  // The mobile drawer (below 900px) starts closed so the scene is what a phone
-  // opens on; on desktop the sidebar is a column, not a drawer, and is open.
-  const [panelOpen, setPanelOpen] = useState(
-    () => typeof window === "undefined" || !window.matchMedia("(max-width: 900px)").matches,
-  );
-  // ...and follows the width after load too: a window narrowed to phone size
-  // (or a browser switched to its mobile view) used to keep the drawer open
-  // over the scene, since the width was only read once.
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [manual, setManual] = useState(false);
+  const animate = !panelOpen || !manual;
   useEffect(() => {
-    const mobile = window.matchMedia("(max-width: 900px)");
-    const onChange = (event) => setPanelOpen(!event.matches);
-    mobile.addEventListener("change", onChange);
-    return () => mobile.removeEventListener("change", onChange);
-  }, []);
-  // Desktop-only: collapses the sidebar to zero width so the viewport takes the
-  // full row. Separate from panelOpen, which drives the mobile slide-in drawer.
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    if (!panelOpen) setManual(false);
+  }, [panelOpen]);
   // Otokar MATISSE cell -- manual/demo only, no live telemetry yet. Axes are
   // millimetres of travel for 1-3 and degrees for 4-5; see gantryAxes.js.
   // Both portals share one runway, so they start at different stations along
   // it -- see OTOKAR_ROBOT_HOME.
   const [gantryAxes, setGantryAxes] = useState(OTOKAR_ROBOT_HOME);
-  const [walkingMode, setWalkingMode] = useState(false);
+  const [walkingMode, setWalkingMode] = useState(true);
   const vrSupported = useVRSupported();
   const inVR = useXRSessionActive();
   // The headset shading profile: on the Quest browser from the first frame (so
@@ -382,18 +376,40 @@ export default function DigitalTwin({ liveStatus }) {
   useEffect(() => {
     if (!inVR) setPresenceName("");
   }, [inVR]);
-  // The robot whose details panel is open, if any (RobotInfo.js).
-  const [infoRobot, setInfoRobot] = useState(null);
-  const closeInfo = useCallback(() => setInfoRobot(null), []);
+  const [infoTarget, setInfoTarget] = useState(null);
+  const closeInfo = useCallback(() => setInfoTarget(null), []);
+  const equipmentSelected = equipmentTargets.some(({ id }) => id === infoTarget);
+  const infoRobot = equipmentSelected ? null : infoTarget;
   const infoContext = useMemo(() => ({ animate, liveStatus }), [animate, liveStatus]);
+  const cameraViews = useFactoryCamera();
+  const { stop: releaseCamera } = cameraViews;
   const prepareGuideScene = useCallback(() => {
+    releaseCamera();
     setWalkingMode(false);
     setShowFactory(true);
-    setAnimate(true);
     setPanelOpen(false);
-    setInfoRobot(null);
-  }, []);
+    closeInfo();
+  }, [closeInfo, releaseCamera]);
   const guide = useGuideTour({ inVR, prepareScene: prepareGuideScene });
+  const cameraRequest = guide.request || cameraViews.request;
+
+  const prepareCameraScene = () => {
+    guide.stop();
+    setWalkingMode(false);
+    setShowFactory(true);
+    setPanelOpen(false);
+    closeInfo();
+  };
+
+  const pickTarget = (id) => {
+    if (cameraViews.touring) releaseCamera();
+    setInfoTarget(id);
+  };
+
+  useEffect(() => {
+    if (inVR || !showFactory) releaseCamera();
+  }, [inVR, showFactory, releaseCamera]);
+
   const xrOriginRef = useRef(null);
 
   const liveUrTool = useRef(null);
@@ -442,6 +458,7 @@ export default function DigitalTwin({ liveStatus }) {
 
   const orbitBy = (deltaTheta, deltaPhi) => {
     if (guide.active) guide.stop();
+    if (cameraViews.request) releaseCamera();
     const controls = controlsRef.current;
     if (!controls) return;
     const camera = controls.object;
@@ -473,6 +490,7 @@ export default function DigitalTwin({ liveStatus }) {
    */
   const zoomBy = (factor) => {
     if (guide.active) guide.stop();
+    if (cameraViews.request) releaseCamera();
     const controls = controlsRef.current;
     if (!controls) return;
     const camera = controls.object;
@@ -521,7 +539,6 @@ export default function DigitalTwin({ liveStatus }) {
   const wheelRef = useRef(null);
   const handleViewportMouseDown = (event) => {
     if (event.button !== 0) return;
-    if (event.target.closest(".view-controls, [data-guide-ui], button, a")) return;
     if (guide.active) guide.stop();
     event.preventDefault();
     walkMouseRef.current = {
@@ -532,7 +549,6 @@ export default function DigitalTwin({ liveStatus }) {
   };
 
   const handleViewportWheel = (event) => {
-    if (event.target.closest(".view-controls, [data-guide-ui]")) return;
     event.preventDefault();
     if (walkingMode) {
       walkZoomRef.current?.(event.deltaY);
@@ -549,15 +565,9 @@ export default function DigitalTwin({ liveStatus }) {
    * wheel one is non-passive so it can stop the page scrolling.
    */
   useEffect(() => {
-    // On the window, filtered to the 3D view: the WebGL canvas is not a DOM
-    // descendant of the viewport div, so neither a React handler nor a
-    // listener on that div ever saw a drag that started on the scene.
     const inViewport = (event) => {
       const t = event.target;
-      if (!(t instanceof Element)) return false;
-      // The robot details card scrolls and selects text like any page element.
-      if (t.closest(".view-controls, .sidebar-toggle, .panel-toggle, .robot-info, [data-guide-ui], button, a, input")) return false;
-      return t.tagName === "CANVAS" || Boolean(t.closest(".twin-viewport"));
+      return t instanceof Element && Boolean(t.closest(".twin-render-surface"));
     };
     const down = (event) => { if (inViewport(event)) pointerDownRef.current?.(event); };
     const wheel = (event) => { if (inViewport(event)) wheelRef.current?.(event); };
@@ -597,36 +607,35 @@ export default function DigitalTwin({ liveStatus }) {
   }, [walkingMode]);
 
   useEffect(() => {
-    if (!walkingMode) {
+    if (!walkingMode || inVR) {
       walkKeysRef.current = {};
       return undefined;
     }
 
     const walkKeys = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
     const onKeyDown = (event) => {
-      const tagName = event.target?.tagName?.toLowerCase();
-      if (tagName === "input" || tagName === "textarea" || tagName === "select") {
-        return;
-      }
+      const editing = event.target instanceof Element &&
+        event.target.closest("input, textarea, select, [contenteditable]");
+      if (editing || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
       if (!walkKeys.has(event.code)) return;
       event.preventDefault();
       walkKeysRef.current[event.code] = true;
     };
     const onKeyUp = (event) => {
-      if (walkKeys.has(event.code)) {
-        event.preventDefault();
-        walkKeysRef.current[event.code] = false;
-      }
+      if (walkKeys.has(event.code)) delete walkKeysRef.current[event.code];
     };
+    const clearWalkKeys = () => { walkKeysRef.current = {}; };
 
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", clearWalkKeys);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
-      walkKeysRef.current = {};
+      window.removeEventListener("blur", clearWalkKeys);
+      clearWalkKeys();
     };
-  }, [walkingMode]);
+  }, [walkingMode, inVR]);
 
   useEffect(() => {
     if (!showFactory && walkingMode) setWalkingMode(false);
@@ -654,87 +663,47 @@ export default function DigitalTwin({ liveStatus }) {
 
   return (
     <div className="dt-wrapper">
-      {/* Split layout: sidebar + 3D viewport */}
       <div className="twin-layout">
-        {/* Left sidebar (control panel) */}
-        <div
-          className={`twin-sidebar${panelOpen ? " open" : ""}${
-            sidebarCollapsed ? " collapsed" : ""
-          }`}
-          aria-hidden={sidebarCollapsed}
-        >
-          <ControlPanel
-            selectedRobot={selectedRobot}
-            setSelectedRobot={setSelectedRobot}
-            jointAngles={jointAngles}
-            setJointAngles={setJointAngles}
-            kawasakiAngles={kawasakiAngles}
-            setKawasakiAngles={setKawasakiAngles}
-            railPosition={railPosition}
-            setRailPosition={setRailPosition}
-            agvRailPosition={agvRailPosition}
-            setAgvRailPosition={setAgvRailPosition}
-            animate={animate}
-            setAnimate={setAnimate}
-            gripperOpen={gripperOpen}
-            setGripperOpen={setGripperOpen}
-            showFactory={showFactory}
-            setShowFactory={setShowFactory}
-            gantryAxes={gantryAxes}
-            setGantryAxes={setGantryAxes}
-          />
-        </div>
-
-        {/* Mobile drawer overlay */}
-        {panelOpen && (
-          <div className="drawer-overlay" onClick={() => setPanelOpen(false)} />
-        )}
-
-        {/* Right viewport */}
-        <div
-          className={`twin-viewport${walkingMode ? " walking-mode" : ""}${guide.active ? " guided-view" : ""}`}
-        >
-          <button
-            className="panel-toggle"
-            onClick={() => setPanelOpen((o) => !o)}
-            aria-label="Toggle control panel"
-          >
-            {/* Not "Menu": the navbar's toggle is the page menu on phones. */}
-            Control panel
+        <aside className={`twin-sidebar${panelOpen ? " is-open" : ""}`} aria-label={tr ? "Robot izleme" : "Robot monitoring"}>
+          <button type="button" className="twin-panel-toggle" aria-expanded={panelOpen}
+            aria-controls="twin-control-panel" onClick={() => setPanelOpen((open) => !open)}>
+            <span className="twin-panel-icon"><ViewportIcon name="monitoring" /></span>
+            <span>{tr ? "Robot izleme" : "Robot monitoring"}</span>
+            <span className="twin-panel-chevron"><ViewportIcon name="chevron" /></span>
           </button>
-
-          {/* Desktop collapse handle + sound toggle, grouped so the sound
-              button sits right after the panel toggle regardless of that
-              button's width (it changes with its label text, "Control
-              Panel" vs "Hide Panel" -- a fixed `left` on a second
-              absolutely-positioned button would drift out of place). Both
-              stay reachable once the sidebar is fully closed since they live
-              in the viewport, not the sidebar. */}
-          <div className="viewport-top-left">
-            <button
-              type="button"
-              className="sidebar-toggle"
-              onClick={() => setSidebarCollapsed((c) => !c)}
-              aria-expanded={!sidebarCollapsed}
-              aria-label={
-                sidebarCollapsed ? "Show control panel" : "Hide control panel"
-              }
-              title={
-                sidebarCollapsed ? "Show control panel" : "Hide control panel"
-              }
-            >
-              <span className="sidebar-toggle-arrow">
-                {sidebarCollapsed ? "›" : "‹"}
-              </span>
-              <span className="sidebar-toggle-label">
-                {sidebarCollapsed ? "Control Panel" : "Hide Panel"}
-              </span>
-            </button>
+          <div id="twin-control-panel" className="twin-sidebar-content" hidden={!panelOpen}>
+            {panelOpen && (
+              <ControlPanel
+                onManualChange={setManual}
+                selectedRobot={selectedRobot}
+                setSelectedRobot={setSelectedRobot}
+                jointAngles={jointAngles}
+                setJointAngles={setJointAngles}
+                kawasakiAngles={kawasakiAngles}
+                setKawasakiAngles={setKawasakiAngles}
+                railPosition={railPosition}
+                setRailPosition={setRailPosition}
+                agvRailPosition={agvRailPosition}
+                setAgvRailPosition={setAgvRailPosition}
+                animate={animate}
+                gripperOpen={gripperOpen}
+                setGripperOpen={setGripperOpen}
+                showFactory={showFactory}
+                setShowFactory={setShowFactory}
+                gantryAxes={gantryAxes}
+                setGantryAxes={setGantryAxes}
+              />
+            )}
           </div>
+        </aside>
 
-
+        <div
+          className={`twin-viewport${walkingMode ? " walking-mode" : ""}`}
+        >
+          {!sceneReady && <SceneLoading />}
           <Canvas
-            shadows
+            className="twin-render-surface"
+            shadows={!headsetShading || VR_OPTIONS.shadows !== "off"}
             gl={{
               antialias: true,
               alpha: false,
@@ -742,7 +711,7 @@ export default function DigitalTwin({ liveStatus }) {
               toneMapping: THREE.AgXToneMapping,
               toneMappingExposure: LIGHTING.exposure,
             }}
-            style={{ background: "#dfe8ef" }}
+            style={{ position: "absolute", inset: 0, background: "#253241" }}
             dpr={[1, 1.5]}
             /* The opening view; see OPENING_EYE. */
             camera={{ position: OPENING_EYE, fov: BASE_FOV, near: 0.05, far: 150 }}
@@ -761,7 +730,8 @@ export default function DigitalTwin({ liveStatus }) {
                   interior={showFactory}
                   fogNear={42}
                   fogFar={95}
-                  softShadows={!headsetShading || VR_OPTIONS.shadows === "soft"}
+                  headset={headsetShading}
+                  softShadows={headsetShading && VR_OPTIONS.shadows === "soft"}
                   castShadows={!headsetShading || VR_OPTIONS.shadows !== "off"}
                   realism={realistic}
                 >
@@ -834,17 +804,18 @@ export default function DigitalTwin({ liveStatus }) {
                     robotAxes={gantryAxes}
                     showBus
                     showRails
-                    lodMode={guide.session && !inVR ? "lo" : otokarLod}
+                    lodMode={!inVR && (guide.session || cameraViews.request) ? VR_OPTIONS.lod ?? "lo" : otokarLod}
                     animate={animate}
                     animationSpeed={OTOKAR_DEMO_SPEED}
                   />
                   {/* The cell's work made visible: scan beams, finds, progress. */}
-                  <BodyInspection />
+                  <BodyInspection active={animate} />
                   <OtokarPickPlace jointAngles={jointAngles} kawasakiAngles={kawasakiAngles} railPosition={railPosition} agvRailPosition={agvRailPosition} urToolRef={liveUrTool} kawToolRef={liveKawTool} />
                   {/* Other people on the page, as workers where they stand. */}
                   <Visitors />
                   {/* Click (or point and trigger) a robot for its details. */}
-                  <RobotHitBoxes targets={robotTargets} selected={infoRobot} onSelect={setInfoRobot} />
+                  <RobotHitBoxes targets={robotTargets} onSelect={pickTarget} />
+                  {!inVR && <RobotHitBoxes targets={equipmentTargets} onSelect={pickTarget} />}
                   {inVR && infoRobot && (
                     <RobotInfoPanel3D robotId={infoRobot} context={infoContext} onClose={closeInfo} />
                   )}
@@ -886,13 +857,12 @@ export default function DigitalTwin({ liveStatus }) {
                     A camera outside this Suspense subscribed before them and
                     followed the previous frame's pose after initial loading. */}
                 <GuideCamera
-                  request={guide.request}
-                  paused={Boolean(guide.session?.paused)}
+                  request={cameraRequest}
+                  paused={Boolean(guide.request && guide.session?.paused)}
                   controlsRef={controlsRef}
-                  onArrive={guide.arrive}
+                  onArrive={guide.request ? guide.arrive : cameraViews.arrive}
                   disabled={inVR}
                 />
-                <GuideFocusIndicator request={guide.request} disabled={inVR} />
               </Suspense>
               <OrbitControls
                 ref={controlsRef}
@@ -934,7 +904,7 @@ export default function DigitalTwin({ liveStatus }) {
                 controlsRef={controlsRef}
                 walkingMode={walkingMode}
                 xrActive={inVR}
-                guided={guide.active}
+                guided={Boolean(cameraRequest)}
                 keysRef={walkKeysRef}
                 walkStepRef={walkStepRef}
                 walkLookRef={walkLookRef}
@@ -959,12 +929,14 @@ export default function DigitalTwin({ liveStatus }) {
               {inVR && <VRSoundscape targets={robotTargets} ducked={guide.active && !guide.session?.paused} />}
               {VR_OPTIONS.stats && <VRStatsHud />}
               {realistic && <PostEffects />}
+              {!sceneReady && <SceneReadiness onReady={markSceneReady} showFactory={showFactory} />}
             </XR>
           </Canvas>
 
           {!inVR && infoRobot && (
             <RobotInfoCard robotId={infoRobot} context={infoContext} onClose={closeInfo} />
           )}
+          {!inVR && equipmentSelected && <EquipmentInfoCard equipmentId={infoTarget} onClose={closeInfo} />}
           {/* Who is in VR right now, live, for the people on the web. */}
           <VRRoster />
           {askVRName && (
@@ -980,106 +952,25 @@ export default function DigitalTwin({ liveStatus }) {
             />
           )}
 
-          {/* Manual equivalents of the mouse gestures (rotate / zoom) */}
-          <DigitalGuide guide={guide} inVR={inVR} liveStatus={liveStatus} animate={animate}>
-            <button
-              type="button"
-              className={`walk-toggle${walkingMode ? " active" : ""}`}
-              onClick={() => { guide.stop(); setWalkingMode((enabled) => !enabled); }}
-              aria-pressed={walkingMode}
-              aria-label={walkingMode ? "Exit walking mode" : "Enter walking mode"}
-              title={walkingMode ? "Exit walking mode" : "Enter walking mode"}
-            >
-              {walkingMode ? "Walk mode" : "Walk"}
-            </button>
-            <span className="walk-hint">
-              {walkingMode ? "WASD + drag to look" : "Explore factory"}
-            </span>
-            {/* Only where immersive VR is actually available: a Quest, or
-                localhost with the emulator. Desktop visitors never see it. */}
-            {vrSupported && (
-              <button
-                type="button"
-                className={`walk-toggle vr-toggle${inVR ? " active" : ""}`}
-                onClick={() => {
-                  if (inVR) exitVR();
-                  else setAskVRName(true);
-                }}
-                aria-pressed={inVR}
-                aria-label={inVR ? "Exit VR" : "Enter VR"}
-                title={inVR ? "Exit VR" : "Walk the hall in a VR headset"}
-              >
-                {inVR ? "Exit VR" : "Enter VR"}
-              </button>
-            )}
-            <div className="view-dpad">
-              <button
-                type="button"
-                className="view-btn view-btn-up"
-                onClick={() =>
-                  walkingMode ? moveWalkBy(1, 0) : orbitBy(0, -ROTATE_STEP)
-                }
-                aria-label={walkingMode ? "Move forward" : "Rotate up"}
-                title={walkingMode ? "Move forward" : "Rotate up"}
-              >
-                ▲
-              </button>
-              <button
-                type="button"
-                className="view-btn view-btn-left"
-                onClick={() =>
-                  walkingMode ? moveWalkBy(0, -1) : orbitBy(-ROTATE_STEP, 0)
-                }
-                aria-label={walkingMode ? "Move left" : "Rotate left"}
-                title={walkingMode ? "Move left" : "Rotate left"}
-              >
-                ◀
-              </button>
-              <button
-                type="button"
-                className="view-btn view-btn-right"
-                onClick={() =>
-                  walkingMode ? moveWalkBy(0, 1) : orbitBy(ROTATE_STEP, 0)
-                }
-                aria-label={walkingMode ? "Move right" : "Rotate right"}
-                title={walkingMode ? "Move right" : "Rotate right"}
-              >
-                ▶
-              </button>
-              <button
-                type="button"
-                className="view-btn view-btn-down"
-                onClick={() =>
-                  walkingMode ? moveWalkBy(-1, 0) : orbitBy(0, ROTATE_STEP)
-                }
-                aria-label={walkingMode ? "Move backward" : "Rotate down"}
-                title={walkingMode ? "Move backward" : "Rotate down"}
-              >
-                ▼
-              </button>
-            </div>
-            <div className="view-zoom">
-              <button
-                type="button"
-                className="view-btn"
-                onClick={() => zoomBy(1.25)}
-                disabled={walkingMode}
-                aria-label="Zoom out"
-                title="Zoom out"
-              >
-                −
-              </button>
-              <button
-                type="button"
-                className="view-btn"
-                onClick={() => zoomBy(0.8)}
-                disabled={walkingMode}
-                aria-label="Zoom in"
-                title="Zoom in"
-              >
-                +
-              </button>
-            </div>
+          <DigitalGuide guide={guide} inVR={inVR} liveStatus={liveStatus} animate={animate}
+            onAssistantOpen={() => setPanelOpen(false)}>
+            {(startTour) => <ViewportControls
+              onStartPresentation={startTour}
+              loading={!sceneReady}
+              walking={walkingMode}
+              onToggleWalk={() => { guide.stop(); releaseCamera(); setWalkingMode((enabled) => !enabled); }}
+              onMove={moveWalkBy}
+              onOrbit={(yaw, pitch) => orbitBy(yaw * ROTATE_STEP, pitch * ROTATE_STEP)}
+              onZoom={zoomBy}
+              cameraShot={cameraViews.request?.shot}
+              cameraTouring={cameraViews.touring}
+              onSelectCameraShot={(shot) => { prepareCameraScene(); cameraViews.select(shot); }}
+              onStartCameraTour={() => { prepareCameraScene(); cameraViews.start(); }}
+              onReleaseCamera={releaseCamera}
+              vrSupported={vrSupported}
+              inVR={inVR}
+              onToggleVR={() => { releaseCamera(); if (inVR) exitVR(); else setAskVRName(true); }}
+            />}
           </DigitalGuide>
         </div>
       </div>

@@ -84,7 +84,6 @@
 .guide-camera-mode button { border: 0; border-right: 1px solid #d4e4e6; padding: 5px 9px; background: #fff; color: #3e6572; font-size: .75rem; }
 .guide-camera-mode button:last-child { border-right: 0; }
 .guide-camera-mode button[aria-pressed=true] { background: #d9f2ed; color: #096958; font-weight: 700; }
-.guided-view .view-dpad, .guided-view .view-zoom, .guided-view .walk-hint { display: none; }
 @media (max-width: 650px) {
   .guide-tour { width: calc(100% - 16px); left: 8px; bottom: 8px; max-height: calc(100% - 62px); border-radius: 13px; }
   .guide-tour-heading { padding: 6px 8px 0; gap: 5px; }
@@ -148,3 +147,55 @@
 .guide-camera-mode button[aria-pressed=true] { background: #eaf1fd; color: #2059bb; }
 .guide-avatar.speaking .guide-avatar-ring { animation: guide-status 1.2s ease-in-out infinite alternate; transform-origin: center; }
 @keyframes guide-status { to { opacity: .45; } }
+
+.view-controls .guide-launchers {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: auto;
+  padding-left: 7px;
+  border-left: 1px solid var(--twin-line);
+}
+
+.view-controls .guide-launchers > button {
+  flex: none;
+  padding: 0 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.view-controls .guide-launchers .guide-auto-button {
+  border-color: var(--twin-blue);
+  background: var(--twin-blue);
+  color: #fff;
+}
+
+.view-controls .guide-launchers .guide-auto-button:hover { background: #174fae; }
+.view-controls .guide-chat-button { background: var(--twin-surface); border-color: var(--twin-line); }
+
+.twin-viewport .guide-tour {
+  left: 50%;
+  bottom: var(--twin-overlay-bottom);
+  transform: translateX(-50%);
+  width: min(570px, calc(100% - 2 * var(--twin-gutter)));
+  max-height: calc(100% - var(--twin-panel-top) - var(--twin-overlay-bottom));
+  box-shadow: var(--twin-shadow);
+}
+
+.twin-viewport :is(.guide-panel, .guide-route) {
+  right: var(--twin-gutter);
+  max-height: calc(100% - var(--twin-panel-top) - var(--twin-overlay-bottom));
+  z-index: 24;
+  box-shadow: var(--twin-shadow);
+}
+
+.twin-viewport .guide-panel { bottom: var(--twin-overlay-bottom); }
+.twin-viewport .guide-route { top: var(--twin-panel-top); }
+
+@media (max-width: 640px) {
+  .view-controls .guide-launchers { gap: 4px; padding-left: 4px; }
+  .view-controls .guide-chat-button { width: var(--view-button-size); padding: 0; }
+  .view-controls .guide-chat-button > span { display: none; }
+  .twin-viewport .guide-panel { width: calc(100% - 2 * var(--twin-gutter)); }
+}

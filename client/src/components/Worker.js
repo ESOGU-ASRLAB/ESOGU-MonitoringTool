@@ -6,6 +6,8 @@ import * as THREE from 'three';
 import { limb, solveTwoBone } from './limbIK';
 import TeachPendant from './TeachPendant';
 import { useRealism } from './realismContext';
+import { SURFACE_FINISH } from './scenePalette';
+import ContactShadow from './ContactShadow';
 
 export const WORKER_URL = process.env.PUBLIC_URL + '/assets/worker/walking_female.glb';
 
@@ -42,6 +44,12 @@ export function settleMaterials(scene) {
       material.depthWrite = true;
       material.alphaTest = 0.5;
       material.alphaToCoverage = SOFT_ALPHA_MATERIALS.has(material.name);
+      if (['Topmat', 'Bottommat', 'Hatmat'].includes(material.name)) {
+        material.metalnessMap = null;
+        material.roughnessMap = null;
+        material.metalness = 0;
+        material.roughness = material.name === 'Hatmat' ? SURFACE_FINISH.hardHat : SURFACE_FINISH.fabric;
+      }
       material.needsUpdate = true;
     }
   });
@@ -52,9 +60,9 @@ export function useWorkerShadows(figure) {
   useEffect(() => {
     figure.traverse((part) => {
       // Omit the soft cutout hair cards from the worker's shadow silhouette.
-      if (part.isSkinnedMesh && !SOFT_ALPHA_MATERIALS.has(part.material.name)) {
-        part.castShadow = desktop;
-      }
+      if (!part.isSkinnedMesh) return;
+      part.castShadow = desktop && !SOFT_ALPHA_MATERIALS.has(part.material.name);
+      part.receiveShadow = desktop;
     });
   }, [desktop, figure]);
 }
@@ -192,6 +200,7 @@ function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveR
   }, [scene]);
   useWorkerShadows(clone);
   const groupRef = useRef(null);
+  const footprintRef = useRef(null);
   const { actions } = useAnimations(animations, groupRef);
   const actionRef = useRef(null);
   const pendantRef = useRef(null);
@@ -337,13 +346,26 @@ function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveR
     holdPose(group, chains, p.mode);
   });
 
+  useFrame(() => {
+    const worker = groupRef.current;
+    const footprint = footprintRef.current;
+    if (!worker || !footprint) return;
+    footprint.position.set(worker.position.x, 0, worker.position.z);
+    footprint.rotation.y = worker.rotation.y;
+  });
+
   return (
+    <group>
     <group name={`worker-${seed}`} ref={groupRef}>
       <primitive object={clone} />
       {/* Turn the screen outwards and slightly up so visitors can read it. */}
       <group ref={pendantRef} position={[0, 1.03, 0.32]} rotation={[-0.4, Math.PI, 0]} visible={false}>
         <TeachPendant />
       </group>
+    </group>
+    <group ref={footprintRef}>
+      <ContactShadow position={[0, 0.0065, 0]} size={[0.9, 0.62]} opacity={0.48} />
+    </group>
     </group>
   );
 }

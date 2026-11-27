@@ -6,26 +6,55 @@
  * the model's scale and the renderer's AgX display transform.
  */
 export const LIGHTING = Object.freeze({
-  environment: 0.59,
-  ambient: 0.105,
-  hemisphere: 0.34,
+  environment: 0.48,
+  environmentYaw: 2.38,
+  ambient: 0.026,
+  hemisphere: 0.125,
   key: 1.38,
-  desktopKey: 0.96,
-  fixtureBanks: 1.04,
-  clerestory: 1.95,
+  desktopKey: 1.37,
+  fixtureBanks: 1.13,
+  clerestory: 2.35,
   daylight: 0.38,
-  desktopDaylight: 0.21,
-  exposure: 1,
-  lampEmission: 2.6,
-  windowEmission: 2.85,
+  desktopDaylight: 0.31,
+  exposure: 0.96,
+  lampEmission: 3.05,
+  windowEmission: 3.25,
+  yardEmission: 1.9,
+  doorwayKey: 128,
+  doorwayBounce: 1.6,
+  doorwayHaze: 0.047,
+  clerestoryHaze: 0.035,
+});
+
+export const RENDER_FINISH = Object.freeze({
+  floor: Object.freeze({ minRoughness: 0.38, maxRoughness: 0.85, microNormal: 0.52, reflectionBoost: 2.15, probeIntensity: 1.2 }),
+  contactAO: Object.freeze({ aoRadius: 0.8, distanceFalloff: 0.46, intensity: 2.55 }),
+  bloom: Object.freeze({ luminanceThreshold: 1.15, luminanceSmoothing: 0.15, intensity: 0.3, radius: 0.56, levels: 5 }),
+  contrast: 0.05,
+  vignette: 0.2,
+  bakedOcclusion: 0.46,
+  bakedIndirect: 0.21,
+  shadow: Object.freeze({ desktopSize: 2048, headsetSize: 1024, bias: -0.0003, normalBias: 0.015 }),
 });
 
 export const ARCHITECTURE = Object.freeze({
-  floor: Object.freeze({ color: '#96999a', metalness: 0, roughness: 0.76 }),
-  roof: Object.freeze({ color: '#b1babd', metalness: 0, roughness: 0.76 }),
+  floor: Object.freeze({ color: '#96999a', metalness: 0, roughness: 0.85 }),
+  roof: Object.freeze({ color: '#a3a9aa', metalness: 0.04, roughness: 0.68 }),
   wall: Object.freeze({ color: '#e2e3e3', metalness: 0, roughness: 0.79 }),
-  steel: Object.freeze({ color: '#5a5e61', metalness: 0.04, roughness: 0.68 }),
+  steel: Object.freeze({ color: '#505558', metalness: 0.12, roughness: 0.58 }),
   details: Object.freeze({ color: '#81878a', metalness: 0, roughness: 0.73 }),
+});
+
+export const SURFACE_FINISH = Object.freeze({
+  robotCoat: Object.freeze({ clearcoat: 0.22, clearcoatRoughness: 0.37 }),
+  displayGlass: Object.freeze({ roughness: 0.17, clearcoat: 0.5, clearcoatRoughness: 0.17, specularIntensity: 0.45 }),
+  displayEmission: 0.98,
+  signEmission: 0.58,
+  fabric: 0.92,
+  hardHat: 0.39,
+  busGlassReflection: 1.8,
+  busPaint: Object.freeze({ clearcoat: 0.65, clearcoatRoughness: 0.22 }),
+  stampedPanel: Object.freeze({ color: '#d8dce0', metalness: 0.2, roughness: 0.42, clearcoat: 0.25, clearcoatRoughness: 0.3 }),
 });
 
 export const PAINT = Object.freeze({
@@ -54,10 +83,10 @@ export const ROBOT_LIVERY = Object.freeze({
 });
 
 export const METAL = Object.freeze({
-  aluminium: Object.freeze({ color: '#788082', metalness: 0.85, roughness: 0.45 }),
+  aluminium: Object.freeze({ color: '#83898b', metalness: 0.83, roughness: 0.48 }),
   machined: Object.freeze({ color: '#969b9d', metalness: 0.9, roughness: 0.28 }),
   galvanised: Object.freeze({ color: '#606665', metalness: 0.8, roughness: 0.6 }),
-  worn: Object.freeze({ color: '#424847', metalness: 0.75, roughness: 0.54 }),
+  worn: Object.freeze({ color: '#454c50', metalness: 0.82, roughness: 0.52 }),
 });
 
 export const POLYMER = Object.freeze({
@@ -84,15 +113,15 @@ export const BUS_LIVERY = Object.freeze({
 });
 
 export const MARKING = Object.freeze({
-  bay: Object.freeze({ color: '#cea94b', metalness: 0, roughness: 0.9 }),
+  bay: Object.freeze({ color: '#cea94b', metalness: 0, roughness: 0.59 }),
 });
 
 export const ROOM = Object.freeze({
   background: '#c8c9c6',
   fog: '#c8c9c6',
   ambient: '#f5f4ef',
-  lamp: '#fffbf5',
-  daylight: '#edf3fa',
+  lamp: '#fff3e2',
+  daylight: '#e4efff',
   skyBounce: '#f0f2f3',
   groundBounce: '#a3a39e',
 });

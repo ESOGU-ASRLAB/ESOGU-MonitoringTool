@@ -7,6 +7,7 @@ import { SHOWCASE_ITEMS } from './equipmentShowcase';
 const CELL_NAMES = { pickPlace: 'cell-pickPlace', pickPlaceRear: 'cell-pickPlace', ur10e: 'cell-pickPlace', rail: 'cell-pickPlace', conveyor: 'cell-pickPlace', kawasaki: 'cell-pickPlace', training: 'cell-pickPlace', screwdriving: 'cell-screwdriving', screwdrivingRear: 'cell-screwdriving', inspection: 'cell-inspection', inspectionRear: 'cell-inspection', door: 'cell-door', doorRear: 'cell-door' };
 CELL_NAMES.monitoring = 'cell-monitoring';
 CELL_NAMES.monitoringRear = 'cell-monitoring';
+CELL_NAMES.wallSigns = 'factory-sign-asrlab';
 const UP = new THREE.Vector3(0, 1, 0);
 
 export default function GuideCamera({ request, paused, controlsRef, onArrive, disabled }) {
@@ -21,11 +22,12 @@ export default function GuideCamera({ request, paused, controlsRef, onArrive, di
     if (!controls) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const detail = GUIDE_DETAILS[request.shot];
+    const workspace = Boolean(request.workspace);
     flight.current = {
-      serial: request.serial, shot: request.shot, detail, elapsed: 0, arrived: false, reduced, tourTime: 0,
+      serial: request.serial, shot: request.shot, workspace, detail, elapsed: 0, arrived: false, reduced, tourTime: 0,
       from: camera.position.clone(), fromTarget: controls.target.clone(), fromFov: camera.fov,
       aspect: size.width / Math.max(1, size.height),
-      captionFraction: Math.min(.32, 180 / Math.max(1, size.height)),
+      captionFraction: Math.min(.32, (workspace ? 65 : 180) / Math.max(1, size.height)),
       box: new THREE.Box3(), to: new THREE.Vector3(), target: new THREE.Vector3(),
     };
     // Flush the old orbit damping before taking control of the camera.
@@ -38,7 +40,7 @@ export default function GuideCamera({ request, paused, controlsRef, onArrive, di
     const updateCaption = () => {
       const move = flight.current;
       const canvas = controls.domElement;
-      const nextPanel = document.querySelector('.guide-tour');
+      const nextPanel = document.querySelector(workspace ? '.view-controls' : '.guide-tour');
       if (nextPanel !== panel) {
         if (panel) observer?.unobserve(panel);
         panel = nextPanel;
@@ -50,7 +52,7 @@ export default function GuideCamera({ request, paused, controlsRef, onArrive, di
       move.captionFraction = Math.min(.74, covered / Math.max(1, size.height) + .025);
     };
     updateCaption();
-    const guideUI = document.querySelector('.digital-guide');
+    const guideUI = !workspace && document.querySelector('.digital-guide');
     const mutations = guideUI && typeof MutationObserver !== 'undefined' ? new MutationObserver(updateCaption) : null;
     mutations?.observe(guideUI, { childList: true, subtree: true });
     return () => { observer?.disconnect(); mutations?.disconnect(); controls.enableDamping = true; };
@@ -79,19 +81,24 @@ export default function GuideCamera({ request, paused, controlsRef, onArrive, di
       ready = true;
     } else {
       const spec = GUIDE_SHOTS[move.shot] || GUIDE_SHOTS.overview;
-      if (!move.basePose) move.basePose = chooseGuideShot(move.shot, move.aspect, camera.position.toArray(), move.captionFraction);
-      let eye = move.basePose.eye;
+      if (!move.basePose || move.baseCaptionFraction !== move.captionFraction) {
+        move.basePose = chooseGuideShot(move.shot, move.aspect, camera.position.toArray(), move.captionFraction);
+        move.baseCaptionFraction = move.captionFraction;
+      }
+      move.pose = move.basePose;
       if (move.arrived && spec.orbit && !move.reduced) {
         const centre = new THREE.Vector3(...spec.center);
-        eye = new THREE.Vector3(...eye).sub(centre).applyAxisAngle(UP, Math.sin(move.tourTime * .14) * spec.orbit).add(centre).toArray();
+        const eye = new THREE.Vector3(...move.basePose.eye).sub(centre).applyAxisAngle(UP, Math.sin(move.tourTime * .14) * spec.orbit).add(centre).toArray();
         eye[0] = THREE.MathUtils.clamp(eye[0], -15.3, 15.3); eye[2] = THREE.MathUtils.clamp(eye[2], -23.5, 23.5);
+        move.pose = frameGuideAtEye(spec, eye, move.aspect, move.captionFraction);
       }
-      move.pose = frameGuideAtEye(spec, eye, move.aspect, move.captionFraction);
       move.to.fromArray(move.pose.eye); move.target.fromArray(move.pose.target);
-      const names = move.shot === 'equipment' ? SHOWCASE_ITEMS.map((item) => item.anchor) : ['busInspection', 'busInspectionRear', 'underbody', 'roof', 'overview'].includes(move.shot)
-        ? ['robot1-cad-frame', 'robot2-cad-frame', 'inspection-bus-body', 'cell-pickPlace']
-        : [CELL_NAMES[move.shot] || 'cell-pickPlace'];
-      ready = names.every((name) => visibleInScene(scene.getObjectByName(name), scene));
+      if (!move.arrived) {
+        const names = move.shot === 'equipment' ? SHOWCASE_ITEMS.map((item) => item.anchor) : ['busInspection', 'busInspectionRear', 'underbody', 'roof', 'overview'].includes(move.shot)
+          ? ['robot1-cad-frame', 'robot2-cad-frame', 'inspection-bus-body', 'cell-pickPlace']
+          : [CELL_NAMES[move.shot] || 'cell-pickPlace'];
+        ready = names.every((name) => visibleInScene(scene.getObjectByName(name), scene));
+      }
     }
     if (move.arrived) {
       // Move the virtual camera rig with the part in the same frame. A
@@ -102,9 +109,10 @@ export default function GuideCamera({ request, paused, controlsRef, onArrive, di
       camera.fov = move.pose.fov;
     } else {
       if (!move.plan) {
-        const context = move.detail?.exhibit ? chooseGuideShot('equipment', move.aspect, move.from.toArray(), move.captionFraction) : null;
+        const contextId = move.detail?.exhibit ? 'equipment' : move.workspace ? move.detail?.context : null;
+        const context = contextId ? chooseGuideShot(contextId, move.aspect, move.from.toArray(), move.captionFraction) : null;
         move.plan = createGuideTransition(move.from.toArray(), move.fromTarget.toArray(), move.fromFov, move.pose, context);
-        move.duration = move.reduced ? .01 : move.plan.duration;
+        move.duration = move.reduced ? .01 : move.plan.duration * (move.workspace ? .85 : 1);
       }
       move.elapsed += dt;
       const t = Math.min(1, move.elapsed / move.duration);

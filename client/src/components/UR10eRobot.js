@@ -2,7 +2,7 @@ import React, { useRef, useMemo, Suspense } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import * as THREE from 'three';
-import { PAINT, ACCENT, METAL } from './scenePalette';
+import { PAINT, ACCENT, METAL, SURFACE_FINISH } from './scenePalette';
 import { publishTelemetry } from './robotTelemetry';
 import { useRealism } from './realismContext';
 
@@ -61,7 +61,7 @@ function STLMesh({ url, position = [0, 0, 0], rotation = [0, 0, 0], scale = MESH
       {realistic && material.metalness < 0.2
         // Realistic: robot enamel is semi-gloss -- a clear coat that catches
         // the hall's lamps along each link. Bare metal keeps its own finish.
-        ? <meshPhysicalMaterial color={material.color} metalness={material.metalness} roughness={material.roughness} clearcoat={0.3} clearcoatRoughness={0.3} side={THREE.DoubleSide} />
+        ? <meshPhysicalMaterial {...material} {...SURFACE_FINISH.robotCoat} side={THREE.DoubleSide} />
         : <meshStandardMaterial color={material.color} metalness={material.metalness} roughness={material.roughness} side={THREE.DoubleSide} />}
     </mesh>
   );

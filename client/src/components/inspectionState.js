@@ -7,7 +7,7 @@
  * the monitor repaints its canvas twice a second.
  */
 export const inspection = {
-  status: 'SCANNING', // 'SCANNING' | 'COMPLETE' | 'IDLE'
+  status: 'IDLE', // 'SCANNING' | 'COMPLETE' | 'IDLE'
   progress: 0, // 0..1 of the body's length covered by either camera
   defects: 0,
   cycle: 1, // body number, counting completed inspections

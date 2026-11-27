@@ -1,5 +1,12 @@
 import * as THREE from 'three';
 import { FORKLIFT_AISLE } from './cellLayout';
+import { RENDER_FINISH } from './scenePalette';
+
+const { minRoughness, maxRoughness, reflectionBoost } = RENDER_FINISH.floor;
+const reflectionChunk = THREE.ShaderChunk.lights_fragment_maps.replace(
+  'radiance += getIBLRadiance( geometryViewDir, geometryNormal, material.roughness );',
+  `radiance += ${reflectionBoost.toFixed(3)} * getIBLRadiance( geometryViewDir, geometryNormal, material.roughness );`,
+);
 
 export const HALL_FLOOR = { width: 32.54, length: 49.16, baysX: 6, baysZ: 8 };
 
@@ -52,7 +59,7 @@ export function createHallFloorFinish() {
 
       data[index] = Math.round(255 * (0.72 + 0.28 * wallFalloff));
       data[index + 1] = Math.round(255 * (0.28 + 0.10 * pour + 0.52 * mottling - 0.16 * tireWear));
-      data[index + 2] = Math.round(255 * (0.7 + 0.3 * mottling - 0.48 * tireWear));
+      data[index + 2] = Math.round(255 * (0.72 + 0.24 * mottling - 0.29 * tireWear));
       data[index + 3] = 255;
     }
   }
@@ -67,11 +74,39 @@ export function createHallFloorFinish() {
   return texture;
 }
 
+export function createConcreteNormalMap(surface) {
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const context = canvas.getContext('2d');
+  context.drawImage(surface.image, 0, 0, size, size);
+  const height = context.getImageData(0, 0, size, size).data;
+  const normal = context.createImageData(size, size);
+  const sample = (x, y) => height[4 * ((y & (size - 1)) * size + (x & (size - 1)))];
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const i = 4 * (y * size + x);
+      const nx = (sample(x - 1, y) - sample(x + 1, y)) / 104;
+      const ny = (sample(x, y + 1) - sample(x, y - 1)) / 104;
+      const scale = 127 / Math.hypot(nx, ny, 1);
+      normal.data[i] = 128 + nx * scale;
+      normal.data[i + 1] = 128 + ny * scale;
+      normal.data[i + 2] = 128 + scale;
+      normal.data[i + 3] = 255;
+    }
+  }
+  context.putImageData(normal, 0, 0);
+  return new THREE.CanvasTexture(canvas);
+}
+
 export function applyHallFloorFinish(shader) {
   shader.fragmentShader = shader.fragmentShader
     .replace('#include <map_fragment>', `#include <map_fragment>
       vec2 slabFinish = texture2D(aoMap, vAoMapUv).gb;
-      diffuseColor.rgb = mix(diffuse, diffuseColor.rgb, 0.46) * mix(0.86, 1.10, slabFinish.x);`)
+      diffuseColor.rgb = mix(diffuse, diffuseColor.rgb, 0.58) * mix(0.84, 1.10, slabFinish.x);`)
     .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-      roughnessFactor *= mix(0.86, 1.0, slabFinish.y);`);
+      // The tiled green channel includes the matte concrete joints.
+      roughnessFactor = clamp(mix(roughnessFactor * 0.90, roughness, 0.32)
+        + (slabFinish.y - 0.82) * 0.83, ${minRoughness}, ${maxRoughness});`)
+    .replace('#include <lights_fragment_maps>', reflectionChunk);
 }

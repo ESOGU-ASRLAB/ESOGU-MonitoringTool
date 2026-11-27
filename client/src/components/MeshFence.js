@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ACCENT } from './scenePalette';
 
@@ -40,7 +41,7 @@ const upright = new THREE.MeshStandardMaterial({ name: 'guard-upright', ...ACCEN
 const frame = { color: '#24292b', metalness: 0.03, roughness: 0.56 };
 const crossbar = new THREE.MeshStandardMaterial({ name: 'guard-crossbar', ...frame });
 
-function wireMaterial() {
+function wireMaterial(anisotropy) {
   const size = 256;
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -55,14 +56,27 @@ function wireMaterial() {
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(MESH_W / TILE, MESH_H / TILE);
-  texture.anisotropy = 8;
+  texture.anisotropy = anisotropy;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.colorSpace = THREE.SRGBColorSpace;
   // Drawn after the solid scene and kept out of the depth buffer, so the
   // contact shadows (N8AO) work on the posts and on what is behind the mesh.
-  return new THREE.MeshStandardMaterial({
+  const material = new THREE.MeshStandardMaterial({
     ...frame, map: texture,
-    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true,
+    alphaTest: 0.058, alphaToCoverage: true,
   });
+  material.onBeforeCompile = (shader) => {
+    // Mipmapped wire alpha represents area coverage. Preserve it instead of
+    // remapping it to solid panels with the standard alpha-test smoothstep.
+    shader.fragmentShader = shader.fragmentShader.replace('#include <alphatest_fragment>', `
+      if (diffuseColor.a < alphaTest) discard;
+      #ifdef ALPHA_TO_COVERAGE
+        diffuseColor.a = sqrt(diffuseColor.a);
+      #endif
+    `);
+  };
+  return material;
 }
 let wires = null;
 
@@ -71,7 +85,11 @@ const railGeometry = new THREE.BoxGeometry(MESH_W, RAIL, RAIL);
 const meshGeometry = new THREE.PlaneGeometry(MESH_W, MESH_H);
 
 export default function MeshFencePanel({ bounds, position = [0, 0, 0], rotation = [0, 0, 0] }) {
-  if (!wires) wires = wireMaterial();
+  const gl = useThree((state) => state.gl);
+  const material = useMemo(() => {
+    wires ??= wireMaterial(gl.capabilities.getMaxAnisotropy());
+    return wires;
+  }, [gl]);
   const [[x0, y0], [x1, y1]] = bounds.map((corner) => corner.map((mm) => mm / 1000));
   const alongX = x1 - x0 > y1 - y0;
   return (
@@ -83,7 +101,7 @@ export default function MeshFencePanel({ bounds, position = [0, 0, 0], rotation 
         {[HEIGHT - RAIL / 2, GAP - RAIL / 2].map((z) => (
           <mesh key={z} geometry={railGeometry} material={crossbar} position={[0, 0, z]} castShadow receiveShadow />
         ))}
-        <mesh geometry={meshGeometry} material={wires} position={[0, 0, GAP + MESH_H / 2]} rotation={[Math.PI / 2, 0, 0]} />
+        <mesh geometry={meshGeometry} material={material} position={[0, 0, GAP + MESH_H / 2]} rotation={[Math.PI / 2, 0, 0]} />
       </group>
     </group>
   );

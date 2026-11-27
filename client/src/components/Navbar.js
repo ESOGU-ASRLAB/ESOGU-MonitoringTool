@@ -4,9 +4,9 @@ import { useLanguage } from '../LanguageContext';
 
 const LOGO_BASE = `${process.env.PUBLIC_URL}/assets/logo/`;
 
-// Below this width the links, partner marks and clock fold into the menu
-// panel behind the toggle. Keep in step with the 1280px queries in Navbar.css.
+// Keep these in step with the compact layouts in Navbar.css.
 const COMPACT_QUERY = '(max-width: 1280px)';
+const WORKSPACE_COMPACT_QUERY = '(max-width: 1050px)';
 
 /*
  * Pages are chosen by path (App.js), and every link is a full page load, so the
@@ -90,7 +90,7 @@ function MenuIcon({ open }) {
   );
 }
 
-export default function Navbar({ liveStatus }) {
+export default function Navbar({ liveStatus, workspace = false }) {
   const { language, setLanguage } = useLanguage();
   const tr = language === 'tr';
   const statusLabel = liveStatus === 'live' ? (tr ? 'Canlı' : 'Live') : liveStatus === 'offline' ? (tr ? 'Çevrimdışı' : 'Offline') : (tr ? 'Bağlanıyor' : 'Connecting');
@@ -108,7 +108,7 @@ export default function Navbar({ liveStatus }) {
       setMenuOpen(false);
       toggleRef.current?.focus();
     };
-    const compact = window.matchMedia(COMPACT_QUERY);
+    const compact = window.matchMedia(workspace ? WORKSPACE_COMPACT_QUERY : COMPACT_QUERY);
     const onChange = (event) => {
       if (!event.matches) setMenuOpen(false);
     };
@@ -118,18 +118,19 @@ export default function Navbar({ liveStatus }) {
       window.removeEventListener('keydown', onKey);
       compact.removeEventListener('change', onChange);
     };
-  }, [menuOpen]);
+  }, [menuOpen, workspace]);
 
   return (
-    <header className="navbar" lang={language}>
-      <div className="navbar-brand">
-        <a className="navbar-brand-logo" href="https://matisse-kdt.eu/" target="_blank" rel="noopener noreferrer" title="MATISSE">
-          <img src={LOGO_BASE + 'logo.svg'} alt="MATISSE" />
-        </a>
-        <span className="navbar-product">{tr ? 'İzleme Aracı' : 'Monitoring Tool'}</span>
+    <header className={workspace ? 'navbar navbar--workspace' : 'navbar'} lang={language}>
+      <div className="navbar-identity">
+        <div className="navbar-brand">
+          <a className="navbar-brand-logo" href="https://matisse-kdt.eu/" target="_blank" rel="noopener noreferrer" title="MATISSE">
+            <img src={LOGO_BASE + 'logo.svg'} alt="MATISSE" />
+          </a>
+          <span className="navbar-product">{tr ? 'İzleme Aracı' : 'Monitoring Tool'}</span>
+        </div>
+        <PartnerMarks className="navbar-partners" />
       </div>
-
-      <PartnerMarks className="navbar-partners" />
 
       <nav className="navbar-nav" aria-label={tr ? 'Ana gezinme' : 'Main'}>
         {NAV_LINKS.map((link) => (

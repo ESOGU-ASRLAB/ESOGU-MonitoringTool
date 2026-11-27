@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { METAL } from './scenePalette';
+import { METAL, SURFACE_FINISH } from './scenePalette';
+import { useRealism } from './realismContext';
 import { inspection, ifarlab } from './inspectionState';
 import { runWhileVisible } from './pageActivity';
 
@@ -92,6 +93,7 @@ function drawCounters(ctx) {
 }
 
 function WorkcellDisplay({ page, centre }) {
+  const desktop = useRealism();
   const { canvas, texture } = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = PX_W;
@@ -128,8 +130,11 @@ function WorkcellDisplay({ page, centre }) {
       </mesh>
       <mesh position={[0, 0, DEPTH / 2 + 0.006]}>
         <planeGeometry args={[WIDTH, HEIGHT]} />
-        <meshStandardMaterial color="#08111b" roughness={0.58} metalness={0}
-          emissive="#ffffff" emissiveMap={texture} emissiveIntensity={1.18} />
+        {desktop
+          ? <meshPhysicalMaterial {...SURFACE_FINISH.displayGlass} color="#08111b"
+              emissive="#ffffff" emissiveMap={texture} emissiveIntensity={SURFACE_FINISH.displayEmission} />
+          : <meshStandardMaterial color="#08111b" roughness={0.58}
+              emissive="#ffffff" emissiveMap={texture} emissiveIntensity={SURFACE_FINISH.displayEmission} />}
       </mesh>
       {[-0.9, 0.9].map((x) => (
         <mesh key={x} position={[x, 0.03, -0.2]}>

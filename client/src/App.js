@@ -6,6 +6,7 @@ import { useTelemetryStream } from './components/telemetryStream';
 import Documentation from './pages/Documentation';
 import VRIntegration from './pages/VRIntegration';
 import { LanguageProvider } from './LanguageContext';
+import SceneLoading from './components/SceneLoading';
 
 /*
  * A lazy page that heals a poisoned chunk.
@@ -82,11 +83,11 @@ export default function App() {
 
   return (
     <LanguageProvider>
-    <div className="app-shell">
-      <Navbar liveStatus={liveStatus} />
+    <div className={onGuide ? "app-shell" : "app-shell app-shell--workspace"}>
+      <Navbar liveStatus={liveStatus} workspace={!onGuide} />
       <main className="app-main">
         {isDocs() ? <Documentation /> : isVR() ? <VRIntegration /> : (
-          <Suspense fallback={null}>
+          <Suspense fallback={<SceneLoading />}>
             <DigitalTwin liveStatus={liveStatus} />
           </Suspense>
         )}

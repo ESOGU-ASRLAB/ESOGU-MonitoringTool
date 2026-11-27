@@ -1,270 +1,242 @@
-.dt-wrapper {
-  display: flex;
-  flex-direction: column;
+﻿.dt-wrapper,
+.twin-layout {
+  position: relative;
   height: 100%;
 }
 
-.twin-layout {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  position: relative;
-}
-
-.twin-sidebar {
-  flex: 0 0 280px;
-  width: 280px;
-  border-right: 1px solid rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-}
-
 .twin-viewport {
-  flex: 1 1 auto;
-  min-width: 0;
-  position: relative;
-  /* Drags orbit the view (touch included), so the browser must not pan. */
+  position: absolute;
+  inset: 0;
+}
+
+.twin-render-surface {
   touch-action: none;
   cursor: grab;
 }
 
-.twin-viewport.walking-mode {
-  cursor: grab;
-  user-select: none;
-}
-
-.twin-viewport.walking-mode:active {
+.twin-render-surface:active {
   cursor: grabbing;
 }
 
-.twin-viewport canvas {
+.walking-mode .twin-render-surface {
+  user-select: none;
+}
+
+.twin-render-surface canvas {
   display: block;
   width: 100% !important;
   height: 100% !important;
 }
 
-.panel-toggle {
-  display: none;
+.twin-sidebar {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 10;
-  padding: 8px 14px;
-  border: none;
-  border-radius: 8px;
-  background: rgba(29, 29, 31, 0.85);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-}
-
-.drawer-overlay {
-  display: none;
-}
-
-/* Groups the panel toggle and sound toggle at the viewport's top-left,
-   hidden below 900px (mobile uses .panel-toggle for the drawer instead --
-   see the mobile media query below, which now hides this whole group). */
-.viewport-top-left {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Desktop collapse handle. Styled to match .view-btn on the opposite corner. */
-.sidebar-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid #0e0d0d;
-  border-radius: 6px;
-  background: #ffffff;
-  backdrop-filter: blur(10px);
-  color: #000000;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.sidebar-toggle:hover {
-  background: #000000;
-  color: #ffffff;
-}
-
-.sidebar-toggle-arrow {
-  font-size: 16px;
-}
-
-/* The collapse is desktop-only: below 900px .twin-sidebar is a fixed-position
-   drawer driven by transform, and a width override here would fight it. */
-@media (min-width: 901px) {
-  .twin-sidebar {
-    transition: flex-basis 0.25s ease, width 0.25s ease;
-  }
-
-  .twin-sidebar.collapsed {
-    flex-basis: 0;
-    width: 0;
-    /* width alone still leaves the 1px right border occupying the row */
-    border-right-width: 0;
-  }
-}
-
-/* View controls and guide actions share one toolbar. */
-.view-controls {
-  --view-button-size: 32px;
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 10;
+  z-index: 20;
+  top: var(--twin-panel-top);
+  left: var(--twin-gutter);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 8px;
-  width: min(170px, calc(100% - 24px));
-  max-height: calc(100% - 24px);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  touch-action: pan-y;
-  background: rgba(255, 255, 255, 0.85);
-  border-radius: 10px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  width: max-content;
+  max-width: calc(100% - 2 * var(--twin-gutter));
+  max-height: calc(100% - var(--twin-panel-top) - var(--twin-overlay-bottom));
+  overflow: hidden;
+  border: 1px solid var(--twin-line);
+  border-radius: 12px;
+  background: var(--twin-glass);
+  color: var(--twin-ink);
+  box-shadow: var(--twin-shadow);
 }
 
-.view-controls > * { flex-shrink: 0; }
+.twin-sidebar.is-open { width: 276px; }
 
-.walk-toggle {
+.twin-panel-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   width: 100%;
-  min-height: var(--view-button-size);
-  border: 1px solid #1e3a5f;
-  border-radius: 6px;
-  background: #eef5fb;
-  color: #1e3a5f;
-  font-size: 12px;
+  min-height: 44px;
+  padding: 7px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
 
-.walk-toggle:hover,
-.walk-toggle.active {
-  background: #1e3a5f;
-  color: #ffffff;
-}
+.twin-panel-toggle:hover { background: var(--twin-tint); }
 
-.walk-hint {
-  color: #475569;
-  font-size: 10px;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.view-dpad {
+.twin-panel-icon {
   display: grid;
-  width: 100%;
-  grid-template-columns: 1fr var(--view-button-size) 1fr;
-  grid-template-rows: repeat(3, var(--view-button-size));
-  grid-template-areas:
-    '.    up    .'
-    'left .     right'
-    '.    down  .';
-  gap: 2px;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border-radius: 7px;
+  background: var(--twin-tint);
+  color: var(--twin-blue);
 }
 
-.view-btn-up { grid-area: up; }
-.view-btn-left { grid-area: left; }
-.view-btn-right { grid-area: right; justify-self: end; }
-.view-btn-down { grid-area: down; }
+.twin-panel-chevron { display: flex; margin-left: auto; color: var(--twin-muted); }
+.twin-panel-toggle[aria-expanded='true'] .twin-panel-chevron { transform: rotate(180deg); }
+.twin-sidebar-content { display: flex; min-height: 0; }
+.twin-sidebar-content[hidden] { display: none; }
 
-.view-zoom {
-  display: flex;
-  gap: 4px;
-  width: 100%;
-}
+.view-controls {
+  --view-button-size: 40px;
 
-.view-zoom .view-btn {
-  flex: 1;
-}
-
-.view-btn {
+  position: absolute;
+  z-index: 28;
+  left: 50%;
+  bottom: var(--twin-dock-bottom);
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
+  gap: 7px;
+  width: max-content;
+  max-width: calc(100% - 2 * var(--twin-gutter));
+  min-height: 54px;
+  padding: 6px;
+  border: 1px solid var(--twin-line);
+  border-radius: 13px;
+  background: var(--twin-glass);
+  color: var(--twin-ink);
+  box-shadow: var(--twin-shadow);
+}
+
+.view-primary {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.view-action {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  width: var(--view-button-size);
-  height: var(--view-button-size);
-  border: 1px solid #000000;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #000000;
-  font-size: 12px;
-  line-height: 1;
-  padding: 0;
+  gap: 6px;
+  min-height: var(--view-button-size);
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--twin-ink);
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.view-btn:hover {
-  background: #000000;
-  color: #ffffff;
+.view-action svg { flex: none; }
+.view-action:hover:not(:disabled) { background: var(--twin-tint); }
+.view-action:is([aria-pressed='true'], [aria-expanded='true'], .is-tracking) {
+  background: var(--twin-tint);
+  color: var(--twin-blue);
 }
 
-.view-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.view-action:disabled { opacity: 0.42; cursor: default; }
+
+.view-run {
+  border-color: var(--twin-line);
+  background: var(--twin-surface);
 }
 
-.view-btn:disabled:hover {
-  background: #ffffff;
-  color: #000000;
+.view-camera-panel {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  transform: translateX(-50%);
+  width: min(339px, calc(100vw - 2 * var(--twin-gutter)));
+  max-height: calc(100dvh - var(--twin-panel-top) - var(--twin-dock-bottom) - 64px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 9px;
+  border: 1px solid var(--twin-line);
+  border-radius: 12px;
+  background: var(--twin-glass);
+  box-shadow: var(--twin-shadow);
 }
 
-@media (max-width: 650px) {
-  .view-controls { width: min(136px, calc(100% - 24px)); }
+.view-camera-panel[hidden] { display: none; }
+
+.view-camera-actions,
+.view-camera-angles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
 }
 
-/* ---- Mobile: sidebar becomes a slide-in drawer ---- */
-@media (max-width: 900px) {
-  .twin-sidebar {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: min(82vw, 320px);
-    flex: none;
-    transform: translateX(-100%);
-    transition: transform 0.25s ease;
-    background: #fff;
-    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
-    z-index: 30;
-  }
+.view-camera-panel .view-action {
+  border-color: var(--twin-line);
+  white-space: normal;
+  line-height: 1.2;
+}
 
-  .twin-sidebar.open {
-    transform: translateX(0);
-  }
+.view-camera-actions .view-camera-tour {
+  flex: 1;
+  background: var(--twin-tint);
+  color: var(--twin-blue);
+}
 
-  .panel-toggle {
-    display: block;
-  }
+.view-camera-areas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  margin: 9px 0 7px;
+}
 
-  .viewport-top-left {
-    display: none;
-  }
+.view-camera-areas button { justify-content: flex-start; text-align: left; }
+.view-camera-angles button { flex: 1 0 auto; font-size: 12px; padding-inline: 8px; }
 
-  .drawer-overlay {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    z-index: 20;
+.view-manual-camera {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--twin-line);
+}
+
+.view-manual-camera button { padding: 0; }
+.view-camera-vr { width: 100%; margin-top: 7px; }
+
+.view-walk-hint {
+  margin: 7px 0 0;
+  color: var(--twin-muted);
+  text-align: center;
+  font-size: 11px;
+}
+
+.twin-layout :is(.twin-panel-toggle, .view-action):focus-visible {
+  outline: 2px solid var(--twin-blue);
+  outline-offset: -2px;
+}
+
+.twin-viewport .robot-info {
+  right: var(--twin-gutter);
+  bottom: var(--twin-overlay-bottom);
+  max-height: calc(100% - var(--twin-panel-top) - var(--twin-overlay-bottom));
+}
+
+.twin-viewport .vr-roster {
+  inset: var(--twin-panel-top) var(--twin-gutter) auto auto;
+  max-width: min(240px, calc(100% - 2 * var(--twin-gutter)));
+  max-height: calc(100% - var(--twin-panel-top) - var(--twin-overlay-bottom));
+  overflow-y: auto;
+}
+
+@media (max-width: 640px) {
+  .view-controls { --view-button-size: 42px; gap: 4px; }
+  .view-primary { gap: 3px; }
+  .view-primary > .view-action,
+  .view-camera > .view-action { width: var(--view-button-size); padding: 0; }
+  .view-primary > .view-action > span,
+  .view-camera > .view-action > span { display: none; }
+  .view-primary > .view-walk { width: auto; padding-inline: 5px; }
+  .view-primary > .view-walk > span { display: inline; }
+  .twin-viewport .robot-info { left: var(--twin-gutter); }
+  .twin-viewport .vr-roster {
+    top: auto;
+    bottom: var(--twin-overlay-bottom);
+    max-height: 30%;
   }
 }

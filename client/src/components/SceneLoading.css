@@ -1,0 +1,27 @@
+.scene-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #202a36;
+  color: #f1f5fa;
+  font: 600 14px/1.4 system-ui, sans-serif;
+}
+
+.scene-loading-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #637389;
+  border-top-color: #afceff;
+  border-radius: 50%;
+  animation: spin-scene-loader 0.8s linear infinite;
+}
+
+@keyframes spin-scene-loader { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-loading-spinner { animation: none; }
+}

@@ -2,6 +2,7 @@ import React, { useLayoutEffect } from 'react';
 import { UniformsLib } from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib';
 import { LIGHTING, ROOM } from './scenePalette';
+import HallDaylight from './HallDaylight';
 
 // Each bank covers a section of the existing ceiling rows near x ±3, ±6
 // and ±9 m. Grouping the fixtures keeps the desktop light count low.
@@ -45,6 +46,7 @@ export default function FactoryFixtureBanks() {
           intensity={LIGHTING.clerestory}
         />
       ))}
+      <HallDaylight />
     </>
   );
 }

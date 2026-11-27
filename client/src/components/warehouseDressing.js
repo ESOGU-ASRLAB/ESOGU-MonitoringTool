@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { applyBakedOcclusion, warehouseLightmapUV } from './hallLightmap';
+import { RENDER_FINISH } from './scenePalette';
+import { createCartonAtlas } from './cartonFinish';
 
 /*
  * THE WAREHOUSE'S PROPS, PAINTED AS THEY ARE IN A REAL PLANT -- under the
@@ -26,10 +29,10 @@ import * as THREE from 'three';
  */
 const srgb = (hex) => new THREE.Color(hex);
 const RACK = {
-  upright: srgb('#3f464c'),
-  beam: srgb('#b9bec1'),
-  deck: srgb('#9aa1a5'),
-  goods: ['#a88b66', '#9e8260', '#b39672', '#977a57', '#ad9374', '#6b747a', '#5f7487'].map(srgb),
+  upright: srgb('#2b3036'),
+  beam: srgb('#383e44'),
+  deck: srgb('#464d52'),
+  goods: ['#a58a64', '#b19571', '#987950'].map(srgb),
 };
 const PALLET_WOOD = srgb('#b8956a');
 const LOAD = srgb('#a9875a');
@@ -79,18 +82,64 @@ function paint(mesh, colourFor) {
   mesh.geometry.setAttribute('color', new THREE.BufferAttribute(colours, 3));
 }
 
+function rackPart(size, centre, box) {
+  if (size.y > 3 || box.min.y > 4.8) return -1;
+  if (size.z > 5 || size.y > 2.2) return -2;
+  return Math.floor(hash(Math.floor(centre.z / 0.9), Math.floor(centre.y)) * RACK.goods.length);
+}
+
 const hash = (a, b) => {
   const h = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
   return h - Math.floor(h);
 };
 
-function rackColour(size, centre, box) {
-  if (size.y > 3 || box.min.y > 4.8) return RACK.upright;
-  if (size.z > 5) return size.y > 0.05 ? RACK.beam : RACK.deck;
-  // A box is drawn as separate faces; colouring by the shelf bay and level it
-  // sits in keeps a box's faces one colour.
-  const pick = hash(Math.floor(centre.z / 0.9), Math.floor(centre.y));
-  return RACK.goods[Math.floor(pick * RACK.goods.length) % RACK.goods.length];
+function paintRack(mesh) {
+  const { ids, bounds } = parts(mesh);
+  const size = new THREE.Vector3();
+  const centre = new THREE.Vector3();
+  const finishes = new Map();
+  for (const [id, box] of bounds) {
+    const kind = rackPart(box.getSize(size), box.getCenter(centre), box);
+    finishes.set(id, kind === -1
+      ? [RACK.upright, 0.6, 0.48]
+      : kind === -2
+        ? [size.y > 0.05 ? RACK.beam : RACK.deck, 0.6, 0.48]
+        : [RACK.goods[kind], 0, 0.92]);
+  }
+  const colors = new Float32Array(ids.length * 3);
+  const surface = new Float32Array(ids.length * 2);
+  ids.forEach((id, i) => {
+    const [color, metallic, roughness] = finishes.get(id);
+    color.toArray(colors, i * 3);
+    surface.set([metallic, roughness], i * 2);
+  });
+  mesh.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  mesh.geometry.setAttribute('rackFinish', new THREE.BufferAttribute(surface, 2));
+}
+
+function applyRackFinish(shader, cartonAtlas) {
+  shader.uniforms.cartonAtlas = { value: cartonAtlas };
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', '#include <common>\nattribute vec2 rackFinish;\nvarying vec2 vRackFinish;\nvarying vec3 vRackPosition;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRackFinish = rackFinish;\nvRackPosition = (modelMatrix * vec4(position, 1.0)).xyz;');
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>', '#include <common>\nuniform sampler2D cartonAtlas;\nvarying vec2 vRackFinish;\nvarying vec3 vRackPosition;')
+    .replace('#include <color_fragment>', `#include <color_fragment>
+      float carton = 1.0 - step(0.1, vRackFinish.x);
+      vec3 paper = texture2D(cartonAtlas, vec2(vRackPosition.x + vRackPosition.z, vRackPosition.y) * 2.2).rgb;
+      float powder = sin(dot(vRackPosition, vec3(96.0, 161.0, 118.0))) * (1.0 - smoothstep(0.2, 1.0, length(fwidth(vRackPosition) * 90.0)));
+      diffuseColor.rgb *= 1.0 + carton * (0.09 * paper.g + 0.12 * (paper.r - 0.5)) + (1.0 - carton) * 0.07 * powder;
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.67, 0.65, 0.60) * paper.b, carton * smoothstep(0.01, 0.3, paper.b) * 0.85);`)
+    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRackFinish.y - 0.3 * carton * paper.g + 0.06 * (1.0 - carton) * powder;')
+    .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      vec3 dPosX = dFdx(-vViewPosition);
+      vec3 dPosY = dFdy(-vViewPosition);
+      float paperHeight = paper.r * carton * 0.00065;
+      vec3 bump = cross(dPosY, normal) * dFdx(paperHeight) + cross(normal, dPosX) * dFdy(paperHeight);
+      float det = dot(dPosX, cross(dPosY, normal));
+      normal = normalize(abs(det) * normal - sign(det) * bump + 1e-10 * normal);`)
+    .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vRackFinish.x;');
+  applyBakedOcclusion(shader);
 }
 
 /*
@@ -98,13 +147,16 @@ function rackColour(size, centre, box) {
  * classic and realistic materials. `base` is the model's shared details
  * material, whose texture and finish the realistic ones start from.
  */
-export function dressWarehouse(scene, base) {
+export function dressWarehouse(scene, base, lightmap) {
   const dressed = [];
+  const footprints = [];
+  const cartonAtlas = createCartonAtlas();
   const material = (roughness, metalness) => {
     const m = base.clone();
     m.color.set('#ffffff');
     m.vertexColors = true;
     m.map = null;
+    m.roughnessMap = null;
     m.emissiveMap = null;
     m.emissive.set('#000000');
     m.roughness = roughness;
@@ -113,8 +165,12 @@ export function dressWarehouse(scene, base) {
     m.customProgramCacheKey = () => 'warehouse-dressing';
     return m;
   };
-  const rackMaterial = material(0.55, 0.1);
-  const woodMaterial = material(0.85, 0);
+  const rackMaterial = material(0.56, 0.55);
+  rackMaterial.lightMap = lightmap;
+  rackMaterial.lightMapIntensity = RENDER_FINISH.bakedIndirect;
+  rackMaterial.onBeforeCompile = (shader) => applyRackFinish(shader, cartonAtlas);
+  rackMaterial.customProgramCacheKey = () => 'warehouse-rack-finish';
+  const woodMaterial = material(0.92, 0);
   scene.traverse((mesh) => {
     if (!mesh.isMesh || mesh.material !== base) return;
     const count = mesh.geometry.getAttribute('position').count;
@@ -122,24 +178,38 @@ export function dressWarehouse(scene, base) {
     mesh.geometry.computeBoundingBox();
     const box = mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld);
     if (count > 9000 && box.max.y < 6 && box.max.y - box.min.y > 4) {
-      paint(mesh, rackColour);
+      paintRack(mesh);
+      warehouseLightmapUV(mesh, true);
       dressed.push({ mesh, classic: base, realistic: rackMaterial });
     } else if (box.max.y < 1.3 && box.max.y - box.min.y < 0.3) {
       paint(mesh, () => PALLET_WOOD);
       dressed.push({ mesh, classic: base, realistic: woodMaterial });
+      if (box.min.y < 0.14) {
+        const size = box.getSize(new THREE.Vector3());
+        const centre = box.getCenter(new THREE.Vector3());
+        footprints.push({ position: [centre.x, 0.0065, centre.z], size: [size.x + 0.55, size.z + 0.5] });
+      }
     } else if (box.max.y < 1.3 && box.min.y > 0.1 && count < 2000) {
       paint(mesh, () => LOAD);
       dressed.push({ mesh, classic: base, realistic: woodMaterial });
     }
   });
   return {
+    footprints,
     apply(realistic) {
-      dressed.forEach((item) => { item.mesh.material = realistic ? item.realistic : item.classic; });
+      dressed.forEach((item) => {
+        item.mesh.material = realistic ? item.realistic : item.classic;
+        item.mesh.receiveShadow = realistic;
+      });
     },
     dispose() {
-      dressed.forEach((item) => { item.mesh.material = item.classic; });
+      dressed.forEach((item) => {
+        item.mesh.material = item.classic;
+        item.mesh.receiveShadow = false;
+      });
       rackMaterial.dispose();
       woodMaterial.dispose();
+      cartonAtlas.dispose();
     },
   };
 }

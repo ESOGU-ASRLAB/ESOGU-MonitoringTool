@@ -38,7 +38,7 @@ function Answer({ answer, onFocus, ui }) {
   </div>;
 }
 
-export default function DigitalGuide({ guide, inVR, liveStatus, animate, children }) {
+export default function DigitalGuide({ guide, inVR, liveStatus, animate, onAssistantOpen, children }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('chat');
   const [query, setQuery] = useState('');
@@ -67,7 +67,7 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate, childre
   useEffect(() => { if (open) endRef.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' }); }, [messages, open]);
   useEffect(() => {
     const escape = (event) => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
       if (showSettings) setSettingsOpen(false);
       else if (routeOpen) setRouteOpen(false);
       else if (open) {
@@ -83,6 +83,7 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate, childre
   }, [open, showSettings, routeOpen, active, pause, session?.paused]);
 
   const openChat = () => {
+    onAssistantOpen?.();
     resumeAfterChat.current = guide.active && !session?.paused;
     if (resumeAfterChat.current) guide.pause();
     if (session?.id) previousTopic.current = session.id;
@@ -112,14 +113,15 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate, childre
   const filtered = topics.filter((topic) => normalize(`${topic.title} ${topic.group} ${topic.aliases.join(' ')}`).includes(normalize(filter)));
 
   const viewControls = (
-    <div className="view-controls" role="group" aria-label="3D view controls">
-      {children}
+    <div className="view-controls" role="group" aria-label={language === 'tr' ? '3B sahne kontrolleri' : '3D view controls'}>
+      {children?.(startTour)}
       {!inVR && !session && !open && (
         <div className="digital-guide guide-launchers" lang={language} data-guide-ui>
           <button className="guide-auto-button" type="button" onClick={startTour}>
             <Icon name="play" />{ui.autoTour}
           </button>
-          <button ref={launcherRef} className="guide-chat-button" type="button" onClick={openChat} aria-expanded={open} aria-controls="asrlab-guide-panel">
+          <button ref={launcherRef} className="guide-chat-button" type="button" onClick={openChat} aria-label={ui.guide}
+            title={ui.guide} aria-expanded={open} aria-controls="asrlab-guide-panel">
             <Icon name="chat" /><span>{ui.guide}</span>
           </button>
         </div>

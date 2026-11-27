@@ -11,3 +11,72 @@
   min-height: 0;
   position: relative;
 }
+
+.app-shell--workspace {
+  --twin-gutter: max(16px, env(safe-area-inset-left), env(safe-area-inset-right));
+  --twin-top: max(14px, env(safe-area-inset-top));
+  --twin-nav-height: 50px;
+  --twin-panel-top: calc(var(--twin-top) + var(--twin-nav-height) + 12px);
+  --twin-credit-bottom: max(14px, env(safe-area-inset-bottom));
+  --twin-dock-bottom: var(--twin-credit-bottom);
+  --twin-overlay-bottom: calc(var(--twin-dock-bottom) + 60px);
+  --twin-surface: #f8fbff;
+  --twin-glass: rgb(248 251 255 / 96%);
+  --twin-ink: #142941;
+  --twin-muted: #4e6279;
+  --twin-blue: #2060cd;
+  --twin-tint: #e7effd;
+  --twin-line: #cfdaea;
+  --twin-shadow: 0 12px 30px rgb(13 32 54 / 21%), 0 2px 7px rgb(13 32 54 / 14%);
+
+  position: relative;
+  background: #253241;
+}
+
+.app-shell--workspace .app-main {
+  position: absolute;
+  inset: 0;
+}
+
+.app-shell--workspace > .footer {
+  position: absolute;
+  z-index: 5;
+  left: var(--twin-gutter);
+  bottom: var(--twin-credit-bottom);
+  min-height: 0;
+  padding: 5px 9px;
+  border: 1px solid rgb(255 255 255 / 17%);
+  border-radius: 8px;
+  background: rgb(20 38 59 / 87%);
+  color: #f3f6fd;
+  box-shadow: 0 2px 8px rgb(10 25 42 / 18%);
+  pointer-events: none;
+}
+
+.app-shell--workspace > .footer::before { display: none; }
+.app-shell--workspace .footer-credit { gap: 5px; font-size: 10px; line-height: 1.4; }
+.app-shell--workspace .footer-credit strong { color: inherit; }
+.app-shell--workspace .footer-sep { height: 10px; margin: 0 2px; background: #8b9bac; }
+
+@media (max-width: 1180px) {
+  .app-shell--workspace {
+    --twin-credit-bottom: max(7px, env(safe-area-inset-bottom));
+    --twin-dock-bottom: calc(var(--twin-credit-bottom) + 34px);
+  }
+
+  .app-shell--workspace > .footer {
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 2 * var(--twin-gutter));
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell--workspace {
+    --twin-gutter: max(10px, env(safe-area-inset-left), env(safe-area-inset-right));
+    --twin-top: max(9px, env(safe-area-inset-top));
+    --twin-nav-height: 54px;
+    --twin-panel-top: calc(var(--twin-top) + var(--twin-nav-height) + 9px);
+  }
+}

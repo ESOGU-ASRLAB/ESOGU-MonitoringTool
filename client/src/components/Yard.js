@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { LIGHTING } from './scenePalette';
+import { useRealism } from './realismContext';
 
 /*
  * The yard behind the far wall, seen through the open shutters (Factory.js
@@ -19,20 +21,23 @@ function skyTexture() {
   canvas.width = 1024;
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
-  const sky = ctx.createLinearGradient(0, 0, 0, 200);
-  sky.addColorStop(0, '#8fbde6');
-  sky.addColorStop(1, '#dde9f3');
+  // The backdrop starts below the slab. Reserve only the bottom few metres
+  // for trees so an eye-level view through the door actually sees the sky.
+  const sky = ctx.createLinearGradient(0, 155, 0, 241);
+  sky.addColorStop(0, '#89b1d3');
+  sky.addColorStop(0.55, '#b2cadd');
+  sky.addColorStop(1, '#edf2f3');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, 1024, 256);
   // Treeline along the horizon, in soft lumps.
-  ctx.fillStyle = '#6f8f78';
+  ctx.fillStyle = '#9aaca6';
   for (let x = 0; x < 1024; x += 18) {
-    const h = 22 + Math.abs(Math.sin(x * 0.037) * 16 + Math.sin(x * 0.011) * 10);
+    const h = 2 + Math.abs(Math.sin(x * 0.037) * 4 + Math.sin(x * 0.011) * 2);
     ctx.beginPath();
-    ctx.ellipse(x, 214, 16, h, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, 243, 16, h, 0, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.fillRect(0, 214, 1024, 42);
+  ctx.fillRect(0, 243, 1024, 13);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
@@ -60,20 +65,22 @@ function asphaltTexture() {
 }
 
 const SHEDS = [
-  { x: -22, z: -58, w: 26, h: 9, d: 14, color: '#b9c0c6' },
-  { x: 14, z: -66, w: 30, h: 11, d: 16, color: '#c8ccd0' },
-  { x: 30, z: -44, w: 14, h: 7, d: 12, color: '#aeb6bd' },
+  { x: -29, z: -64, w: 20, h: 4, d: 14, color: '#aebbc3' },
+  { x: 25, z: -69, w: 20, h: 4.5, d: 16, color: '#b4bfc8' },
+  { x: 30, z: -44, w: 14, h: 4.3, d: 12, color: '#aeb6bd' },
 ];
 
 export default function Yard() {
+  const desktop = useRealism();
   const textures = useMemo(() => ({ sky: skyTexture(), asphalt: asphaltTexture() }), []);
   useEffect(() => () => Object.values(textures).forEach((t) => t.dispose()), [textures]);
 
   return (
-    <group>
+    <group name="factory-yard">
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, WALL_Z - DEPTH / 2]} receiveShadow>
         <planeGeometry args={[120, DEPTH]} />
-        <meshStandardMaterial map={textures.asphalt} roughness={0.95} metalness={0} />
+        <meshStandardMaterial map={textures.asphalt} roughness={0.95} metalness={0}
+          emissive={desktop ? '#646e77' : '#000000'} emissiveMap={textures.asphalt} emissiveIntensity={1.4} />
       </mesh>
       {/* Lane lines out from each shutter. */}
       {[-7.0, 7.0].map((x) => (
@@ -85,13 +92,15 @@ export default function Yard() {
       {SHEDS.map((shed) => (
         <mesh key={`${shed.x},${shed.z}`} position={[shed.x, shed.h / 2, shed.z]}>
           <boxGeometry args={[shed.w, shed.h, shed.d]} />
-          <meshStandardMaterial color={shed.color} roughness={0.8} />
+          <meshStandardMaterial color={shed.color} roughness={0.8}
+            emissive={desktop ? shed.color : '#000000'} emissiveIntensity={1.8} />
         </mesh>
       ))}
-      {/* Sky and treeline: unlit and out of the hall's haze. */}
-      <mesh position={[0, 18, BACKDROP_Z]}>
-        <planeGeometry args={[220, 40]} />
-        <meshBasicMaterial map={textures.sky} fog={false} />
+      {/* The sky retains HDR radiance through the open shutters. */}
+      <mesh position={[0, 17, BACKDROP_Z]}>
+        <planeGeometry args={[180, 38]} />
+        <meshStandardMaterial color="#000000" emissive="#ffffff" emissiveMap={textures.sky}
+          emissiveIntensity={desktop ? LIGHTING.yardEmission : 1} fog={false} />
       </mesh>
     </group>
   );

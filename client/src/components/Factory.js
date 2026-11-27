@@ -1,9 +1,11 @@
-import React, { Suspense, useEffect, useMemo, useRef } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useGLTF } from '@react-three/drei';
-import { ARCHITECTURE, LIGHTING, ROOM } from './scenePalette';
+import { ARCHITECTURE, LIGHTING, ROOM, RENDER_FINISH } from './scenePalette';
 import { dressWarehouse } from './warehouseDressing';
 import { useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
+import { applyBakedOcclusion, warehouseLightmapUV, HALL_LIGHTMAP_URL } from './hallLightmap';
+import ContactShadow from './ContactShadow';
 
 /*
  * Full warehouse shell (building, shelving, pallets, lights) authored
@@ -114,9 +116,12 @@ function profileSheetMetal(shader, roof) {
       float rib = 0.5 + 0.5 * cos(ribPhase);
       float ribVisibility = sheetArea * (1.0 - smoothstep(0.3, 0.85, fwidth(ribCoord)));
       diffuseColor.rgb *= ${roof ? '1.0' : '(1.0 - 0.14 * sheetArea)'};
-      diffuseColor.rgb *= 1.0 - ribVisibility * (0.065 * rib + 0.16 * pow(rib, 7.0));`)
+      diffuseColor.rgb *= 1.0 - ribVisibility * (0.09 * rib + 0.20 * pow(rib, 7.0));`)
+    .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+      roughnessFactor = mix(roughnessFactor, clamp(roughnessFactor, 0.47, 0.83), sheetArea);
+      roughnessFactor -= 0.12 * ribVisibility * (1.0 - rib);`)
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-      float ribSlope = -0.52 * sin(ribPhase) * pow(rib, 6.0) * ribVisibility;
+      float ribSlope = -0.77 * sin(ribPhase) * pow(rib, 6.0) * ribVisibility;
       normal = normalize(normal - ribSlope * (mat3(viewMatrix) * ${acrossRibs}));`);
 }
 
@@ -139,6 +144,7 @@ varying vec3 vShutterWorld;`)
         if (vShutterWorld.z < ${wallZ.toFixed(3)} && vShutterWorld.y < ${top.toFixed(3)}
             && abs(vShutterWorld.x) > ${inner.toFixed(3)} && abs(vShutterWorld.x) < ${outer.toFixed(3)}) discard;`);
     if (roof || cladding) profileSheetMetal(shader, roof);
+    applyBakedOcclusion(shader);
   };
   material.customProgramCacheKey = () => `warehouse-finish-${roof ? 'roof' : cladding ? 'cladding' : 'plain'}`;
   material.needsUpdate = true;
@@ -147,6 +153,7 @@ varying vec3 vShutterWorld;`)
 function WarehouseModel() {
   const { scene } = useGLTF(FACTORY_URL);
   const emissiveMap = useLoader(THREE.TextureLoader, EMISSIVE_URL);
+  const lightmap = useLoader(THREE.TextureLoader, HALL_LIGHTMAP_URL);
 
   const materials = useMemo(() => collectMaterials(scene), [scene]);
   const converted = isConvertedExport(materials);
@@ -161,6 +168,12 @@ function WarehouseModel() {
     });
 
     if (!converted) return;
+    lightmap.channel = 1;
+    scene.traverse((mesh) => {
+      if (mesh.isMesh && mesh.material?.name !== CONVERTED_MATERIAL_NAMES[DETAILS_MATERIAL_INDEX]) {
+        warehouseLightmapUV(mesh);
+      }
+    });
 
     // glTF textures are authored with the origin at the top-left, which
     // GLTFLoader encodes as flipY = false. TextureLoader defaults the other
@@ -179,6 +192,10 @@ function WarehouseModel() {
       mat.roughness = mat.roughnessMap ? 1 : surface.roughness;
       // The embedded images carry roughness in all three channels.
       mat.metalnessMap = null;
+      if (slot < DETAILS_MATERIAL_INDEX) {
+        mat.lightMap = lightmap;
+        mat.lightMapIntensity = RENDER_FINISH.bakedIndirect;
+      }
 
       if (slot === DETAILS_MATERIAL_INDEX) {
         mat.emissive.set(ROOM.lamp);
@@ -197,31 +214,54 @@ function WarehouseModel() {
     windowFinish.name = 'warehouse-clerestory';
     windowFinish.emissive.set(ROOM.daylight);
     windowFinish.emissiveIntensity = LIGHTING.windowEmission;
-    windowFinish.roughness = 0.64;
+    windowFinish.roughness = 0.42;
     windowFinish.roughnessMap = null;
+    windowFinish.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vWindowWorld;')
+        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWindowWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vWindowWorld;')
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          float sky = smoothstep(5.35, 6.55, vWindowWorld.y);
+          float horizon = 5.72 + 0.080 * sin(vWindowWorld.z * 0.78) + 0.045 * sin(vWindowWorld.z * 2.1);
+          float trees = 1.0 - smoothstep(horizon - 0.07, horizon + 0.08, vWindowWorld.y);
+          totalEmissiveRadiance *= mix(vec3(0.86, 0.93, 1.0), vec3(0.58, 0.75, 0.93), sky)
+            * (1.0 - 0.30 * trees);`);
+    };
+    windowFinish.customProgramCacheKey = () => 'warehouse-clerestory-sky';
     clerestory.material = windowFinish;
     return () => {
       clerestory.material = details;
       windowFinish.dispose();
     };
-  }, [scene, materials, converted, emissiveMap]);
+  }, [scene, materials, converted, emissiveMap, lightmap]);
 
   // Apply the same rack and pallet finishes in both viewer modes.
   const dressing = useRef(null);
+  const [footprints, setFootprints] = useState([]);
   useEffect(() => {
     if (!converted) return;
     if (!dressing.current) {
       const base = materials.find((mat) => mat.name === CONVERTED_MATERIAL_NAMES[DETAILS_MATERIAL_INDEX]);
-      if (base) dressing.current = dressWarehouse(scene, base);
+      if (base) {
+        dressing.current = dressWarehouse(scene, base, lightmap);
+        setFootprints(dressing.current.footprints);
+      }
     }
     dressing.current?.apply(true);
-  }, [scene, materials, converted]);
+  }, [scene, materials, converted, lightmap]);
   useEffect(() => () => {
     dressing.current?.dispose();
     dressing.current = null;
   }, [scene]);
 
-  return <primitive object={scene} scale={converted ? CONVERTED_SCALE : 1} />;
+  return (
+    <>
+      <group name="factory-shell"><primitive object={scene} scale={converted ? CONVERTED_SCALE : 1} /></group>
+      {footprints.map(({ position, size }, i) => <ContactShadow key={i} position={position} size={size} opacity={0.55} />)}
+    </>
+  );
 }
 
 useGLTF.preload(FACTORY_URL);

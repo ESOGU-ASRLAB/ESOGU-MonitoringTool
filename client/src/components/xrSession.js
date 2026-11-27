@@ -31,6 +31,7 @@ import { setXRActive } from './pageActivity';
 const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
 const hostname = typeof window === 'undefined' ? '' : window.location.hostname;
 const isTestHost = hostname === 'localhost' || hostname.startsWith('qa.');
+const forceEmulator = params.get('vremu') === '1';
 /** localhost and qa.: where automated checks may reach into the scene. */
 export const IS_TEST_HOST = isTestHost;
 
@@ -97,8 +98,8 @@ function pickFrameRate(supported) {
 export const xrStore = createXRStore({
   // Quest 3 supports immersive-ar too, and the default offer would pick it: the
   // browser's own "enter" button must put people in the hall, not passthrough.
-  offerSession: 'immersive-vr',
-  emulate: params.get('vremu') === '1' ? { type: 'metaQuest3', inject: true } : 'metaQuest3',
+  offerSession: forceEmulator || hostname === 'localhost' ? false : 'immersive-vr',
+  emulate: { type: 'metaQuest3', inject: forceEmulator || hostname === 'localhost', syntheticEnvironment: false },
   // Full fixed foveation: the edges of each eye render at lower resolution,
   // where the lens blurs them anyway. The single biggest GPU saving on Quest.
   foveation: 1,

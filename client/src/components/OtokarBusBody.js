@@ -96,7 +96,7 @@ export const BUS_OFFSET_MM = [
  * bare steel at the inspection station -- part-way metallic, fairly matte --
  * rather than a finished topcoat, which this shell does not have yet.
  */
-const BUS_MATERIAL = OTOKAR_BODY_MATERIAL;
+const BUS_MATERIAL = { ...OTOKAR_BODY_MATERIAL, metalness: 0.35, roughness: 0.55 };
 
 /*
  * A missing body mesh must not take the cell down with it. The 118 MB source

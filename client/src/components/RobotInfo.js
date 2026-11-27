@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { useLanguage } from '../LanguageContext';
 import { snapshotInfo } from './robotDetails';
+import { PRESENTATIONS } from './guide/guidePresentation';
+import { guideShotLabel } from './guide/guideLanguage';
+import { GUIDE_DETAILS, guideSubject, visibleInScene } from './guide/guideShots';
 import './RobotInfo.css';
 
 /*
@@ -12,10 +16,8 @@ import './RobotInfo.css';
  * a headset, where the controller rays are cast continuously -- and the two
  * cells are hundreds of thousands of triangles. So each robot gets an invisible
  * box that follows its moving part (refreshed 5 times a second from the
- * meshes' cached bounds), and only the boxes listen. Choosing one outlines it,
- * and so does hovering with a mouse -- not with a controller ray, which sweeps
- * across the metres-tall gantry boxes all the time: outlines flashing on and
- * off with every hand movement read as the headset view flickering.
+ * meshes' cached bounds), and only the boxes listen. The cursor indicates
+ * a clickable area on desktop while the scene stays clear of outlines.
  *
  * The panel is HTML on the desktop and a painted canvas in the headset, where
  * no DOM is drawn; both redraw 4 times a second from the same snapshot
@@ -28,17 +30,12 @@ const BOX_PAD_M = 0.08;
 // Pixels the pointer may travel between press and release and still count as
 // a click: a drag orbits the view and must not pick whatever it ends on.
 const CLICK_SLOP_PX = 6;
-const UNIT_EDGES = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
-const noRaycast = () => null;
-
-function HitBox({ id, resolve, selected, onSelect }) {
+function HitBox({ id, resolve, onSelect }) {
   const scene = useThree((state) => state.scene);
   const gl = useThree((state) => state.gl);
   const meshRef = useRef(null);
-  const edgesRef = useRef(null);
   const targetRef = useRef(null);
   const since = useRef(BOX_REFRESH_S);
-  const [hovered, setHovered] = useState(false);
   const scratch = useMemo(() => ({ box: new THREE.Box3(), size: new THREE.Vector3(), center: new THREE.Vector3() }), []);
 
   useFrame((_, delta) => {
@@ -47,7 +44,7 @@ function HitBox({ id, resolve, selected, onSelect }) {
     since.current = 0;
     // The Otokar parts mount late (Suspense) and can be remounted on a tier
     // switch, so look again whenever the cached object has left the scene.
-    if (!targetRef.current?.parent) targetRef.current = resolve(scene);
+    if (!visibleInScene(targetRef.current, scene)) targetRef.current = resolve(scene);
     const target = targetRef.current;
     const mesh = meshRef.current;
     if (!target || !mesh) return;
@@ -58,59 +55,83 @@ function HitBox({ id, resolve, selected, onSelect }) {
     box.getCenter(center);
     mesh.position.copy(center);
     mesh.scale.copy(size);
-    edgesRef.current.position.copy(center);
-    edgesRef.current.scale.copy(size);
   });
 
   useEffect(() => () => {
-    document.body.style.cursor = '';
-  }, []);
+    gl.domElement.style.cursor = '';
+  }, [gl]);
 
   return (
-    <>
-      <mesh
-        ref={meshRef}
-        visible={false}
-        scale={0.0001}
-        onClick={(event) => {
-          // A mouse click reports how far it dragged; an XR ray's event THROWS
-          // on reading `delta` ("not supported"), which silently broke picking
-          // in the headset. A ray has no drag to discount anyway.
-          let dragged = 0;
-          try {
-            dragged = event.delta ?? 0;
-          } catch {
-            dragged = 0;
-          }
-          if (dragged > CLICK_SLOP_PX) return;
-          event.stopPropagation();
-          onSelect(id);
-        }}
-        onPointerOver={(event) => {
-          event.stopPropagation();
-          if (gl.xr.isPresenting) return;
-          setHovered(true);
-          document.body.style.cursor = 'pointer';
-        }}
-        onPointerOut={() => {
-          setHovered(false);
-          document.body.style.cursor = '';
-        }}
-      >
-        <boxGeometry />
-      </mesh>
-      <lineSegments ref={edgesRef} geometry={UNIT_EDGES} visible={hovered || selected} raycast={noRaycast}>
-        <lineBasicMaterial color={selected ? '#2060cd' : '#94a3b8'} />
-      </lineSegments>
-    </>
+    <mesh
+      ref={meshRef}
+      name={`${id}-pick-target`}
+      visible={false}
+      scale={0.0001}
+      onClick={(event) => {
+        // XR pointer events do not support the mouse drag distance.
+        let dragged = 0;
+        try {
+          dragged = event.delta ?? 0;
+        } catch {
+          dragged = 0;
+        }
+        if (dragged > CLICK_SLOP_PX) return;
+        event.stopPropagation();
+        onSelect(id);
+      }}
+      onPointerOver={(event) => {
+        event.stopPropagation();
+        if (!gl.xr.isPresenting) gl.domElement.style.cursor = 'pointer';
+      }}
+      onPointerOut={() => { gl.domElement.style.cursor = ''; }}
+    >
+      <boxGeometry />
+    </mesh>
   );
 }
 
 /** Invisible click targets that follow each robot. `targets`: [{ id, resolve(scene) }]. */
-export function RobotHitBoxes({ targets, selected, onSelect }) {
+export function RobotHitBoxes({ targets, onSelect }) {
   return targets.map((target) => (
-    <HitBox key={target.id} {...target} selected={selected === target.id} onSelect={onSelect} />
+    <HitBox key={target.id} {...target} onSelect={onSelect} />
   ));
+}
+
+const EQUIPMENT_COPY = {
+  robotGripper: ['gripper', 0],
+  robotVisionary: ['visionary', 1],
+  screwdriver: ['screwdriving', 3],
+  inspectionTool: ['dual-inspection', 2],
+  inspectionOtherTool: ['dual-inspection', 3],
+  assemblyTool: ['door-assembly', 2],
+  assemblyOtherTool: ['door-assembly', 3],
+};
+
+export const equipmentTargets = Object.keys(EQUIPMENT_COPY).map((id) => ({
+  id, resolve: (scene) => guideSubject(scene, id),
+}));
+
+export function EquipmentInfoCard({ equipmentId, onClose }) {
+  const { language } = useLanguage();
+  const [topic, line] = EQUIPMENT_COPY[equipmentId];
+  const title = guideShotLabel(equipmentId, language, GUIDE_DETAILS[equipmentId].label);
+
+  useEffect(() => {
+    const onKey = (event) => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <aside className="robot-info" aria-label={title}>
+      <header className="robot-info-head">
+        <h2 className="robot-info-name">{title}</h2>
+        <button type="button" className="robot-info-close" onClick={onClose}
+          aria-label={language === 'tr' ? 'Bilgiyi kapat' : 'Close details'}>×</button>
+      </header>
+      <p className="robot-info-desc">{PRESENTATIONS[topic][language].lines[line]}</p>
+    </aside>
+  );
 }
 
 // Reads the latest drive context without restarting the refresh timer on every change.

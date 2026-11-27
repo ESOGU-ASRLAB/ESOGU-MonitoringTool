@@ -2,10 +2,13 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useLoader, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader';
-import { EffectComposer, N8AO, SMAA, ToneMapping } from '@react-three/postprocessing';
-import { ToneMappingMode } from 'postprocessing';
-import { ARCHITECTURE, LIGHTING } from './scenePalette';
-import { applyHallFloorFinish, createHallFloorFinish, HALL_FLOOR } from './hallFloorFinish';
+import { BrightnessContrast, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing';
+import { BlendFunction, BloomEffect, Effect, ToneMappingMode } from 'postprocessing';
+import { ARCHITECTURE, LIGHTING, RENDER_FINISH } from './scenePalette';
+import { applyHallFloorFinish, createConcreteNormalMap, createHallFloorFinish, HALL_FLOOR } from './hallFloorFinish';
+import { applyBakedOcclusion, floorLightmapUV, HALL_LIGHTMAP_URL } from './hallLightmap';
+import { applyHallProbe, useHallReflectionProbe } from './hallReflectionProbe';
+import { useRealism } from './realismContext';
 
 const BASE = process.env.PUBLIC_URL + '/assets/realism';
 
@@ -17,13 +20,16 @@ export function HallEnvironment({ intensity = LIGHTING.environment }) {
 
   useEffect(() => {
     const pmrem = new THREE.PMREMGenerator(gl);
-    const envMap = pmrem.fromEquirectangular(hdr).texture;
-    scene.environment = envMap;
+    const environment = pmrem.fromEquirectangular(hdr);
+    const previousRotation = scene.environmentRotation.clone();
+    scene.environment = environment.texture;
     scene.environmentIntensity = intensity;
+    scene.environmentRotation.y = LIGHTING.environmentYaw;
     return () => {
       scene.environment = null;
       scene.environmentIntensity = 1;
-      envMap.dispose();
+      scene.environmentRotation.copy(previousRotation);
+      environment.dispose();
       pmrem.dispose();
     };
   }, [gl, scene, hdr, intensity]);
@@ -31,30 +37,46 @@ export function HallEnvironment({ intensity = LIGHTING.environment }) {
   return null;
 }
 
-const FLOOR_MAPS = [`${BASE}/hall-concrete-albedo.webp`, `${BASE}/hall-concrete-surface.webp`];
-
+const FLOOR_MAPS = [`${BASE}/hall-concrete-albedo.webp`, `${BASE}/hall-concrete-surface.webp`, HALL_LIGHTMAP_URL];
 export function HallFloor() {
-  const [albedo, surface] = useLoader(THREE.TextureLoader, FLOOR_MAPS);
+  const [albedo, surface, lightmap] = useLoader(THREE.TextureLoader, FLOOR_MAPS);
+  const anisotropy = useThree(({ gl }) => gl.capabilities.getMaxAnisotropy());
   const finish = useMemo(createHallFloorFinish, []);
-  useEffect(() => () => finish.dispose(), [finish]);
+  const normal = useMemo(() => createConcreteNormalMap(surface), [surface]);
+  const material = useRef(null);
+  const desktop = useRealism();
+  const openness = useHallReflectionProbe(material, desktop);
+  const finishShader = useMemo(() => (shader) => {
+    applyHallFloorFinish(shader);
+    applyBakedOcclusion(shader);
+    if (desktop) applyHallProbe(shader, openness, RENDER_FINISH.floor.probeIntensity);
+  }, [desktop, openness]);
+  const geometry = useMemo(() => {
+    const mesh = new THREE.PlaneGeometry(HALL_FLOOR.width, HALL_FLOOR.length);
+    floorLightmapUV(mesh);
+    return mesh;
+  }, []);
+  useEffect(() => () => { finish.dispose(); geometry.dispose(); }, [finish, geometry]);
+  useEffect(() => () => normal.dispose(), [normal]);
 
   useLayoutEffect(() => {
     albedo.colorSpace = THREE.SRGBColorSpace;
-    for (const texture of [albedo, surface]) {
+    lightmap.channel = 1;
+    for (const texture of [albedo, surface, normal]) {
       texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
       texture.repeat.set(HALL_FLOOR.baysX, HALL_FLOOR.baysZ);
-      texture.anisotropy = 8;
+      texture.anisotropy = anisotropy;
       texture.needsUpdate = true;
     }
-  }, [albedo, surface]);
+  }, [albedo, surface, normal, lightmap, anisotropy]);
 
   return (
-    <mesh name="hall-floor" rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} receiveShadow>
-      <planeGeometry args={[HALL_FLOOR.width, HALL_FLOOR.length]} />
-      {/* The surface map stores height in red and roughness in green. */}
-      <meshStandardMaterial name="hall-concrete" {...ARCHITECTURE.floor} map={albedo}
-        roughnessMap={surface} bumpMap={surface} bumpScale={0.003} aoMap={finish}
-        onBeforeCompile={applyHallFloorFinish} />
+    <mesh name="hall-floor" geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} receiveShadow>
+      <meshStandardMaterial ref={material} name="hall-concrete" {...ARCHITECTURE.floor} map={albedo}
+        roughnessMap={surface} normalMap={normal}
+        normalScale={[RENDER_FINISH.floor.microNormal, RENDER_FINISH.floor.microNormal]} aoMap={finish}
+        lightMap={lightmap} lightMapIntensity={RENDER_FINISH.bakedIndirect} onBeforeCompile={finishShader}
+        customProgramCacheKey={() => desktop ? 'concrete-desktop' : 'concrete-headset'} />
     </mesh>
   );
 }
@@ -96,7 +118,7 @@ export function PostEffects() {
     const samplesFor = (format) => context.getInternalformatParameter(context.RENDERBUFFER, format, context.SAMPLES);
     const color = samplesFor(context.RGBA16F);
     const depth = samplesFor(context.DEPTH_COMPONENT24);
-    return [2, 4].filter((samples) => color?.includes(samples) && depth?.includes(samples));
+    return [4, 2].filter((samples) => color?.includes(samples) && depth?.includes(samples));
   }, [gl]);
   // The two HDR buffers share a fixed multisample budget as the viewport grows.
   const multisampling = supportedSamples.find((samples) => samples * pixels <= 6_000_000) ?? 0;
@@ -107,11 +129,37 @@ export function PostEffects() {
   }, [multisampling]);
 
   useCutoutsWithoutCoverage(multisampling);
+  const bloom = useMemo(() => {
+    const effect = new BloomEffect({
+      ...RENDER_FINISH.bloom, mipmapBlur: true, blendFunction: BlendFunction.ADD,
+    });
+    const threshold = effect.luminanceMaterial;
+    // Invalid HDR samples can contaminate a full block during mip downsampling.
+    threshold.fragmentShader = threshold.fragmentShader.replace(
+      'float l=luminance(texel.rgb);',
+      'float l=luminance(texel.rgb); if (!(l >= 0.0 && l <= 65504.0)) { gl_FragColor = vec4(0.0); return; }',
+    );
+    return effect;
+  }, []);
+  // The composer bypasses renderer tone mapping. Apply exposure once in its
+  // linear HDR buffer before the AgX display transform.
+  const exposure = useMemo(() => new Effect('HallExposure', `
+    void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+      vec3 color = inputColor.rgb;
+      if (!(dot(color, color) >= 0.0 && dot(color, color) < 1e9)) color = vec3(0.0);
+      outputColor = vec4(color * ${LIGHTING.exposure.toFixed(3)}, inputColor.a);
+    }`, { blendFunction: BlendFunction.NORMAL }), []);
+  useEffect(() => () => exposure.dispose(), [exposure]);
+  useEffect(() => () => bloom.dispose(), [bloom]);
   return (
-    <EffectComposer ref={composerRef} multisampling={0}>
-      <N8AO aoRadius={0.48} distanceFalloff={0.65} intensity={1.15} quality="medium" halfRes />
+    <EffectComposer ref={composerRef} multisampling={0} frameBufferType={THREE.HalfFloatType}>
+      <N8AO {...RENDER_FINISH.contactAO} quality="medium" halfRes />
+      <primitive object={bloom} />
+      <primitive object={exposure} />
       <ToneMapping mode={ToneMappingMode.AGX} />
-      <SMAA />
+      <BrightnessContrast contrast={RENDER_FINISH.contrast} />
+      <Vignette offset={0.22} darkness={RENDER_FINISH.vignette} />
+      {!multisampling && <SMAA />}
     </EffectComposer>
   );
 }

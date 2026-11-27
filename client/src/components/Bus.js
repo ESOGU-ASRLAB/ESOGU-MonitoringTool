@@ -2,8 +2,9 @@ import React, { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { BUS_LIVERY } from './scenePalette';
+import { BUS_LIVERY, SURFACE_FINISH } from './scenePalette';
 import VehicleLamps from './VehicleLamps';
+import ContactShadow from './ContactShadow';
 import { useRealism } from './realismContext';
 import { alignGlazingNormals, createBusGlazing, projectBusGlazing, writeGlazingUv } from './busGlazing';
 
@@ -276,7 +277,7 @@ function busMaterials(paint, realistic) {
   const shell = realistic
     ? new THREE.MeshPhysicalMaterial({
       color: paint.body, metalness: 0.04, roughness: 0.36,
-      clearcoat: 0.32, clearcoatRoughness: 0.30, flatShading: true,
+      ...SURFACE_FINISH.busPaint, flatShading: true,
     })
     : new THREE.MeshStandardMaterial({
       color: paint.body, metalness: 0.05, roughness: 0.3, flatShading: true,
@@ -329,6 +330,7 @@ function BusModel({ position, rotation = Math.PI / 2, livery = 'forest', rollRef
   const rearX = geometry.boundingBox.min.x * BUS_SCALE;
   return (
     <group name="factory-presentation-bus" position={position} rotation={[0, rotation, 0]}>
+      <ContactShadow position={[0, 0.0065, 0]} size={[8.8, 2.95]} opacity={0.54} />
       <mesh
         geometry={geometry}
         material={materials}

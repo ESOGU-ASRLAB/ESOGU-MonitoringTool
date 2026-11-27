@@ -22,7 +22,8 @@ const LEVELS = {
   reverse: { head: 0.15, tail: 1, reverse: 1 },
   off: { head: 0, tail: 0, reverse: 0 },
 };
-const EMISSION = { head: 4, tail: 3.2, reverse: 2.8 };
+// Keep small status lenses below the hall's HDR bloom band.
+const EMISSION = { head: 1.06, tail: 1.6, reverse: 0.96 };
 const FADE_RATE = 8; // 1/s: lamps come up and go down quickly, not instantly
 
 export default function VehicleLamps({ lamps, modeRef }) {
@@ -39,7 +40,7 @@ export default function VehicleLamps({ lamps, modeRef }) {
 
   useFrame((_, delta) => {
     const target = LEVELS[modeRef.current] || LEVELS.off;
-    const step = 1 - Math.exp(-delta * FADE_RATE);
+    const step = 1 - Math.exp(-Math.max(0, delta) * FADE_RATE);
     for (const [kind, m] of Object.entries(materials)) {
       m.level += (target[kind] - m.level) * step;
       m.lens.emissiveIntensity = m.level * EMISSION[kind];

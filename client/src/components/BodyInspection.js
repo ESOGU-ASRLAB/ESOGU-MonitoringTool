@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { inspection } from './inspectionState';
@@ -166,7 +166,7 @@ function Beam({ beamRef, spotRef, ringRef }) {
   );
 }
 
-export default function BodyInspection() {
+export default function BodyInspection({ active }) {
   const scene = useThree((state) => state.scene);
   const headCache = useRef({});
   const beamRefs = useMemo(
@@ -174,7 +174,7 @@ export default function BodyInspection() {
     [],
   );
   const defectGroup = useRef(null);
-  const run = useRef({ covered: new Set(), nextFind: 6, completedAt: null });
+  const run = useRef({ covered: new Set(), nextFind: 6, completedAt: null, elapsed: 0, lastFrame: null });
   const random = useMemo(() => makeRandom(20260927), []);
 
 
@@ -183,17 +183,31 @@ export default function BodyInspection() {
     mid: new THREE.Vector3(), dir: new THREE.Vector3(),
   }), []);
 
+  useEffect(() => {
+    if (active) return;
+    run.current.lastFrame = null;
+    inspection.status = 'IDLE';
+    for (const refs of beamRefs) {
+      for (const ref of Object.values(refs)) if (ref.current) ref.current.visible = false;
+    }
+  }, [active, beamRefs]);
+
   useFrame(({ clock }) => {
-    const now = clock.getElapsedTime();
+    if (!active) return;
+    const state = run.current;
+    const frameTime = clock.elapsedTime;
+    state.elapsed += Math.max(0, frameTime - (state.lastFrame ?? frameTime));
+    state.lastFrame = frameTime;
+    const now = state.elapsed;
     beamTime.value = now;
     // The heads load with the gantry meshes; look them up until both exist.
-    const heads = trackHeads(scene, now, headCache.current);
+    const heads = trackHeads(scene, frameTime, headCache.current);
 
-    const state = run.current;
     const { head, spot, normal, mid, dir } = scratch;
 
     // Finished: hold the result, then clear the body and start the next one.
     if (state.completedAt !== null) {
+      inspection.status = 'COMPLETE';
       if (now - state.completedAt > HOLD_COMPLETE) {
         state.completedAt = null;
         state.covered.clear();

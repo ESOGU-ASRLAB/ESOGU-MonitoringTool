@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SURFACE_FINISH } from './scenePalette';
 
 const ATLAS_WIDTH = 1024;
 const ATLAS_HEIGHT = 256;
@@ -69,16 +70,24 @@ function glazingAtlas(frame, pane) {
 }
 
 export function createBusGlazing() {
-  const map = glazingAtlas('#191e22', '#35424a');
+  const map = glazingAtlas('#161a1d', '#0c1216');
   map.colorSpace = THREE.SRGBColorSpace;
-  const roughnessMap = glazingAtlas('#a6a6a6', '#484848');
+  const roughnessMap = glazingAtlas('#f1f1f1', '#353535');
   return new THREE.MeshPhysicalMaterial({
     name: 'bus-tinted-glazing',
     map,
     roughnessMap,
-    roughness: 1,
+    roughness: 0.46,
     metalness: 0,
     ior: 1.52,
-    specularIntensity: 0.88,
+    clearcoat: 1,
+    clearcoatRoughness: 0.11,
+    specularIntensity: 0.8,
+    onBeforeCompile(shader) {
+      const lighting = THREE.ShaderChunk.lights_fragment_maps.replace(
+        'radiance += getIBLRadiance', `radiance += ${SURFACE_FINISH.busGlassReflection.toFixed(2)} * getIBLRadiance`,
+      );
+      shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_maps>', lighting);
+    },
   });
 }

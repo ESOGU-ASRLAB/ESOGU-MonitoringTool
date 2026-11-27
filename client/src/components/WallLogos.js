@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { METAL } from './scenePalette';
+import { METAL, SURFACE_FINISH } from './scenePalette';
+import { useRealism } from './realismContext';
 
 const LOGOS = process.env.PUBLIC_URL + '/assets/logo/';
 const WALL_Z = -23.75;
@@ -11,7 +12,7 @@ const ACCENT = '#5aa9e6';
 const FONT = 'system-ui, sans-serif';
 const SIGNS = [
   { id: 'matisse', label: 'MATISSE', logo: 'logo.svg', width: 4.6, height: 1.5, y: 7.65 },
-  { id: 'asrlab', label: 'ASRLab', logo: 'asrlab-wall.webp', width: 4.2, height: 1.3, y: 5.9 },
+  { id: 'asrlab', label: 'ASRLab', logo: 'asrlab-emblem.png', crop: 0.44, width: 4.2, height: 1.3, y: 5.9 },
   { id: 'ifarlab', label: 'IFARLAB', logo: 'ifarlab-wall.webp', width: 4.2, height: 1.3, y: 4.25 },
 ];
 
@@ -24,7 +25,7 @@ function loadLogo(file) {
   });
 }
 
-function drawLab(ctx, label, image, width, height) {
+function drawLab(ctx, { label, crop }, image, width, height) {
   const diameter = image ? height * 0.77 : 0;
   const gap = image ? height * 0.21 : 0;
   ctx.font = `750 ${Math.round(height * 0.41)}px ${FONT}`;
@@ -38,9 +39,17 @@ function drawLab(ctx, label, image, width, height) {
     ctx.beginPath();
     ctx.arc(centreX, centreY, diameter / 2, 0, Math.PI * 2);
     ctx.fill();
-    const scale = (diameter - 12) / Math.max(image.width, image.height);
+    const radius = (diameter - 12) / 2;
+    const scale = radius / ((crop ?? 0.5) * Math.max(image.width, image.height));
     const [w, h] = [image.width * scale, image.height * scale];
+    ctx.save();
+    if (crop) {
+      ctx.beginPath();
+      ctx.arc(centreX, centreY, radius, 0, Math.PI * 2);
+      ctx.clip();
+    }
     ctx.drawImage(image, centreX - w / 2, centreY - h / 2, w, h);
+    ctx.restore();
     ctx.fillRect(left + diameter + gap / 2, height * 0.24, 3, height * 0.52);
   }
   ctx.textBaseline = 'middle';
@@ -72,7 +81,7 @@ function makeFace(sign, image) {
   ctx.fillStyle = ACCENT;
   ctx.fillRect(0, faceHeight, width, band);
   if (sign.id !== 'matisse' || !image) {
-    drawLab(ctx, sign.label, image, width, faceHeight);
+    drawLab(ctx, sign, image, width, faceHeight);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -82,6 +91,7 @@ function makeFace(sign, image) {
 }
 
 function HangingSign({ sign, face, top }) {
+  const desktop = useRealism();
   const { id, width, height, y } = sign;
   const cableLength = top - (y + height / 2);
   return (
@@ -92,10 +102,11 @@ function HangingSign({ sign, face, top }) {
       </mesh>
       <mesh position={[0, 0, DEPTH / 2 + 0.004]}>
         <planeGeometry args={[width - 2 * RIM, height - 2 * RIM]} />
-        <meshStandardMaterial
-          map={face} roughness={0.58} metalness={0}
-          emissive="#ffffff" emissiveMap={face} emissiveIntensity={0.65}
-        />
+        {desktop
+          ? <meshPhysicalMaterial {...SURFACE_FINISH.displayGlass}
+              map={face} emissive="#ffffff" emissiveMap={face} emissiveIntensity={SURFACE_FINISH.signEmission} />
+          : <meshStandardMaterial map={face} roughness={0.58}
+              emissive="#ffffff" emissiveMap={face} emissiveIntensity={SURFACE_FINISH.signEmission} />}
       </mesh>
       {[-1, 1].map((side) => (
         <mesh key={side} position={[side * (width / 2 - 0.4), (height + cableLength) / 2, 0]}>

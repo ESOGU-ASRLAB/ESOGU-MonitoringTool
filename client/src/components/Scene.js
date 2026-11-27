@@ -1,8 +1,8 @@
-import React, { Suspense, lazy, useEffect, useMemo } from 'react';
+import React, { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useThree } from '@react-three/fiber';
 import { SoftShadows } from '@react-three/drei';
 import * as THREE from 'three';
-import { ROOM, LIGHTING } from './scenePalette';
+import { ROOM, LIGHTING, RENDER_FINISH } from './scenePalette';
 import { HallEnvironment } from './Realism';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment';
 
@@ -115,15 +115,29 @@ export default function Scene({
   // A headset renders every pixel twice at 72-90 Hz on a mobile GPU; the PCSS
   // below costs dozens of shadow-map reads per pixel. DigitalTwin turns these
   // off for the headset profile (see xrSession.js).
-  softShadows = true,
+  softShadows = false,
   castShadows = true,
+  headset = false,
   // Desktop adds the local work-bay fixtures to the shared lighting rig.
   realism = false,
 }) {
   const gridTexture = useGridTexture();
   const floorSize = floorSizeProp || 80;
   const fixtureBanks = interior && realism;
+  const shadow = RENDER_FINISH.shadow;
+  const shadowSize = headset ? shadow.headsetSize : shadow.desktopSize;
+  const shadowKey = useRef(null);
   gridTexture.repeat.set(floorSize / TILE_METERS, floorSize / TILE_METERS);
+
+  useLayoutEffect(() => {
+    const light = shadowKey.current;
+    return () => {
+      // Three allocates on first use. Release the old target on profile
+      // changes so 1024 px XR shadows never keep a 2048 px backing texture.
+      light.shadow.map?.dispose();
+      light.shadow.map = null;
+    };
+  }, [shadowSize, castShadows]);
 
   return (
     <>
@@ -139,7 +153,7 @@ export default function Scene({
         <fog attach="fog" args={[ROOM.fog, 18, 40]} />
       )}
 
-      {interior && softShadows && <SoftShadows size={8} samples={12} focus={0.25} />}
+      {interior && softShadows && <SoftShadows size={4} samples={4} focus={0.25} />}
       {interior && (
         <Suspense fallback={<InteriorEnvironment intensity={LIGHTING.environment} />}>
           <HallEnvironment />
@@ -149,27 +163,28 @@ export default function Scene({
       <ambientLight color={ROOM.ambient} intensity={interior ? LIGHTING.ambient : 0.55} />
       {/* The shared overhead key casts the main shadow pass. */}
       <directionalLight
+        ref={shadowKey}
+        name="factory-shadow-key"
         color={ROOM.lamp}
-        position={interior ? [0, 20, 4] : [8, 14, 6]}
+        position={interior ? [0, 19, -5] : [8, 14, 6]}
         intensity={fixtureBanks ? LIGHTING.desktopKey : (interior ? LIGHTING.key : 1.2)}
         castShadow={castShadows}
-        /* Extend along the 49 m hall to keep the end bays in the shadow map. */
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-normalBias={0.03}
-        shadow-bias={-0.0004}
-        shadow-camera-near={0.5}
-        shadow-camera-far={60}
-        shadow-camera-left={-20}
-        shadow-camera-right={20}
-        shadow-camera-top={interior ? 27 : 20}
-        shadow-camera-bottom={interior ? -27 : -20}
+        shadow-mapSize-width={shadowSize}
+        shadow-mapSize-height={shadowSize}
+        shadow-normalBias={shadow.normalBias}
+        shadow-bias={shadow.bias}
+        shadow-camera-near={interior ? 6 : 0.5}
+        shadow-camera-far={interior ? 27 : 60}
+        shadow-camera-left={interior ? -16.5 : -20}
+        shadow-camera-right={interior ? 16.5 : 20}
+        shadow-camera-top={interior ? 23.95 : 20}
+        shadow-camera-bottom={interior ? -23.95 : -20}
       />
       {/* Sky bounce above, floor bounce below. The lower colour is the floor's
           own tone, so light coming back up off the concrete carries it. */}
       <hemisphereLight args={[ROOM.skyBounce, ROOM.groundBounce, interior ? LIGHTING.hemisphere : 0.4]} />
       {interior && (
-        <directionalLight color={ROOM.daylight} position={[16, 6, -6]}
+        <directionalLight color={ROOM.daylight} position={[16, 13, -6]}
           intensity={fixtureBanks ? LIGHTING.desktopDaylight : LIGHTING.daylight} />
       )}
       {fixtureBanks && (

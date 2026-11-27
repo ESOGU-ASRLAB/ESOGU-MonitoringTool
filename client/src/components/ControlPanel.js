@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import './ControlPanel.css';
+import { useLanguage } from '../LanguageContext';
+import { ViewportIcon } from './ViewportControls';
 import { OTOKAR_AXES, OTOKAR_ROBOT_HOME, formatAxis } from './otokarAxes';
 import { useTelemetry, normaliseTrace } from './robotTelemetry';
 import { registerFeedCanvas, FEED_W, FEED_H } from './RobotCameraFeeds';
@@ -28,10 +30,11 @@ function RobotIcon({ kind }) {
 
 // The robot's own camera, live (RobotCameraFeeds.js paints the canvas).
 function CameraFeed({ feedKey }) {
+  const attach = useCallback((canvas) => registerFeedCanvas(feedKey, canvas), [feedKey]);
   return (
     <div className="telemetry-feed" title="Live view from the robot's camera">
       <canvas
-        ref={(el) => registerFeedCanvas(feedKey, el)}
+        ref={attach}
         width={FEED_W}
         height={FEED_H}
         aria-label="Robot camera view"
@@ -196,52 +199,57 @@ function Sparkline({ traces }) {
   );
 }
 
-function TelemetryPanel({ animate }) {
+function TelemetryPanel({ tr }) {
   const telemetry = useTelemetry(8);
+  const [expanded, setExpanded] = useState('robot1');
 
   return (
-    <section className="control-section telemetry" aria-label="Live axis data">
-
+    <section className="telemetry" aria-label={tr ? 'Eksen verileri' : 'Axis data'}>
       {TELEMETRY_ROWS.map((row) => {
         const entry = telemetry[row.key];
+        const open = expanded === row.key;
+        const bodyId = `telemetry-${row.key}-axes`;
         return (
-          <div className="telemetry-robot" key={row.key}>
-            <div className="telemetry-robot-head">
+          <div className={`telemetry-robot${open ? ' is-open' : ''}`} key={row.key}>
+            <button type="button" className="telemetry-robot-head" aria-expanded={open} aria-controls={bodyId}
+              onClick={() => setExpanded((current) => current === row.key ? null : row.key)}>
               <span className="telemetry-id">
                 <RobotIcon kind={row.logo || row.key} />
                 <span className="telemetry-name">{row.name}</span>
               </span>
               <span className="telemetry-meta">{row.meta}</span>
-            </div>
-            <div className="telemetry-body">
-              <div className="telemetry-axes">
-                {row.axes.map((axis, i) => {
-                  const value = entry && entry.values[i];
-                  const unit = row.units ? row.units[i] : row.unit;
-                  return (
-                    <span className="telemetry-axis" key={axis}>
-                      <span className="telemetry-axis-label">
-                        <svg className="telemetry-axis-key" viewBox="0 0 12 4" aria-hidden="true">
-                          <line x1="0" y1="2" x2="12" y2="2" className="telemetry-spark-line" style={traceStyle(i)} />
-                        </svg>
-                        {axis}
-                      </span>
-                      <span className="telemetry-axis-value">
-                        {/* An em dash until the robot has published once, rather
-                            than a zero: a zero is a reading, and this is the
-                            absence of one. */}
-                        {value === undefined || value === null
-                          ? '—'
-                          : <>{value.toFixed(row.digits)}<span className="telemetry-axis-unit">{unit}</span></>}
-                      </span>
-                    </span>
-                  );
-                })}
-              </div>
-              <div className="telemetry-plot-row">
-                <Sparkline traces={entry && entry.traces} />
-                <CameraFeed feedKey={row.key} />
-              </div>
+              <span className="telemetry-chevron"><ViewportIcon name="chevron" /></span>
+            </button>
+            <div id={bodyId} className="telemetry-body" hidden={!open}>
+              {open && (
+                <>
+                  <div className="telemetry-axes">
+                    {row.axes.map((axis, i) => {
+                      const value = entry?.values[i];
+                      const unit = row.units ? row.units[i] : row.unit;
+                      return (
+                        <span className="telemetry-axis" key={axis}>
+                          <span className="telemetry-axis-label">
+                            <svg className="telemetry-axis-key" viewBox="0 0 12 4" aria-hidden="true">
+                              <line x1="0" y1="2" x2="12" y2="2" className="telemetry-spark-line" style={traceStyle(i)} />
+                            </svg>
+                            {axis}
+                          </span>
+                          <span className="telemetry-axis-value">
+                            {value == null ? '—' : (
+                              <>{value.toFixed(row.digits)}<span className="telemetry-axis-unit">{unit}</span></>
+                            )}
+                          </span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <div className="telemetry-plot-row">
+                    <Sparkline traces={entry?.traces} />
+                    <CameraFeed feedKey={row.key} />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         );
@@ -250,7 +258,8 @@ function TelemetryPanel({ animate }) {
   );
 }
 
-export default function ControlPanel({
+function ManualControls({
+  tr,
   selectedRobot,
   setSelectedRobot,
   jointAngles,
@@ -262,7 +271,6 @@ export default function ControlPanel({
   agvRailPosition,
   setAgvRailPosition,
   animate,
-  setAnimate,
   gripperOpen,
   setGripperOpen,
   showFactory,
@@ -303,17 +311,14 @@ export default function ControlPanel({
   };
 
   return (
-    <div className="control-panel">
-      {/* Above the controls rather than below them: this is the state of the
-          cell, and the sliders underneath are what acts on it. It also stays
-          in view without scrolling, which a readout has to do to be read. */}
-      <TelemetryPanel animate={animate} />
-
+    <>
       <div className="manual-head">
-        <h3>Manual control</h3>
-        <p className={`manual-note${animate ? ' is-locked' : ''}`}>
-          Turn off Start engine to move the axes by hand.
-        </p>
+        <h3>{tr ? 'Elle kontrol' : 'Manual control'}</h3>
+        {animate && (
+          <p className="manual-note">
+            {tr ? 'Eksenleri elle hareket ettirmek için simülasyonu duraklat.' : 'Pause the simulation to move the axes by hand.'}
+          </p>
+        )}
       </div>
 
       {/* Which machine the controls below act on, directly above them. */}
@@ -446,11 +451,7 @@ export default function ControlPanel({
 
       <section className="control-section control-switches">
         <label className="control-toggle">
-          <span className="control-toggle-title">Start engine</span>
-          <input type="checkbox" checked={animate} onChange={(e) => setAnimate(e.target.checked)} />
-        </label>
-        <label className="control-toggle">
-          <span className="control-toggle-title">Show factory</span>
+          <span className="control-toggle-title">{tr ? 'Fabrikayı göster' : 'Show factory'}</span>
           <input
             type="checkbox"
             checked={showFactory}
@@ -458,6 +459,32 @@ export default function ControlPanel({
           />
         </label>
       </section>
+    </>
+  );
+}
+
+export default function ControlPanel({ onManualChange, ...props }) {
+  const { language } = useLanguage();
+  const tr = language === 'tr';
+  const [view, setView] = useState('telemetry');
+  const openView = (next) => {
+    setView(next);
+    onManualChange(next === 'manual');
+  };
+
+  return (
+    <div className="control-panel">
+      <div className="control-panel-modes" role="group" aria-label={tr ? 'Panel görünümü' : 'Panel view'}>
+        <button type="button" aria-pressed={view === 'telemetry'} onClick={() => openView('telemetry')}>
+          {tr ? 'Telemetri' : 'Telemetry'}
+        </button>
+        <button type="button" aria-pressed={view === 'manual'} onClick={() => openView('manual')}>
+          {tr ? 'Kontroller' : 'Controls'}
+        </button>
+      </div>
+      <div className="control-panel-content" key={view}>
+        {view === 'telemetry' ? <TelemetryPanel tr={tr} /> : <ManualControls {...props} tr={tr} />}
+      </div>
     </div>
   );
 }

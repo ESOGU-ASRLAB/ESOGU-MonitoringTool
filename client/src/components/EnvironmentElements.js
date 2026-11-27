@@ -16,6 +16,7 @@ import * as THREE from "three";
 
 import { METAL, PAINT } from './scenePalette';
 import MeshFencePanel, { FENCE_BOUNDS } from './MeshFence';
+import ContactShadow from './ContactShadow';
 import { useRealism } from './realismContext';
 
 const MM_TO_M = [0.001, 0.001, 0.001];
@@ -56,6 +57,7 @@ function EnvMesh({
   rotation = [0, 0, 0],
   castShadow = false,
   receiveShadow = true,
+  contactShadow = false,
 }) {
   const geometry = useLoader(STLLoader, url);
   const prepared = useMemo(() => {
@@ -68,7 +70,15 @@ function EnvMesh({
     return geometry;
   }, [geometry]);
 
+  const bounds = useMemo(() => {
+    if (!contactShadow) return null;
+    if (!prepared.boundingBox) prepared.computeBoundingBox();
+    return prepared.boundingBox;
+  }, [contactShadow, prepared]);
   return (
+    <>
+    {bounds && <ContactShadow position={[(bounds.min.x + bounds.max.x) * 0.0005, (bounds.min.y + bounds.max.y) * 0.0005, 0.0065]}
+      rotation={[0, 0, 0]} size={[(bounds.max.x - bounds.min.x) * 0.00125, (bounds.max.y - bounds.min.y) * 0.00125]} />}
     <mesh
       geometry={prepared}
       scale={MM_TO_M}
@@ -84,6 +94,7 @@ function EnvMesh({
         side={THREE.DoubleSide}
       />
     </mesh>
+    </>
   );
 }
 
@@ -216,6 +227,7 @@ function Furniture({ showChassis, chassisName }) {
       <EnvMesh
         url={`${FURNITURE_BASE}/alumuniumtable.stl`}
         material={ALUMINUM}
+        contactShadow
         receiveShadow
       />
       <ConveyorMesh />
