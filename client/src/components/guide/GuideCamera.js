@@ -25,6 +25,7 @@ export default function GuideCamera({ request, paused, controlsRef, onArrive, di
     const workspace = Boolean(request.workspace);
     flight.current = {
       serial: request.serial, shot: request.shot, workspace, detail, elapsed: 0, arrived: false, reduced, tourTime: 0,
+      requestPose: request.pose || null,
       from: camera.position.clone(), fromTarget: controls.target.clone(), fromFov: camera.fov,
       aspect: size.width / Math.max(1, size.height),
       captionFraction: Math.min(.32, (workspace ? 65 : 180) / Math.max(1, size.height)),
@@ -66,7 +67,11 @@ export default function GuideCamera({ request, paused, controlsRef, onArrive, di
     const dt = Math.min(delta, .1);
     if (move.arrived && !paused) move.tourTime += dt;
     let ready;
-    if (move.detail) {
+    if (move.requestPose) {
+      move.pose = move.requestPose;
+      move.to.fromArray(move.pose.eye); move.target.fromArray(move.pose.target);
+      ready = true;
+    } else if (move.detail) {
       const subject = guideSubject(scene, move.shot);
       if (!subject) return;
       // Measure the selected equipment only. Keep following its world-space

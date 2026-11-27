@@ -383,18 +383,23 @@ export default function DigitalTwin({ liveStatus }) {
   const infoContext = useMemo(() => ({ animate, liveStatus }), [animate, liveStatus]);
   const cameraViews = useFactoryCamera();
   const { stop: releaseCamera } = cameraViews;
+  const [walkReturnRequest, setWalkReturnRequest] = useState(null);
+  const walkReturnSerial = useRef(0);
+  const completedTourSerial = useRef(null);
   const prepareGuideScene = useCallback(() => {
     releaseCamera();
+    setWalkReturnRequest(null);
     setWalkingMode(false);
     setShowFactory(true);
     setPanelOpen(false);
     closeInfo();
   }, [closeInfo, releaseCamera]);
   const guide = useGuideTour({ inVR, prepareScene: prepareGuideScene });
-  const cameraRequest = guide.request || cameraViews.request;
+  const cameraRequest = guide.request || cameraViews.request || walkReturnRequest;
 
   const prepareCameraScene = () => {
     guide.stop();
+    setWalkReturnRequest(null);
     setWalkingMode(false);
     setShowFactory(true);
     setPanelOpen(false);
@@ -445,6 +450,24 @@ export default function DigitalTwin({ liveStatus }) {
   // The page's own camera. During a session R3F swaps in the headset's, so
   // VRWalk reads where the desktop view was from this.
   const desktopCameraRef = useRef(null);
+  useEffect(() => {
+    const session = guide.session;
+    if (inVR || session?.mode !== "tour" || session.phase !== "complete" ||
+        completedTourSerial.current === session.serial) return;
+    const camera = desktopCameraRef.current;
+    if (!camera) return;
+    completedTourSerial.current = session.serial;
+    setWalkReturnRequest({
+      shot: "walkStart",
+      serial: ++walkReturnSerial.current,
+      workspace: true,
+      pose: {
+        eye: OPENING_EYE,
+        target: [ORBIT_TARGET[0], WALK_EYE_HEIGHT, ORBIT_TARGET[2]],
+        fov: Math.min(WALK_MAX_FOV, openingFov(camera.aspect)),
+      },
+    });
+  }, [guide.session, inVR]);
   const walkKeysRef = useRef({});
   const walkStepRef = useRef(null);
   const walkLookRef = useRef(null);
@@ -459,6 +482,7 @@ export default function DigitalTwin({ liveStatus }) {
   const orbitBy = (deltaTheta, deltaPhi) => {
     if (guide.active) guide.stop();
     if (cameraViews.request) releaseCamera();
+    setWalkReturnRequest(null);
     const controls = controlsRef.current;
     if (!controls) return;
     const camera = controls.object;
@@ -491,6 +515,7 @@ export default function DigitalTwin({ liveStatus }) {
   const zoomBy = (factor) => {
     if (guide.active) guide.stop();
     if (cameraViews.request) releaseCamera();
+    setWalkReturnRequest(null);
     const controls = controlsRef.current;
     if (!controls) return;
     const camera = controls.object;
@@ -660,6 +685,17 @@ export default function DigitalTwin({ liveStatus }) {
     const latest = latestJointStates();
     if (latest) applyJointStates(latest);
   }, [applyJointStates]);
+
+  const handleCameraArrive = (serial, shot) => {
+    if (guide.request) {
+      guide.arrive(serial, shot);
+    } else if (cameraViews.request) {
+      cameraViews.arrive(serial, shot);
+    } else if (walkReturnRequest?.serial === serial && walkReturnRequest.shot === shot) {
+      setWalkReturnRequest(null);
+      setWalkingMode(true);
+    }
+  };
 
   return (
     <div className="dt-wrapper">
@@ -860,7 +896,7 @@ export default function DigitalTwin({ liveStatus }) {
                   request={cameraRequest}
                   paused={Boolean(guide.request && guide.session?.paused)}
                   controlsRef={controlsRef}
-                  onArrive={guide.request ? guide.arrive : cameraViews.arrive}
+                  onArrive={handleCameraArrive}
                   disabled={inVR}
                 />
               </Suspense>
@@ -957,7 +993,7 @@ export default function DigitalTwin({ liveStatus }) {
             {(startTour) => <ViewportControls
               onStartGuidedTour={startTour}
               walking={walkingMode}
-              onToggleWalk={() => { guide.stop(); releaseCamera(); setWalkingMode((enabled) => !enabled); }}
+              onToggleWalk={() => { guide.stop(); releaseCamera(); setWalkReturnRequest(null); setWalkingMode((enabled) => !enabled); }}
               onMove={moveWalkBy}
               onOrbit={(yaw, pitch) => orbitBy(yaw * ROTATE_STEP, pitch * ROTATE_STEP)}
               onZoom={zoomBy}
@@ -968,7 +1004,7 @@ export default function DigitalTwin({ liveStatus }) {
               onReleaseCamera={releaseCamera}
               vrSupported={vrSupported}
               inVR={inVR}
-              onToggleVR={() => { releaseCamera(); if (inVR) exitVR(); else setAskVRName(true); }}
+              onToggleVR={() => { releaseCamera(); setWalkReturnRequest(null); if (inVR) exitVR(); else setAskVRName(true); }}
             />}
           </DigitalGuide>
         </div>

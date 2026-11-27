@@ -102,3 +102,15 @@ test('a missing tool cannot silently fall back to a wide robot shot', () => {
   expect(onArrive).not.toHaveBeenCalled();
   expect(camera.position.equals(before)).toBe(true);
 });
+
+test('a custom return pose transitions to its exact camera position and target', () => {
+  const pose = { eye: [14.64, 1.75, 17.37], target: [8.54, 1.75, 6.26], fov: 58 };
+  const returnRequest = { shot: 'walkStart', serial: 15, pose };
+  render({ request: returnRequest });
+  act(() => frame({}, 1));
+
+  expect(camera.position.toArray()).toEqual(pose.eye);
+  expect(controlsRef.current.target.toArray()).toEqual(pose.target);
+  expect(camera.fov).toBe(pose.fov);
+  expect(onArrive).toHaveBeenCalledWith(15, 'walkStart');
+});
