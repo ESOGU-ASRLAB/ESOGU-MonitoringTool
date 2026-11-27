@@ -150,6 +150,37 @@ varying vec3 vShutterWorld;`)
   material.needsUpdate = true;
 }
 
+function DeveloperCartonLabel() {
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 192;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#f2ead8';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.strokeStyle = '#725d42';
+    context.lineWidth = 8;
+    context.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+    context.fillStyle = '#30271c';
+    context.font = 'bold 58px Arial, sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText('dev datkanber', canvas.width / 2, canvas.height / 2, canvas.width - 32);
+    const label = new THREE.CanvasTexture(canvas);
+    label.colorSpace = THREE.SRGBColorSpace;
+    return label;
+  }, []);
+
+  useEffect(() => () => texture.dispose(), [texture]);
+
+  return (
+    <mesh name="developer-signature" position={[15.03, 1.74, 17.5]} rotation={[0, -Math.PI / 2, 0]}>
+      <planeGeometry args={[0.2, 0.075]} />
+      <meshBasicMaterial map={texture} toneMapped={false} />
+    </mesh>
+  );
+}
+
 function WarehouseModel() {
   const { scene } = useGLTF(FACTORY_URL);
   const emissiveMap = useLoader(THREE.TextureLoader, EMISSIVE_URL);
@@ -259,6 +290,7 @@ function WarehouseModel() {
   return (
     <>
       <group name="factory-shell"><primitive object={scene} scale={converted ? CONVERTED_SCALE : 1} /></group>
+      {converted && <DeveloperCartonLabel />}
       {footprints.map(({ position, size }, i) => <ContactShadow key={i} position={position} size={size} opacity={0.55} />)}
     </>
   );

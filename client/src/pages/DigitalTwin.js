@@ -328,7 +328,7 @@ function SceneReadiness({ onReady, showFactory }) {
   return null;
 }
 
-export default function DigitalTwin({ liveStatus }) {
+export default function DigitalTwin({ liveStatus, onBackgroundAudioDucked }) {
   const { language } = useLanguage();
   const tr = language === "tr";
   const [selectedRobot, setSelectedRobot] = useState("gantry1");
@@ -396,6 +396,11 @@ export default function DigitalTwin({ liveStatus }) {
   }, [closeInfo, releaseCamera]);
   const guide = useGuideTour({ inVR, prepareScene: prepareGuideScene });
   const cameraRequest = guide.request || cameraViews.request || walkReturnRequest;
+
+  useEffect(() => {
+    onBackgroundAudioDucked?.(inVR || (guide.active && !guide.session?.paused));
+    return () => onBackgroundAudioDucked?.(false);
+  }, [guide.active, guide.session?.paused, inVR, onBackgroundAudioDucked]);
 
   const prepareCameraScene = () => {
     guide.stop();

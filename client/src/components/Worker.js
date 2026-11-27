@@ -8,6 +8,7 @@ import TeachPendant from './TeachPendant';
 import { useRealism } from './realismContext';
 import { SURFACE_FINISH } from './scenePalette';
 import ContactShadow from './ContactShadow';
+import { interpolateYaw, WALK_CLIP_SPEED, walkMotion } from './workerMotion';
 
 export const WORKER_URL = process.env.PUBLIC_URL + '/assets/worker/walking_female.glb';
 
@@ -238,7 +239,7 @@ function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveR
       if (pendantRef.current) pendantRef.current.visible = false;
       if (actionRef.current) {
         actionRef.current.paused = !script.walking;
-        if (script.walking) actionRef.current.timeScale = Math.max(0.5, (script.speed || 0.8) / 0.8);
+        if (script.walking) actionRef.current.timeScale = Math.max(0, script.speed) / WALK_CLIP_SPEED;
       }
       if (spine) {
         // Undo last frame's bend first. The clip does animate the spine, but
@@ -304,7 +305,13 @@ function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveR
     if (!plan.current) {
       const at = Math.floor(random() * stations.length);
       const dwell = between(random, DWELL);
-      plan.current = { phase: 'dwell', at, start: now - random() * dwell, dwell, mode: pickMode(random, modes) };
+      const station = stations[at];
+      const yaw = faceTowards(station.at, station.look);
+      group.rotation.y = yaw;
+      plan.current = {
+        phase: 'dwell', at, start: now - random() * dwell, dwell, mode: pickMode(random, modes),
+        yawFrom: yaw, yawTo: yaw, turnTime: 0.45,
+      };
     }
     let p = plan.current;
 
@@ -314,30 +321,45 @@ function WorkerModel({ stations, seed = 1, modes, assistTargetRef, assistActiveR
       const from = stations[p.at].at;
       const to = stations[next].at;
       const speed = between(random, SPEED);
-      p = { phase: 'walk', at: p.at, next, start: now, time: Math.hypot(to[0] - from[0], to[1] - from[1]) / speed };
-      // Stride keeps pace with the walking speed.
-      if (actionRef.current) actionRef.current.timeScale = speed / 0.8;
+      const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
+      const motion = walkMotion(0, length, speed);
+      p = {
+        phase: 'walk', at: p.at, next, start: now, time: motion.duration, length, speed,
+        yawFrom: group.rotation.y, yawTo: faceTowards(from, to),
+        turnTime: Math.min(0.45, motion.duration / 2),
+      };
     } else if (p.phase === 'walk' && now - p.start >= p.time) {
-      p = { phase: 'dwell', at: p.next, start: now, dwell: between(random, DWELL), mode: pickMode(random, modes) };
+      const station = stations[p.next];
+      p = {
+        phase: 'dwell', at: p.next, start: now, dwell: between(random, DWELL), mode: pickMode(random, modes),
+        yawFrom: p.yawTo, yawTo: faceTowards(station.at, station.look), turnTime: 0.45,
+      };
     }
     plan.current = p;
 
     if (p.phase === 'walk') {
       const from = stations[p.at].at;
       const to = stations[p.next].at;
-      const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
-      const u = (1 - Math.cos(Math.PI * Math.min((now - p.start) / p.time, 1))) / 2;
-      group.position.set(from[0] + (to[0] - from[0]) * u, 0, from[1] + (to[1] - from[1]) * u);
-      group.rotation.y = faceTowards(from, to);
-      if (actionRef.current) actionRef.current.paused = false;
+      const elapsed = now - p.start;
+      const motion = walkMotion(elapsed, p.length, p.speed);
+      const progress = motion.distance / p.length;
+      group.position.set(from[0] + (to[0] - from[0]) * progress, 0, from[1] + (to[1] - from[1]) * progress);
+      group.rotation.y = interpolateYaw(p.yawFrom, p.yawTo, elapsed / p.turnTime);
+      if (actionRef.current) {
+        actionRef.current.paused = false;
+        actionRef.current.timeScale = motion.speed / WALK_CLIP_SPEED;
+      }
       if (pendantRef.current) pendantRef.current.visible = false;
-      walkPose(group, chains, length * u, length * (1 - u));
+      walkPose(group, chains, motion.distance, p.length - motion.distance);
       return;
     }
 
     const station = stations[p.at];
     group.position.set(station.at[0], 0, station.at[1]);
-    let yaw = faceTowards(station.at, station.look);
+    const facing = faceTowards(station.at, station.look);
+    let yaw = p.yawFrom == null || p.yawTo == null
+      ? facing
+      : interpolateYaw(p.yawFrom, p.yawTo, (now - p.start) / p.turnTime);
     // Patrol workers turn to watch the machine; fixed assistants stay planted.
     if (p.mode === 'observe' && stations.length > 1) yaw += 0.45 * Math.sin((now - p.start) * 0.5);
     group.rotation.y = yaw;

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { applyBakedOcclusion, warehouseLightmapUV } from './hallLightmap';
-import { RENDER_FINISH } from './scenePalette';
+import { POLYMER, RENDER_FINISH } from './scenePalette';
 import { createCartonAtlas } from './cartonFinish';
 
 /*
@@ -17,7 +17,8 @@ import { createCartonAtlas } from './cartonFinish';
  *   uprights  ~5 m tall and a few cm across             RAL 7016 anthracite
  *   beams     7.18 m sections, 0.11 m deep               RAL 7035 light grey
  *   decks     the same sections, flat                    galvanised steel
- *   goods     0.3..0.8 m boxes on the shelves            cardboard, a few totes
+ *   goods      0.3..0.8 m boxes on the shelves       cardboard, a few totes
+ *   floor loads 1.5 m tyre stacks on pallets         black rubber
  *
  * The finish is the quiet one many plants choose, not the blue-and-orange of
  * a warehouse aisle, which shouted over everything else in the hall: dark
@@ -36,6 +37,7 @@ const RACK = {
 };
 const PALLET_WOOD = srgb('#b8956a');
 const LOAD = srgb('#a9875a');
+const RUBBER_MATERIAL = new THREE.MeshStandardMaterial(POLYMER.rubber);
 
 // Connected parts of an indexed geometry: a part id per vertex, and each
 // part's world-space bounds.
@@ -190,8 +192,16 @@ export function dressWarehouse(scene, base, lightmap) {
         footprints.push({ position: [centre.x, 0.0065, centre.z], size: [size.x + 0.55, size.z + 0.5] });
       }
     } else if (box.max.y < 1.3 && box.min.y > 0.1 && count < 2000) {
-      paint(mesh, () => LOAD);
-      dressed.push({ mesh, classic: base, realistic: woodMaterial });
+      const size = box.getSize(new THREE.Vector3());
+      // The two converted pallet tyre stacks share this mesh signature; keep
+      // other floor loads on the existing cardboard finish.
+      const tireStack = count === 1206 && size.x > 1.4 && size.y > 0.9 && size.z > 1.3;
+      if (tireStack) {
+        dressed.push({ mesh, classic: RUBBER_MATERIAL, realistic: RUBBER_MATERIAL });
+      } else {
+        paint(mesh, () => LOAD);
+        dressed.push({ mesh, classic: base, realistic: woodMaterial });
+      }
     }
   });
   return {

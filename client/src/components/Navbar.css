@@ -184,6 +184,24 @@ a.partner-link:hover {
 .navbar-language button:hover { background: #f1f5f9; }
 .navbar-language button[aria-pressed='true'] { background: var(--nav-tint); color: var(--nav-accent); }
 
+.navbar-sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--nav-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--nav-muted);
+  cursor: pointer;
+}
+
+.navbar-sound-toggle:hover { background: #f1f5f9; }
+.navbar-sound-toggle[aria-pressed='true'] { background: var(--nav-tint); color: var(--nav-accent); }
+
 .live-badge {
   display: flex;
   align-items: center;
@@ -248,6 +266,7 @@ a.partner-link:hover {
 
 .navbar a:focus-visible,
 .navbar-language button:focus-visible,
+.navbar-sound-toggle:focus-visible,
 .navbar-toggle:focus-visible {
   outline: 2px solid var(--nav-accent);
   outline-offset: 3px;

@@ -19,3 +19,15 @@ the VR session only (`client/src/components/VRSoundscape.js`).
 | `wrench-drop` | [34 Wrench on concrete floor, indoor, 5 impacts.wav](https://freesound.org/s/426848/) | Bibow | CC0 |
 | `mechanic-shop` | [Car/Auto Mechanic Shop](https://freesound.org/s/266626/) | producerdan | CC0 |
 | `servo-a`, `servo-b` | [Servo noises](https://freesound.org/s/188821/) | peridactyloptrix | CC0 |
+
+## Site ambience
+
+These two recordings are looped with a short crossfade and encoded as mono
+Vorbis/Ogg for the site's low-volume background audio. The robot-arm recording
+is licensed for non-commercial use; keep the attribution and licence details
+with any redistribution.
+
+| File | Recording | By | Licence |
+|---|---|---|---|
+| `car-engine.ogg` | [Car engine mini cooper 1976](https://freesound.org/s/686742/) | dokuta_gerovv | CC0 |
+| `robot-arm.ogg` | [Roboterarm gross](https://freesound.org/s/320084/) | system_fm | CC BY-NC 3.0 |

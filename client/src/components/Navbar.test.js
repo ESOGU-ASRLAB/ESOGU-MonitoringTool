@@ -8,18 +8,25 @@ import { LanguageProvider, LANGUAGE_STORAGE_KEY } from '../LanguageContext';
 let root;
 let container;
 let guide;
+let toggleAmbientSound;
 
 function VisitorGuide() {
   guide = useGuideTour({ inVR: false, prepareScene: () => {} });
   return <DigitalGuide guide={guide} inVR={false} liveStatus="offline" animate />;
 }
-const render = () => act(() => root.render(<LanguageProvider><Navbar liveStatus="live" /><VisitorGuide /></LanguageProvider>));
+const render = () => act(() => root.render(
+  <LanguageProvider>
+    <Navbar liveStatus="live" ambientSoundEnabled onToggleAmbientSound={toggleAmbientSound} />
+    <VisitorGuide />
+  </LanguageProvider>,
+));
 const click = (selector) => act(() => container.querySelector(selector).click());
 
 beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
   jest.useFakeTimers();
   localStorage.clear();
+  toggleAmbientSound = jest.fn();
   window.matchMedia = jest.fn(() => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
   Element.prototype.scrollIntoView = jest.fn();
   container = document.createElement('div'); document.body.appendChild(container);
@@ -34,7 +41,9 @@ test('one navbar selector drives chat, tour, navigation and the persisted app pr
   const selector = container.querySelector('.navbar-language');
   expect(selector.querySelectorAll('button')).toHaveLength(2);
   expect(selector.previousElementSibling.className).toBe('live-badge');
-  expect(selector.nextElementSibling.className).toBe('navbar-status-clock');
+  expect(selector.nextElementSibling.className).toBe('navbar-sound-toggle');
+  expect(selector.nextElementSibling.nextElementSibling.className).toBe('navbar-status-clock');
+  expect(container.querySelector('.navbar-sound-toggle').getAttribute('aria-label')).toBe('Mute background sound');
   expect(selector.querySelector('[lang="en"]').getAttribute('aria-pressed')).toBe('true');
   click('.guide-chat-button');
   expect(container.querySelector('.guide-panel h2').textContent).toBe('Digital Twin Assistant');
@@ -59,6 +68,15 @@ test('one navbar selector drives chat, tour, navigation and the persisted app pr
   expect(guide.item.title).toContain('Cell 1');
   expect(container.querySelector('.guide-tour [aria-label="Language / Dil"]')).toBeNull();
   expect(container.querySelectorAll('[aria-label="Language / Dil"]')).toHaveLength(1);
+});
+
+test('the adjacent background-sound control delegates toggling accessibly', () => {
+  render();
+  click('.navbar-sound-toggle');
+  expect(toggleAmbientSound).toHaveBeenCalledTimes(1);
+
+  click('.navbar-language [lang="tr"]');
+  expect(container.querySelector('.navbar-sound-toggle').getAttribute('aria-label')).toBe('Arka plan sesini kapat');
 });
 
 test('the app preference overrides legacy chatbot language and survives page remounts', () => {

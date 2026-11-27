@@ -90,7 +90,12 @@ function MenuIcon({ open }) {
   );
 }
 
-export default function Navbar({ liveStatus, workspace = false }) {
+export default function Navbar({
+  liveStatus,
+  workspace = false,
+  ambientSoundEnabled = true,
+  onToggleAmbientSound = () => {},
+}) {
   const { language, setLanguage } = useLanguage();
   const tr = language === 'tr';
   const statusLabel = liveStatus === 'live' ? (tr ? 'Canlı' : 'Live') : liveStatus === 'offline' ? (tr ? 'Çevrimdışı' : 'Offline') : (tr ? 'Bağlanıyor' : 'Connecting');
@@ -149,6 +154,25 @@ export default function Navbar({ liveStatus, workspace = false }) {
           <button type="button" lang="en" aria-label="English" aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>EN</button>
           <button type="button" lang="tr" aria-label="Türkçe" aria-pressed={language === 'tr'} onClick={() => setLanguage('tr')}>TR</button>
         </div>
+        <button
+          type="button"
+          className="navbar-sound-toggle"
+          aria-label={ambientSoundEnabled
+            ? (tr ? 'Arka plan sesini kapat' : 'Mute background sound')
+            : (tr ? 'Arka plan sesini aç' : 'Turn on background sound')}
+          aria-pressed={ambientSoundEnabled}
+          title={ambientSoundEnabled
+            ? (tr ? 'Arka plan sesini kapat' : 'Mute background sound')
+            : (tr ? 'Arka plan sesini aç' : 'Turn on background sound')}
+          onClick={onToggleAmbientSound}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4 10v4h3l5 4V6l-5 4H4z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+            {ambientSoundEnabled
+              ? <path d="M15 9a5 5 0 0 1 0 6m2.5-8a8.5 8.5 0 0 1 0 10" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+              : <path d="m16 9 5 6m0-6-5 6" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />}
+          </svg>
+        </button>
         <span className="navbar-status-clock">
           <LiveClock />
         </span>

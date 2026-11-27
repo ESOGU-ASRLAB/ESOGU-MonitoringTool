@@ -1,7 +1,8 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import './App.css';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import AmbientSound from './components/AmbientSound';
 import { useTelemetryStream } from './components/telemetryStream';
 import Documentation from './pages/Documentation';
 import VRIntegration from './pages/VRIntegration';
@@ -74,21 +75,42 @@ const isVR = () => /^\/vr\/?$/.test(window.location.pathname);
 // badge, so they ask the API to poll MongoDB every 2 s instead of 4 times a second.
 const TWIN_STREAM_MS = 250;
 const GUIDE_STREAM_MS = 2000;
+const AMBIENT_SOUND_STORAGE_KEY = 'matisse-ambient-sound';
+
+function readAmbientSoundEnabled() {
+  try {
+    return localStorage.getItem(AMBIENT_SOUND_STORAGE_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+}
 
 export default function App() {
   const onGuide = isDocs() || isVR();
   // One telemetry stream per page, for the navbar's badge on every page and
   // for the twin's arms (telemetryStream.js).
   const liveStatus = useTelemetryStream(onGuide ? GUIDE_STREAM_MS : TWIN_STREAM_MS); // 'connecting' | 'live' | 'offline'
+  const [ambientSoundEnabled, setAmbientSoundEnabled] = useState(readAmbientSoundEnabled);
+  const [ambientSoundDucked, setAmbientSoundDucked] = useState(false);
+
+  useEffect(() => {
+    try { localStorage.setItem(AMBIENT_SOUND_STORAGE_KEY, String(ambientSoundEnabled)); } catch { /* Storage is optional. */ }
+  }, [ambientSoundEnabled]);
 
   return (
     <LanguageProvider>
     <div className={onGuide ? "app-shell" : "app-shell app-shell--workspace"}>
-      <Navbar liveStatus={liveStatus} workspace={!onGuide} />
+      <Navbar
+        liveStatus={liveStatus}
+        workspace={!onGuide}
+        ambientSoundEnabled={ambientSoundEnabled}
+        onToggleAmbientSound={() => setAmbientSoundEnabled((enabled) => !enabled)}
+      />
+      <AmbientSound play={ambientSoundEnabled} ducked={ambientSoundDucked} />
       <main className="app-main">
         {isDocs() ? <Documentation /> : isVR() ? <VRIntegration /> : (
           <Suspense fallback={<SceneLoading />}>
-            <DigitalTwin liveStatus={liveStatus} />
+            <DigitalTwin liveStatus={liveStatus} onBackgroundAudioDucked={setAmbientSoundDucked} />
           </Suspense>
         )}
       </main>

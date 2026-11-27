@@ -294,7 +294,7 @@ export default function DoorFasteningTasks({ active, ur, kawasaki, spinRef, scre
       pose.walking = true;
       pose.traveled = along;
       pose.remaining = step.length - along;
-      pose.speed = step.length / step.duration;
+      pose.speed = (step.length / step.duration) * 6 * u * (1 - u);
     } else if (step?.at === 'tote') {
       spot = SPOTS.tote;
       facing = yawTowards(SPOTS.tote, [TOP_PLATE[0], TOP_PLATE[1]]);
