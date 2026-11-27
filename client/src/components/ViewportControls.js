@@ -34,7 +34,7 @@ const DIRECTIONS = [
 ];
 
 export default function ViewportControls({
-  onStartPresentation, loading, walking, onToggleWalk, onMove, onOrbit, onZoom,
+  onStartGuidedTour, walking, onToggleWalk, onMove, onOrbit, onZoom,
   cameraShot, cameraTouring, onSelectCameraShot, onStartCameraTour, onReleaseCamera,
   vrSupported, inVR, onToggleVR,
 }) {
@@ -63,9 +63,9 @@ export default function ViewportControls({
     };
   }, [cameraOpen]);
 
-  const simulation = tr ? 'Simülasyonu başlat' : 'Start simulation';
   const camera = tr ? 'Kamera kontrolleri' : 'Camera controls';
   const walkLabel = tr ? 'Yürüme' : 'Walk';
+  const guidedTour = tr ? 'Rehberli tur' : 'Guided tour';
   const vr = inVR ? (tr ? 'VR’dan çık' : 'Exit VR') : (tr ? 'VR’a gir' : 'Enter VR');
   const selectedView = FACTORY_CAMERA_VIEWS.find((view) => view.angles.some(({ shot }) => shot === cameraShot));
   const currentView = selectedView ?? FACTORY_CAMERA_VIEWS[0];
@@ -76,10 +76,15 @@ export default function ViewportControls({
 
   return (
     <div className="view-primary">
-      <button type="button" className="view-action view-run" disabled={loading}
-        onClick={onStartPresentation} aria-label={simulation} title={tr ? 'Sesli sunumu başlat' : 'Start the narrated presentation'}>
+      <button type="button" className="view-action view-guided-tour" onClick={onStartGuidedTour}
+        aria-label={guidedTour} title={guidedTour}>
         <ViewportIcon name="play" />
-        <span>{simulation}</span>
+        <span>{guidedTour}</span>
+      </button>
+      <button type="button" className="view-action view-walk" aria-label={walkLabel} title={walkLabel}
+        aria-pressed={walking} onClick={onToggleWalk}>
+        <ViewportIcon name="walk" />
+        <span>{walkLabel}</span>
       </button>
       <div className="view-camera" ref={cameraGroup}>
         <button ref={cameraToggle} type="button" className={`view-action${cameraShot ? ' is-tracking' : ''}`} aria-label={camera} title={camera}
@@ -144,11 +149,6 @@ export default function ViewportControls({
           )}
         </div>
       </div>
-      <button type="button" className="view-action view-walk" aria-label={walkLabel} title={walkLabel}
-        aria-pressed={walking} onClick={onToggleWalk}>
-        <ViewportIcon name="walk" />
-        <span>{walkLabel}</span>
-      </button>
     </div>
   );
 }

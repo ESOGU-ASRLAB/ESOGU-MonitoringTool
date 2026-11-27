@@ -134,11 +134,12 @@
 }
 
 .view-action:disabled { opacity: 0.42; cursor: default; }
-
-.view-run {
-  border-color: var(--twin-line);
-  background: var(--twin-surface);
+.view-primary .view-guided-tour {
+  border-color: var(--twin-blue);
+  background: var(--twin-blue);
+  color: #fff;
 }
+.view-primary .view-guided-tour:hover:not(:disabled) { background: #174fae; }
 
 .view-camera-panel {
   position: absolute;

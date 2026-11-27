@@ -955,8 +955,7 @@ export default function DigitalTwin({ liveStatus }) {
           <DigitalGuide guide={guide} inVR={inVR} liveStatus={liveStatus} animate={animate}
             onAssistantOpen={() => setPanelOpen(false)}>
             {(startTour) => <ViewportControls
-              onStartPresentation={startTour}
-              loading={!sceneReady}
+              onStartGuidedTour={startTour}
               walking={walkingMode}
               onToggleWalk={() => { guide.stop(); releaseCamera(); setWalkingMode((enabled) => !enabled); }}
               onMove={moveWalkBy}

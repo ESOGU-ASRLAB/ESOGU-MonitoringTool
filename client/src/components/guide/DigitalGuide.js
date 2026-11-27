@@ -117,9 +117,11 @@ export default function DigitalGuide({ guide, inVR, liveStatus, animate, onAssis
       {children?.(startTour)}
       {!inVR && !session && !open && (
         <div className="digital-guide guide-launchers" lang={language} data-guide-ui>
-          <button className="guide-auto-button" type="button" onClick={startTour}>
-            <Icon name="play" />{ui.autoTour}
-          </button>
+          {!children && (
+            <button className="guide-auto-button" type="button" onClick={startTour}>
+              <Icon name="play" />{ui.autoTour}
+            </button>
+          )}
           <button ref={launcherRef} className="guide-chat-button" type="button" onClick={openChat} aria-label={ui.guide}
             title={ui.guide} aria-expanded={open} aria-controls="asrlab-guide-panel">
             <Icon name="chat" /><span>{ui.guide}</span>
